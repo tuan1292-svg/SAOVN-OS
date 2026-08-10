@@ -1,0 +1,52 @@
+# ============================================
+# SAOVN-OS Git Ignore
+# ============================================
+
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+
+# Logs
+*.log
+logs/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Local database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+.parcel-cache/
