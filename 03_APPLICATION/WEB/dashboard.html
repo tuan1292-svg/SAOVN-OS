@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="SAOVN-OS — Organization Operating System"
+    >
+
+    <title>SAOVN-OS — Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="css/dashboard.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="app-shell">
+
+
+        <!-- =====================================================
+             SIDEBAR
+        ====================================================== -->
+
+        <aside class="sidebar">
+
+            <div class="sidebar-top">
+
+                <a
+                    href="dashboard.html"
+                    class="brand"
+                >
+
+                    <span class="brand-icon">
+                        S
+                    </span>
+
+                    <span class="brand-name">
+                        SAOVN-OS
+                    </span>
+
+                </a>
+
+
+                <div class="system-status">
+
+                    <span class="status-dot"></span>
+
+                    <span>
+                        SYSTEM ONLINE
+                    </span>
+
+                </div>
+
+
+                <nav class="main-navigation">
+
+                    <p class="navigation-label">
+                        SYSTEM
+                    </p>
+
+
+                    <a
+                        href="dashboard.html"
+                        class="navigation-item active"
+                    >
+
+                        <span class="navigation-icon">
+                            <svg viewBox="0 0 24 24">
+                                <rect
+                                    x="3"
+                                    y="3"
+                                    width="7"
+                                    height="7"
+                                    rx="1"
+                                />
+                                <rect
+                                    x="14"
+                                    y="3"
+                                    width="7"
+                                    height="7"
+                                    rx="1"
+                                />
+                                <rect
+                                    x="3"
+                                    y="14"
+                                    width="7"
+                                    height="7"
+                                    rx="1"
+                                />
+                                <rect
+                                    x="14"
+                                    y="14"
+                                    width="7"
+                                    height="7"
+                                    rx="1"
+                                />
+                            </svg>
+                        </span>
+
+                        <span>
+                            Dashboard
+                        </span>
+
+                    </a>
+
+
+                    <a
+                        href="#modules"
+                        class="navigation-item"
+                    >
+
+                        <span class="navigation-icon">
+                            <svg viewBox="0 0 24 24">
+                                <rect
+                                    x="4"
+                                    y="4"
+                                    width="16"
+                                    height="16"
+                                    rx="3"
+                                />
+                                <path d="M9 9h6" />
+                                <path d="M9 12h6" />
+                                <path d="M9 15h3" />
+                            </svg>
+                        </span>
+
+                        <span>
+                            Modules
+                        </span>
+
+                    </a>
+
+
+                    <a
+                        href="#activity"
+                        class="navigation-item"
+                    >
+
+                        <span class="navigation-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M4 18V6"
+                                />
+                                <path
+                                    d="M4 18h16"
+                                />
+                                <path
+                                    d="m7 15 4-5 3 2 5-7"
+                                />
+                            </svg>
+                        </span>
+
+                        <span>
+                            Activity
+                        </span>
+
+                    </a>
+
+
+                    <p class="navigation-label module-label">
+                        MODULES
+                    </p>
+
+
+                    <a
+                        href="#work"
+                        class="navigation-item"
+                    >
+
+                        <span class="navigation-icon work-icon">
+                            W
+                        </span>
+
+                        <span>
+                            Work
+                        </span>
+
+                        <span class="navigation-badge">
+                            12
+                        </span>
+
+                    </a>
+
+
+                    <a
+                        href="#"
+                        class="navigation-item disabled"
+                    >
+
+                        <span class="navigation-icon">
+                            +
+                        </span>
+
+                        <span>
+                            More modules
+                        </span>
+
+                    </a>
+
+                </nav>
+
+            </div>
+
+
+            <div class="sidebar-bottom">
+
+                <a
+                    href="#"
+                    class="navigation-item"
+                >
+
+                    <span class="navigation-icon">
+                        <svg viewBox="0 0 24 24">
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="3"
+                            />
+                            <path
+                                d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 1.7-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-2.4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L8 17l.1-.1A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.6-1H6v-2.4h.8a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L8 8.6l1.7-1.7.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6v-.1h2.4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.7 1.7-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1V14h-.1a1.7 1.7 0 0 0-1.6 1Z"
+                            />
+                        </svg>
+                    </span>
+
+                    <span>
+                        Settings
+                    </span>
+
+                </a>
+
+
+                <div class="user-mini">
+
+                    <div class="user-avatar">
+                        A
+                    </div>
+
+                    <div class="user-info">
+
+                        <strong id="userIdentity">
+                            Admin
+                        </strong>
+
+                        <span>
+                            Administrator
+                        </span>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        id="logoutButton"
+                        class="logout-button"
+                        aria-label="Đăng xuất"
+                    >
+                        ↗
+                    </button>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- =====================================================
+             MAIN
+        ====================================================== -->
+
+        <main class="main-content">
+
+
+            <!-- TOPBAR -->
+
+            <header class="topbar">
+
+                <div>
+
+                    <p class="breadcrumb">
+                        SAOVN-OS
+                        <span>/</span>
+                        Dashboard
+                    </p>
+
+                    <h1>
+                        Tổng quan hệ thống
+                    </h1>
+
+                </div>
+
+
+                <div class="topbar-actions">
+
+                    <button
+                        type="button"
+                        class="icon-button"
+                        aria-label="Thông báo"
+                    >
+
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"
+                            />
+                            <path
+                                d="M10 21h4"
+                            />
+                        </svg>
+
+                        <span class="notification-dot"></span>
+
+                    </button>
+
+
+                    <div class="topbar-user">
+
+                        <div class="topbar-avatar">
+                            A
+                        </div>
+
+                        <span id="topbarIdentity">
+                            Admin
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+
+            <!-- CONTENT -->
+
+            <div class="dashboard-content">
+
+
+                <!-- WELCOME -->
+
+                <section class="welcome-section">
+
+                    <div>
+
+                        <p class="section-eyebrow">
+                            SYSTEM OVERVIEW
+                        </p>
+
+                        <h2>
+                            Xin chào,
+                            <span id="welcomeIdentity">
+                                Admin
+                            </span>
+                        </h2>
+
+                        <p>
+                            Đây là tổng quan hoạt động
+                            của SAOVN-OS.
+                        </p>
+
+                    </div>
+
+
+                    <div class="date-card">
+
+                        <span>
+                            TODAY
+                        </span>
+
+                        <strong id="currentDate">
+                            --
+                        </strong>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- SYSTEM CARDS -->
+
+                <section class="stats-grid">
+
+
+                    <article class="stat-card">
+
+                        <div class="stat-card-header">
+
+                            <span>
+                                MODULES
+                            </span>
+
+                            <span class="stat-icon">
+                                M
+                            </span>
+
+                        </div>
+
+                        <strong>
+                            01
+                        </strong>
+
+                        <p>
+                            Module đang hoạt động
+                        </p>
+
+                    </article>
+
+
+                    <article class="stat-card">
+
+                        <div class="stat-card-header">
+
+                            <span>
+                                ACTIVE TASKS
+                            </span>
+
+                            <span class="stat-icon purple">
+                                W
+                            </span>
+
+                        </div>
+
+                        <strong>
+                            12
+                        </strong>
+
+                        <p>
+                            Công việc đang theo dõi
+                        </p>
+
+                    </article>
+
+
+                    <article class="stat-card">
+
+                        <div class="stat-card-header">
+
+                            <span>
+                                PROGRESS
+                            </span>
+
+                            <span class="stat-icon blue">
+                                %
+                            </span>
+
+                        </div>
+
+                        <strong>
+                            68%
+                        </strong>
+
+                        <p>
+                            Tiến độ công việc tổng thể
+                        </p>
+
+                    </article>
+
+
+                    <article class="stat-card">
+
+                        <div class="stat-card-header">
+
+                            <span>
+                                SYSTEM
+                            </span>
+
+                            <span class="stat-icon green">
+                                ●
+                            </span>
+
+                        </div>
+
+                        <strong class="online-text">
+                            Online
+                        </strong>
+
+                        <p>
+                            Core services đang hoạt động
+                        </p>
+
+                    </article>
+
+
+                </section>
+
+
+
+                <!-- MAIN GRID -->
+
+                <section class="dashboard-grid">
+
+
+                    <!-- WORK -->
+
+                    <article
+                        class="panel work-panel"
+                        id="work"
+                    >
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <p class="panel-eyebrow">
+                                    MODULE
+                                </p>
+
+                                <h3>
+                                    Work
+                                </h3>
+
+                            </div>
+
+                            <a
+                                href="#"
+                                class="panel-action"
+                            >
+                                Open →
+                            </a>
+
+                        </div>
+
+
+                        <div class="work-overview">
+
+                            <div class="progress-ring">
+
+                                <div>
+                                    <strong>
+                                        68%
+                                    </strong>
+
+                                    <span>
+                                        Overall
+                                    </span>
+                                </div>
+
+                            </div>
+
+
+                            <div class="work-summary">
+
+                                <div>
+
+                                    <span>
+                                        Đang thực hiện
+                                    </span>
+
+                                    <strong>
+                                        05
+                                    </strong>
+
+                                </div>
+
+                                <div>
+
+                                    <span>
+                                        Hoàn thành
+                                    </span>
+
+                                    <strong>
+                                        04
+                                    </strong>
+
+                                </div>
+
+                                <div>
+
+                                    <span>
+                                        Chờ xử lý
+                                    </span>
+
+                                    <strong>
+                                        03
+                                    </strong>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="task-list">
+
+                            <div class="task-item">
+
+                                <div class="task-indicator active"></div>
+
+                                <div class="task-content">
+
+                                    <strong>
+                                        Hoàn thiện hệ thống Work
+                                    </strong>
+
+                                    <span>
+                                        Đang thực hiện
+                                    </span>
+
+                                </div>
+
+                                <strong class="task-progress">
+                                    75%
+                                </strong>
+
+                            </div>
+
+
+                            <div class="task-item">
+
+                                <div class="task-indicator active"></div>
+
+                                <div class="task-content">
+
+                                    <strong>
+                                        Xây dựng workflow
+                                    </strong>
+
+                                    <span>
+                                        Đang thực hiện
+                                    </span>
+
+                                </div>
+
+                                <strong class="task-progress">
+                                    50%
+                                </strong>
+
+                            </div>
+
+
+                            <div class="task-item">
+
+                                <div class="task-indicator done"></div>
+
+                                <div class="task-content">
+
+                                    <strong>
+                                        Thiết lập Identity Model
+                                    </strong>
+
+                                    <span>
+                                        Hoàn thành
+                                    </span>
+
+                                </div>
+
+                                <strong class="task-progress">
+                                    100%
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+
+
+                    <!-- ACTIVITY -->
+
+                    <article
+                        class="panel activity-panel"
+                        id="activity"
+                    >
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <p class="panel-eyebrow">
+                                    SYSTEM
+                                </p>
+
+                                <h3>
+                                    Recent Activity
+                                </h3>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="activity-list">
+
+
+                            <div class="activity-item">
+
+                                <div class="activity-icon">
+                                    W
+                                </div>
+
+                                <div>
+
+                                    <strong>
+                                        Work module updated
+                                    </strong>
+
+                                    <span>
+                                        12 phút trước
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="activity-item">
+
+                                <div class="activity-icon">
+                                    I
+                                </div>
+
+                                <div>
+
+                                    <strong>
+                                        Identity session created
+                                    </strong>
+
+                                    <span>
+                                        25 phút trước
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="activity-item">
+
+                                <div class="activity-icon">
+                                    ✓
+                                </div>
+
+                                <div>
+
+                                    <strong>
+                                        Task completed
+                                    </strong>
+
+                                    <span>
+                                        1 giờ trước
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="activity-item">
+
+                                <div class="activity-icon">
+                                    S
+                                </div>
+
+                                <div>
+
+                                    <strong>
+                                        System initialized
+                                    </strong>
+
+                                    <span>
+                                        Hôm nay
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                        </div>
+
+                    </article>
+
+
+                </section>
+
+
+
+                <!-- MODULES -->
+
+                <section
+                    class="panel modules-panel"
+                    id="modules"
+                >
+
+                    <div class="panel-header">
+
+                        <div>
+
+                            <p class="panel-eyebrow">
+                                SAOVN-OS
+                            </p>
+
+                            <h3>
+                                Modules
+                            </h3>
+
+                        </div>
+
+                        <span class="module-count">
+                            1 ACTIVE
+                        </span>
+
+                    </div>
+
+
+                    <div class="module-cards">
+
+
+                        <article class="module-card active">
+
+                            <div class="module-card-top">
+
+                                <span class="module-symbol">
+                                    W
+                                </span>
+
+                                <span class="module-status">
+                                    ACTIVE
+                                </span>
+
+                            </div>
+
+                            <h4>
+                                Work
+                            </h4>
+
+                            <p>
+                                Quản lý công việc,
+                                giao việc và theo dõi
+                                tiến trình.
+                            </p>
+
+                            <div class="module-card-footer">
+
+                                <span>
+                                    12 active tasks
+                                </span>
+
+                                <span>
+                                    →
+                                </span>
+
+                            </div>
+
+                        </article>
+
+
+                        <article class="module-card upcoming">
+
+                            <div class="module-card-top">
+
+                                <span class="module-symbol">
+                                    +
+                                </span>
+
+                                <span class="module-status">
+                                    AVAILABLE SOON
+                                </span>
+
+                            </div>
+
+                            <h4>
+                                Module tiếp theo
+                            </h4>
+
+                            <p>
+                                Không gian dành cho
+                                năng lực mới của
+                                SAOVN-OS.
+                            </p>
+
+                            <div class="module-card-footer">
+
+                                <span>
+                                    Future
+                                </span>
+
+                                <span>
+                                    —
+                                </span>
+
+                            </div>
+
+                        </article>
+
+
+                    </div>
+
+                </section>
+
+
+            </div>
+
+
+        </main>
+
+    </div>
+
+
+    <script src="js/dashboard.js"></script>
+
+</body>
+
+</html>
