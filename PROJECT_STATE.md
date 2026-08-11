@@ -18,53 +18,40 @@ Nó là nền tảng thống nhất để tổ chức, con người, dữ liệu
 
 # 2. Current Mission
 
-Mục tiêu hiện tại là xây dựng nền tảng kiến trúc và các nguyên tắc cốt lõi của SAOVN-OS trước khi triển khai các Application và Module cụ thể.
+Mục tiêu là xây dựng một môi trường làm việc online thống nhất cho SAOVN, trong đó:
 
-Thứ tự phát triển được xác định:
-
-```text
-Vision
-  ↓
-Constitution
-  ↓
-Architecture
-  ↓
-Module Specification
-  ↓
-Technical Design
-  ↓
-Implementation
-  ↓
-Testing
-  ↓
-Deployment
-```
+* Nhân sự có Identity thống nhất.
+* Công ty và tổ chức được quản lý tập trung.
+* Quyền truy cập được kiểm soát.
+* Công việc được giao và theo dõi trong một hệ thống chung.
+* Các Business Module dùng chung Core Platform.
+* Dữ liệu có Ownership và Boundary rõ ràng.
+* AI có thể được tích hợp nhưng không làm mất tính độc lập của hệ thống cốt lõi.
 
 ---
 
 # 3. Current Project Phase
 
-**Current Phase: Architecture Foundation**
+**Current Phase: Architecture Foundation → Core Foundation Definition**
 
 Trạng thái:
 
 ```text
 Vision                 ✓
 Constitution           ✓
-Core Architecture      ✓
+Architecture Foundation ✓
 Technical Architecture ✓
 Architecture Decisions ✓
 Module Specification   ✓
+
+Core Foundation        NEXT
+First Business Module  WORK
 Implementation         NOT STARTED
 ```
-
-Implementation chưa phải trọng tâm của giai đoạn hiện tại.
 
 ---
 
 # 4. Repository Structure
-
-Cấu trúc Repository hiện tại:
 
 ```text
 SAOVN-OS/
@@ -99,15 +86,11 @@ SAOVN-OS/
 
 # 5. Architecture Completed
 
-Các lớp kiến trúc đã được định nghĩa:
-
 ## Vision
 
 `DOCS/VISION/SAOVN-OS.md`
 
-Định nghĩa SAOVN-OS là môi trường làm việc online và nền tảng vận hành thống nhất cho SAOVN.
-
----
+SAOVN-OS được xác định là môi trường làm việc online và nền tảng vận hành thống nhất cho SAOVN.
 
 ## Constitution
 
@@ -115,81 +98,51 @@ Các lớp kiến trúc đã được định nghĩa:
 
 Chứa các nguyên tắc nền tảng và quy tắc xây dựng hệ thống.
 
-Bao gồm:
-
-```text
-AI_BUILD_RULES.md
-MASTER_BLUEPRINT.md
-```
-
----
-
 ## Domain Model
 
 `01_ARCHITECTURE/DOMAIN_MODEL.md`
 
-Định nghĩa các Domain nghiệp vụ và ranh giới nghiệp vụ của SAOVN-OS.
-
----
+Định nghĩa các Domain nghiệp vụ và ranh giới nghiệp vụ.
 
 ## Module Map
 
 `01_ARCHITECTURE/MODULE_MAP.md`
 
-Định nghĩa các nhóm Module và mối quan hệ giữa các Module.
-
----
+Định nghĩa các nhóm Module và quan hệ giữa chúng.
 
 ## System Architecture
 
 `01_ARCHITECTURE/SYSTEM_ARCHITECTURE.md`
 
-Định nghĩa kiến trúc hệ thống tổng thể và cách các thành phần lớn của SAOVN-OS được tổ chức.
-
----
+Định nghĩa kiến trúc hệ thống tổng thể.
 
 ## Permission Model
 
 `01_ARCHITECTURE/PERMISSION_MODEL.md`
 
-Định nghĩa cách Identity, Organization, Role, Permission, Scope và Policy phối hợp để kiểm soát quyền truy cập.
-
----
+Định nghĩa Identity, Organization, Role, Permission, Scope và Policy.
 
 ## Data Model
 
 `01_ARCHITECTURE/DATA_MODEL.md`
 
-Định nghĩa cách dữ liệu được tổ chức, sở hữu và liên kết giữa các Domain.
-
----
+Định nghĩa cách dữ liệu được tổ chức, sở hữu và liên kết.
 
 ## Integration Architecture
 
 `01_ARCHITECTURE/INTEGRATION_ARCHITECTURE.md`
 
-Định nghĩa cách SAOVN-OS giao tiếp với:
-
-* Các Module nội bộ.
-* Các Service.
-* External Systems.
-* API.
-* Events.
-* Webhooks.
-* Adapters.
-* AI Services.
-
----
+Định nghĩa API, Event, Webhook, Adapter và các Integration Boundary.
 
 ## Technical Architecture
 
 `01_ARCHITECTURE/TECHNICAL_ARCHITECTURE.md`
 
-Định nghĩa kiến trúc kỹ thuật tổng thể gồm:
+Định nghĩa kiến trúc kỹ thuật tổng thể:
 
 ```text
 Web Client
-API
+API / Gateway
 Application Layer
 Core Services
 Domain Layer
@@ -205,19 +158,14 @@ Authorization
 Security
 Observability
 Infrastructure
-Deployment
 AI Layer
 ```
-
-Technical Architecture cố gắng giữ độc lập với một Framework hoặc Vendor cụ thể.
-
----
 
 ## Architecture Decisions
 
 `01_ARCHITECTURE/ARCHITECTURE_DECISIONS.md`
 
-Đã ghi nhận các quyết định kiến trúc quan trọng, bao gồm:
+Đã xác lập các nguyên tắc và quyết định kiến trúc quan trọng như:
 
 * SAOVN-OS là Organizational Operating System.
 * Core Platform + Applications.
@@ -240,65 +188,262 @@ Technical Architecture cố gắng giữ độc lập với một Framework ho�
 * Không Microservices hóa quá sớm.
 * Architecture Documentation là Living System.
 
----
-
 ## Module Specification
 
 `01_ARCHITECTURE/MODULE_SPECIFICATION.md`
 
-Định nghĩa tiêu chuẩn để một Module được thiết kế trước khi triển khai.
-
-Một Module cần xác định:
-
-```text
-Identity
-Purpose
-Scope
-Domain
-Actors
-Responsibilities
-Entities
-Data Ownership
-Permissions
-API
-Events
-Workflows
-Integrations
-UI
-Notifications
-AI
-Audit
-Security
-Dependencies
-Failure Handling
-Performance
-Acceptance Criteria
-```
-
-Module chỉ được xem là Ready for Development khi các Boundary và Requirement quan trọng đã rõ ràng.
+Định nghĩa tiêu chuẩn thiết kế Module trước khi triển khai.
 
 ---
 
-# 6. Current Architectural Model
+# 6. What Core Means in SAOVN-OS
 
-Mô hình tổng thể hiện tại:
+**Core Platform** là phần nền tảng dùng chung cho toàn bộ SAOVN-OS.
+
+Core không phải là một Business Application riêng.
+
+Core cung cấp các năng lực mà nhiều Module khác cần dùng chung.
+
+Mô hình:
+
+```text
+                    SAOVN-OS
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+      CORE PLATFORM            BUSINESS MODULES
+          │                         │
+    ┌─────┼─────┐             ┌─────┼─────┐
+    │     │     │             │     │     │
+ Identity Org  Access        Work   HR   CRM
+```
+
+---
+
+# 7. Core Foundation
+
+Core Foundation dự kiến bao gồm các thành phần:
+
+```text
+CORE
+│
+├── Identity
+│   ├── User
+│   ├── Account
+│   ├── Login
+│   └── Session
+│
+├── Organization
+│   ├── Company
+│   ├── Department
+│   └── Membership
+│
+└── Access Control
+    ├── Role
+    ├── Permission
+    ├── Scope
+    └── Policy
+```
+
+Đây là nhóm nền tảng cần được làm rõ trước khi triển khai Business Module đầu tiên.
+
+---
+
+# 8. Identity and Login
+
+Login được xem là **cổng vào SAOVN-OS**.
+
+Luồng cơ bản:
+
+```text
+User
+ ↓
+Login
+ ↓
+Authentication
+ ↓
+Identity
+ ↓
+Session
+ ↓
+SAOVN-OS
+```
+
+Login thuộc Core Foundation, không phải Business Module.
+
+Authentication và Authorization phải được tách biệt.
+
+```text
+Authentication
+= Người này là ai?
+
+Authorization
+= Người này được phép làm gì?
+```
+
+---
+
+# 9. Account Provisioning
+
+SAOVN-OS được định hướng là môi trường doanh nghiệp nội bộ.
+
+Do đó **Public Self-Registration mặc định OFF**.
+
+Không sử dụng mô hình:
+
+```text
+User
+ ↓
+Register
+ ↓
+Tự tạo thành viên
+```
+
+Mô hình ưu tiên:
+
+```text
+Organization
+ ↓
+Provision / Invite Account
+ ↓
+Activation
+ ↓
+Login
+ ↓
+SAOVN-OS
+```
+
+Các phương thức Provisioning có thể được hỗ trợ:
+
+```text
+Company Created Account
+Invitation
+Admin Provisioning
+SSO
+External Identity
+```
+
+Cơ chế cụ thể sẽ được thiết kế trong Core Identity.
+
+---
+
+# 10. Organization Model
+
+Identity không tồn tại độc lập với Organization Context.
+
+Mô hình khái niệm:
+
+```text
+Identity
+   ↓
+Membership
+   ↓
+Organization
+   ↓
+Department
+   ↓
+Role / Permission
+```
+
+Một User có thể có Membership trong một hoặc nhiều Organization nếu Architecture và Business Rules cho phép.
+
+Quyền truy cập phải được xác định theo Scope phù hợp.
+
+---
+
+# 11. First Business Module — WORK
+
+Business Module đầu tiên được xác định là:
+
+> **WORK**
+
+WORK là môi trường làm việc trực tuyến cốt lõi của SAOVN-OS.
+
+Mục tiêu là giúp nhân sự:
+
+* Nhận việc.
+* Giao việc.
+* Theo dõi công việc.
+* Theo dõi tiến độ.
+* Quản lý Deadline.
+* Quản lý Project.
+* Trao đổi trong công việc.
+* Đính kèm tài liệu.
+* Theo dõi trạng thái.
+* Xem báo cáo công việc.
+
+Khái niệm ban đầu:
+
+```text
+WORK
+│
+├── My Work
+├── Tasks
+├── Projects
+├── Assignments
+├── Deadlines
+├── Progress
+├── Status
+├── Comments
+├── Attachments
+├── Notifications
+└── Reports
+```
+
+WORK là **Business Module đầu tiên**, trong khi Identity/Login là Core Foundation.
+
+---
+
+# 12. First User Journey
+
+Luồng sống đầu tiên của SAOVN-OS được hình dung:
+
+```text
+Organization
+      ↓
+Account Provisioning
+      ↓
+Login
+      ↓
+Identity
+      ↓
+Organization / Department
+      ↓
+Role / Permission
+      ↓
+WORK
+      ↓
+Receive / Create Work
+      ↓
+Execute
+      ↓
+Update Progress
+      ↓
+Complete
+      ↓
+Report / Audit
+```
+
+Đây là luồng nghiệp vụ đầu tiên cần được biến thành hệ thống thực tế.
+
+---
+
+# 13. Current Architectural Model
 
 ```text
                          SAOVN-OS
                             │
-          ┌─────────────────┴─────────────────┐
-          │                                   │
-     CORE PLATFORM                       APPLICATIONS
-          │                                   │
-    ┌─────┼─────┐                    ┌────────┼────────┐
-    │     │     │                    │        │        │
- Identity Org Permission           HR       CRM     Projects
-    │
-    ├── Audit
-    ├── Notification
-    ├── File
-    ├── Search
-    └── Event
+                 ┌──────────┴──────────┐
+                 │                     │
+              CORE                  WORK
+                 │                     │
+       ┌─────────┼─────────┐     ┌────┼────┐
+       │         │         │     │    │    │
+    Identity Organization Access Task Project Progress
+       │         │         │
+     Login     Company   Permission
+     Session   Dept      Role
+     Account   Member
 ```
 
 Technical flow:
@@ -310,9 +455,9 @@ Web Client
  ↓
 API / Gateway
  ↓
-Application
+Core / Application
  ↓
-Core / Domain
+Domain
  ↓
 Data Access
  ↓
@@ -323,261 +468,203 @@ Event / Queue / Workers
 External Systems
 ```
 
-AI được đặt như một Layer có thể tích hợp:
+---
+
+# 14. What Has NOT Been Built Yet
+
+Tại thời điểm này:
 
 ```text
-Applications
-     ↑
-  AI Layer
-     ↓
-AI Provider / Tools
+Production Login          NOT BUILT
+Identity System           NOT BUILT
+Organization System       NOT BUILT
+Permission Engine         NOT BUILT
+WORK Module               NOT BUILT
+Production Backend        NOT BUILT
+Production Database       NOT BUILT
+Production API            NOT BUILT
+Production AI Agent       NOT BUILT
+Deployment Infrastructure NOT BUILT
 ```
 
-AI không được trở thành Single Point of Failure cho những nghiệp vụ không phụ thuộc AI.
+Các phần trên mới đang ở mức Architecture / Planning.
 
 ---
 
-# 7. Core Architectural Principles
+# 15. Next Development Sequence
 
-Các nguyên tắc cần tiếp tục giữ:
+Thứ tự dự kiến:
 
 ```text
-Modular
-API First
-Web First
-Security by Design
-Least Privilege
-Domain Boundaries
-Explicit Data Ownership
-Source of Truth
-Provider Independence
-Observable by Default
-Scalable
-Replaceable Components
-Automation First
-Documentation as Living Architecture
+1. Core Identity
+       ↓
+2. Account / Login / Session
+       ↓
+3. Organization / Department / Membership
+       ↓
+4. Role / Permission / Policy
+       ↓
+5. WORK Module Specification
+       ↓
+6. WORK Data Design
+       ↓
+7. WORK API Design
+       ↓
+8. WORK Workflow Design
+       ↓
+9. WORK UI Design
+       ↓
+10. Technical Design
+       ↓
+11. Implementation
+       ↓
+12. Testing
+       ↓
+13. Deployment
+```
+
+Thứ tự này có thể thay đổi nếu phát hiện Dependency mới trong quá trình thiết kế.
+
+---
+
+# 16. Important Architectural Distinction
+
+SAOVN-OS hiện được chia thành hai lớp khái niệm quan trọng:
+
+```text
+CORE
+= Nền tảng dùng chung
+
+WORK
+= Business Module đầu tiên
+```
+
+Không nhầm:
+
+```text
+Login ≠ Business Module
+
+Core ≠ Work
+
+Authentication ≠ Authorization
 ```
 
 ---
 
-# 8. Current Development Rule
+# 17. Working Protocol
 
-Trước khi triển khai một Module quan trọng:
+Quy trình làm việc:
 
 ```text
-Architecture
- ↓
-Module Specification
- ↓
-Technical Design
- ↓
-Implementation
- ↓
-Testing
- ↓
-Deployment
+1. Xác định thứ cần xây.
+2. Giới thiệu ngắn gọn mục đích.
+3. Đưa nguyên khối nội dung hoàn chỉnh.
+4. User copy vào đúng vị trí.
+5. Git commit + push.
+6. User báo "đã up".
+7. Kiểm tra trạng thái.
+8. Tiếp tục.
+9. Khi User nói "chốt sổ":
+   → cập nhật PROJECT_STATE.md một lần.
 ```
 
-Không tự ý bỏ qua Architecture Boundary để triển khai nhanh.
+Không cập nhật Project State sau từng bước nhỏ.
+
+Không lặp lại các giải thích đã được xác lập.
+
+Không tạo file Markdown chỉ để tạo tài liệu nếu nó không phục vụ một quyết định hoặc bước xây dựng thực tế.
 
 ---
 
-# 9. What We Are Actually Building
+# 18. Current Stopping Point
 
-SAOVN-OS đang được xây như một **nền tảng làm việc trực tuyến thống nhất cho SAOVN**.
-
-Nó hướng tới việc đưa các năng lực sau vào cùng một môi trường:
-
-```text
-People
-Organization
-Identity
-Permissions
-Projects
-Tasks
-Documents
-Communication
-Business Applications
-Data
-Integrations
-AI
-Analytics
-```
-
-Các Application cụ thể sẽ được xây trên Core Platform thay vì trở thành những hệ thống rời rạc.
-
----
-
-# 10. What Has NOT Been Built Yet
-
-Tại thời điểm chốt sổ này:
-
-```text
-Production Application       NOT BUILT
-Production Backend           NOT BUILT
-Production Database          NOT BUILT
-Production API               NOT BUILT
-Production AI Agent          NOT BUILT
-Deployment Infrastructure   NOT BUILT
-```
-
-Các nội dung trên thuộc giai đoạn Implementation sau này.
-
----
-
-# 11. Next Phase
-
-Bước tiếp theo sau Architecture Foundation là bắt đầu chuyển Architecture thành các **Module Specifications cụ thể**.
-
-Trước tiên cần xác định:
-
-```text
-Which Module should be built first?
-```
-
-Sau khi chọn Module đầu tiên:
-
-```text
-Module Selection
- ↓
-Module Specification
- ↓
-Technical Design
- ↓
-Data Design
- ↓
-API Design
- ↓
-UI Design
- ↓
-Implementation
- ↓
-Testing
-```
-
-Không nên chọn thứ tự Module chỉ dựa trên việc Module nào dễ code nhất.
-
-Ưu tiên nên dựa trên:
-
-* Foundation Dependency.
-* Business Value.
-* Architectural Importance.
-* Data Dependency.
-* Security Dependency.
-* Ability to unlock other Modules.
-
----
-
-# 12. Recommended Next Investigation
-
-Trước khi bắt đầu Implementation lớn, cần xác định:
-
-```text
-1. Core Module nào phải tồn tại trước?
-2. Application đầu tiên của SAOVN-OS là gì?
-3. Module nào là Dependency của các Module khác?
-4. Data Ownership thực tế của từng Core Entity?
-5. Identity và Organization Model cần triển khai ở mức nào?
-6. Technology Stack nào phù hợp?
-7. Deployment Model ban đầu là gì?
-```
-
-Các câu hỏi này sẽ dẫn sang Technical Design và Implementation.
-
----
-
-# 13. Session Closing Point
-
-Phiên làm việc hiện tại kết thúc tại:
+Phiên hiện tại kết thúc tại:
 
 ```text
 ARCHITECTURE FOUNDATION
         ↓
-MODULE SPECIFICATION
+CORE FOUNDATION IDENTIFIED
         ↓
-READY TO SELECT FIRST REAL MODULE
+IDENTITY / LOGIN IDENTIFIED
+        ↓
+ORGANIZATION / MEMBERSHIP IDENTIFIED
+        ↓
+PERMISSION IDENTIFIED
+        ↓
+WORK SELECTED AS FIRST BUSINESS MODULE
 ```
 
-Đây là điểm tiếp tục cho phiên làm việc tiếp theo.
+Điểm tiếp tục của phiên sau:
 
-Không cần xây lại các tài liệu Architecture đã hoàn thành trừ khi phát hiện mâu thuẫn hoặc có quyết định kiến trúc mới.
+> **Thiết kế Core Foundation, bắt đầu từ Identity / Account / Login và Organization / Membership.**
+
+Sau khi Core Foundation đủ rõ, chuyển sang đặc tả WORK.
 
 ---
 
-# 14. Working Protocol
+# 19. Next Session Rule
 
-Quy trình làm việc giữa User và AI:
-
-```text
-1. Xác định file cần xây.
-2. Giới thiệu ngắn gọn file đó dùng để làm gì.
-3. Đưa nguyên khối nội dung hoàn chỉnh.
-4. User copy vào đúng vị trí.
-5. User commit + push.
-6. User báo "đã up".
-7. Tiếp tục file kế tiếp.
-8. Khi User nói "chốt sổ":
-   → Tổng hợp PROJECT_STATE.md một lần.
-```
-
-Không tạo Project State sau từng bước nhỏ.
-
-Không lặp lại dài dòng các giải thích đã được xác lập.
-
----
-
-# 15. Continuation Rule
-
-Khi bắt đầu phiên làm việc mới, đọc:
+Khi bắt đầu lại, đọc:
 
 ```text
 START_HERE.md
 PROJECT_STATE.md
 ```
 
-Sau đó sử dụng Architecture hiện có để tiếp tục từ:
+Sau đó tiếp tục trực tiếp từ:
 
 ```text
-READY TO SELECT FIRST REAL MODULE
+CORE FOUNDATION
+        ↓
+IDENTITY / ACCOUNT / LOGIN
 ```
 
-Không bắt đầu lại từ đầu.
+Không xây lại Architecture Foundation đã hoàn thành trừ khi phát hiện mâu thuẫn hoặc cần một Architecture Decision mới.
 
 ---
 
-# 16. Current Status
+# 20. Final State
 
 ```text
 SAOVN-OS
 
-VISION                 COMPLETE
-CONSTITUTION           COMPLETE
-DOMAIN MODEL           COMPLETE
-MODULE MAP             COMPLETE
-SYSTEM ARCHITECTURE    COMPLETE
-PERMISSION MODEL       COMPLETE
-DATA MODEL              COMPLETE
-INTEGRATION             COMPLETE
-TECHNICAL ARCHITECTURE COMPLETE
-ARCHITECTURE DECISIONS COMPLETE
-MODULE SPECIFICATION   COMPLETE
+VISION                    COMPLETE
+CONSTITUTION              COMPLETE
+DOMAIN MODEL              COMPLETE
+MODULE MAP                COMPLETE
+SYSTEM ARCHITECTURE       COMPLETE
+PERMISSION MODEL          COMPLETE
+DATA MODEL                COMPLETE
+INTEGRATION ARCHITECTURE  COMPLETE
+TECHNICAL ARCHITECTURE    COMPLETE
+ARCHITECTURE DECISIONS    COMPLETE
+MODULE SPECIFICATION      COMPLETE
 
-ARCHITECTURE FOUNDATION COMPLETE
+CORE FOUNDATION           IDENTIFIED
+IDENTITY / LOGIN          NEXT
+ORGANIZATION              NEXT
+PERMISSION IMPLEMENTATION NEXT
 
-NEXT:
-SELECT FIRST REAL MODULE
+FIRST BUSINESS MODULE:
+WORK                      SELECTED
+
+IMPLEMENTATION            NOT STARTED
 ```
 
 ---
 
-# 17. Final Project State
+# 21. Final Project Statement
 
-**SAOVN-OS đã hoàn thành lớp Architecture Foundation đầu tiên.**
+SAOVN-OS đang được xây dựng như một **môi trường làm việc online thống nhất cho tập đoàn SAOVN**.
 
-Điểm hiện tại không phải là:
+Nền tảng sẽ có một Core Foundation dùng chung cho Identity, Organization và Access Control.
 
-> "Chúng ta chưa làm gì."
+Cổng vào hệ thống là Login.
 
-Mà là:
+Tài khoản không mặc định được tạo bằng Public Self-Registration; Organization sẽ là chủ thể cấp, mời hoặc Provision Account.
 
-> **"Chúng ta đã định nghĩa bộ khung, luật, dữ liệu, boundary và cách xây Module của hệ điều hành làm việc SAOVN. Bước tiếp theo là chọn Module thực tế đầu tiên và đưa nó từ Specification sang Technical Design rồi Implementation."**
+Sau khi xác thực và xác định quyền, người dùng bước vào môi trường làm việc chính.
+
+**WORK là Business Module đầu tiên được lựa chọn**, tập trung vào giao việc, nhận việc, quản lý Project, theo dõi tiến độ, Deadline, trao đổi và báo cáo công việc.
+
+Điểm tiếp theo của dự án là biến Core Foundation và WORK từ kiến trúc thành thiết kế kỹ thuật và sau đó là hệ thống chạy thật.
