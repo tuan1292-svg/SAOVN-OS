@@ -1,4 +1,3 @@
-````markdown
 # SAOVN-OS — Identity Model
 
 **Status:** Draft  
@@ -659,4 +658,3 @@ are implementation concerns and must be specified separately.
 ---
 
 **End of Identity Model**
-````
