@@ -1,692 +1,583 @@
 # SAOVN-OS — PROJECT STATE
-# TRẠNG THÁI DỰ ÁN
 
-> SAOVN — Tổ chức Hành động Đặc biệt vì Việt Nam
->
-> SAOVN — Special Action Organization for Vietnam
+## 1. Project Identity
 
-Document Type: Project State / AI Context
-Version: 1.0
-Status: Active
-Language: Vietnamese + English
+**Project:** SAOVN-OS
 
----
+**Organization:** SAOVN
 
-# 01. PROJECT IDENTITY
-# NHẬN DIỆN DỰ ÁN
+**Definition:**
 
-Project Name:
+SAOVN-OS là một **môi trường làm việc online cho tập đoàn SAOVN**, được xây dựng như một Organizational Operating System.
 
-SAOVN-OS
+SAOVN-OS không chỉ là một ứng dụng đơn lẻ.
 
-Full Organization Name:
-
-SAOVN — Tổ chức Hành động Đặc biệt vì Việt Nam
-
-English:
-
-SAOVN — Special Action Organization for Vietnam
-
-Project Type:
-
-Organizational Operating System
-
-Project Purpose:
-
-Xây dựng một môi trường làm việc trực tuyến toàn diện cho tập đoàn SAOVN, nơi Founder, CEO, quản lý, nhân viên, thực tập sinh, cộng tác viên và các thành viên liên quan có thể làm việc, phối hợp, quản lý dữ liệu, tri thức, nhiệm vụ, dự án và hoạt động của tổ chức.
-
-English:
-
-Build a comprehensive online organizational operating system for SAOVN where founders, executives, managers, employees, interns, collaborators and related members can work, collaborate, manage information, knowledge, tasks, projects and organizational operations.
+Nó là nền tảng thống nhất để tổ chức, con người, dữ liệu, công việc, ứng dụng nghiệp vụ, tích hợp và AI cùng hoạt động trong một hệ sinh thái chung.
 
 ---
 
-# 02. CORE VISION
-# TẦM NHÌN CỐT LÕI
+# 2. Current Mission
 
-SAOVN-OS is NOT being built primarily as a commercial product.
+Mục tiêu hiện tại là xây dựng nền tảng kiến trúc và các nguyên tắc cốt lõi của SAOVN-OS trước khi triển khai các Application và Module cụ thể.
 
-SAOVN-OS is being built first as an internal operating environment for the SAOVN organization.
-
-The primary objective is:
-
-BUILD FOR USE FIRST.
-
-COMMERCIALIZATION IS OPTIONAL.
-
-The system may eventually become more capable than existing commercial platforms, but competing with them is NOT the primary objective.
-
----
-
-# 03. CORE PHILOSOPHY
-# TRIẾT LÝ CỐT LÕI
-
-SAOVN-OS must be:
+Thứ tự phát triển được xác định:
 
 ```text
-Professional
-Chuyên nghiệp
-
-Modular
-Module hóa
-
-Scalable
-Có khả năng mở rộng
-
-Secure
-An toàn
-
-Maintainable
-Dễ bảo trì
-
-Understandable
-Dễ hiểu
-
-Low-Cost First
-Ưu tiên chi phí thấp
-
-AI-Ready
-Sẵn sàng cho AI
-
-Human-Operable
-Con người có thể vận hành mà không cần AI
-04. AI PRINCIPLE
-NGUYÊN TẮC AI
-
-AI IS OPTIONAL.
-
-SAOVN-OS MUST WORK WITHOUT AI.
-
-The system must not require paid AI services for normal operation.
-
-Initial architecture should rely primarily on:
-
-Structured Data
-Business Rules
-Workflows
-Reports
-Dashboards
-Human Decision Making
-
-AI will be an optional future layer.
-
-When resources become available, AI can be integrated without redesigning the entire Core.
-
-Target architecture:
-
-SAOVN-OS CORE
-      ↓
-AI GATEWAY
-      ↓
-AI PROVIDER / LOCAL MODEL / FUTURE PROVIDER
-
-Business modules must NOT directly depend on a specific AI provider.
-
-05. CURRENT ARCHITECTURE PHASE
-GIAI ĐOẠN HIỆN TẠI
-
-Current Phase:
-
-ARCHITECTURE FOUNDATION
-
-Objective:
-
-Build and validate the organizational, domain and technical architecture before serious application development begins.
-
-06. COMPLETED DOCUMENTS
-TÀI LIỆU ĐÃ HOÀN THÀNH
+Vision
+  ↓
 Constitution
-00_CONSTITUTION/AI_BUILD_RULES.md
-STATUS: COMPLETE
-
-00_CONSTITUTION/MASTER_BLUEPRINT.md
-STATUS: COMPLETE
+  ↓
 Architecture
-01_ARCHITECTURE/SYSTEM_ARCHITECTURE.md
-STATUS: COMPLETE
+  ↓
+Module Specification
+  ↓
+Technical Design
+  ↓
+Implementation
+  ↓
+Testing
+  ↓
+Deployment
+```
 
-01_ARCHITECTURE/DOMAIN_MODEL.md
-STATUS: COMPLETE
+---
 
-01_ARCHITECTURE/MODULE_MAP.md
-STATUS: COMPLETE
-Project Navigation
-START_HERE.md
-STATUS: COMPLETE
-07. CURRENT ARCHITECTURE TREE
-CÂY KIẾN TRÚC HIỆN TẠI
+# 3. Current Project Phase
+
+**Current Phase: Architecture Foundation**
+
+Trạng thái:
+
+```text
+Vision                 ✓
+Constitution           ✓
+Core Architecture      ✓
+Technical Architecture ✓
+Architecture Decisions ✓
+Module Specification   ✓
+Implementation         NOT STARTED
+```
+
+Implementation chưa phải trọng tâm của giai đoạn hiện tại.
+
+---
+
+# 4. Repository Structure
+
+Cấu trúc Repository hiện tại:
+
+```text
 SAOVN-OS/
+│
+├── .gitignore
 │
 ├── 00_CONSTITUTION/
 │   ├── AI_BUILD_RULES.md
 │   └── MASTER_BLUEPRINT.md
 │
 ├── 01_ARCHITECTURE/
-│   ├── SYSTEM_ARCHITECTURE.md
 │   ├── DOMAIN_MODEL.md
-│   └── MODULE_MAP.md
+│   ├── MODULE_MAP.md
+│   ├── SYSTEM_ARCHITECTURE.md
+│   ├── PERMISSION_MODEL.md
+│   ├── DATA_MODEL.md
+│   ├── INTEGRATION_ARCHITECTURE.md
+│   ├── TECHNICAL_ARCHITECTURE.md
+│   ├── ARCHITECTURE_DECISIONS.md
+│   └── MODULE_SPECIFICATION.md
+│
+├── DOCS/
+│   └── VISION/
+│       └── SAOVN-OS.md
 │
 ├── PROJECT_STATE.md
-├── START_HERE.md
-└── .gitignore
-08. NEXT ARCHITECTURE STEPS
-CÁC BƯỚC KIẾN TRÚC TIẾP THEO
+│
+└── START_HERE.md
+```
 
-The planned order is:
+---
 
-1. Permission Model
-2. Data Model
-3. Integration Architecture
-4. Technical Architecture
-5. Module Specifications
-6. Application Architecture
-7. Infrastructure Architecture
-8. Implementation
+# 5. Architecture Completed
 
-IMPORTANT:
+Các lớp kiến trúc đã được định nghĩa:
 
-Do NOT skip architectural dependencies merely to start coding faster.
+## Vision
 
-09. IMMEDIATE NEXT STEP
-BƯỚC KẾ TIẾP TRỰC TIẾP
+`DOCS/VISION/SAOVN-OS.md`
+
+Định nghĩa SAOVN-OS là môi trường làm việc online và nền tảng vận hành thống nhất cho SAOVN.
+
+---
+
+## Constitution
+
+`00_CONSTITUTION/`
+
+Chứa các nguyên tắc nền tảng và quy tắc xây dựng hệ thống.
+
+Bao gồm:
+
+```text
+AI_BUILD_RULES.md
+MASTER_BLUEPRINT.md
+```
+
+---
+
+## Domain Model
+
+`01_ARCHITECTURE/DOMAIN_MODEL.md`
+
+Định nghĩa các Domain nghiệp vụ và ranh giới nghiệp vụ của SAOVN-OS.
+
+---
+
+## Module Map
+
+`01_ARCHITECTURE/MODULE_MAP.md`
+
+Định nghĩa các nhóm Module và mối quan hệ giữa các Module.
+
+---
+
+## System Architecture
+
+`01_ARCHITECTURE/SYSTEM_ARCHITECTURE.md`
+
+Định nghĩa kiến trúc hệ thống tổng thể và cách các thành phần lớn của SAOVN-OS được tổ chức.
+
+---
+
+## Permission Model
+
+`01_ARCHITECTURE/PERMISSION_MODEL.md`
+
+Định nghĩa cách Identity, Organization, Role, Permission, Scope và Policy phối hợp để kiểm soát quyền truy cập.
+
+---
+
+## Data Model
+
+`01_ARCHITECTURE/DATA_MODEL.md`
+
+Định nghĩa cách dữ liệu được tổ chức, sở hữu và liên kết giữa các Domain.
+
+---
+
+## Integration Architecture
+
+`01_ARCHITECTURE/INTEGRATION_ARCHITECTURE.md`
+
+Định nghĩa cách SAOVN-OS giao tiếp với:
+
+* Các Module nội bộ.
+* Các Service.
+* External Systems.
+* API.
+* Events.
+* Webhooks.
+* Adapters.
+* AI Services.
+
+---
+
+## Technical Architecture
+
+`01_ARCHITECTURE/TECHNICAL_ARCHITECTURE.md`
+
+Định nghĩa kiến trúc kỹ thuật tổng thể gồm:
+
+```text
+Web Client
+API
+Application Layer
+Core Services
+Domain Layer
+Data Layer
+Database
+Cache
+Storage
+Search
+Queue
+Workers
+Authentication
+Authorization
+Security
+Observability
+Infrastructure
+Deployment
+AI Layer
+```
+
+Technical Architecture cố gắng giữ độc lập với một Framework hoặc Vendor cụ thể.
+
+---
+
+## Architecture Decisions
+
+`01_ARCHITECTURE/ARCHITECTURE_DECISIONS.md`
+
+Đã ghi nhận các quyết định kiến trúc quan trọng, bao gồm:
+
+* SAOVN-OS là Organizational Operating System.
+* Core Platform + Applications.
+* Shared Identity.
+* Central Permission Model.
+* Domain Ownership.
+* API Integration Boundary.
+* Event Driven cho Async Work.
+* AI là Optional Layer.
+* Provider Independence.
+* Source of Truth.
+* Git Repository là Project Source of Truth.
+* Documentation trước Implementation.
+* Incremental Architecture.
+* Security by Default.
+* Organization Boundary.
+* Web First.
+* Architecture over Framework.
+* Decision Reversibility.
+* Không Microservices hóa quá sớm.
+* Architecture Documentation là Living System.
+
+---
+
+## Module Specification
+
+`01_ARCHITECTURE/MODULE_SPECIFICATION.md`
+
+Định nghĩa tiêu chuẩn để một Module được thiết kế trước khi triển khai.
+
+Một Module cần xác định:
+
+```text
+Identity
+Purpose
+Scope
+Domain
+Actors
+Responsibilities
+Entities
+Data Ownership
+Permissions
+API
+Events
+Workflows
+Integrations
+UI
+Notifications
+AI
+Audit
+Security
+Dependencies
+Failure Handling
+Performance
+Acceptance Criteria
+```
+
+Module chỉ được xem là Ready for Development khi các Boundary và Requirement quan trọng đã rõ ràng.
+
+---
+
+# 6. Current Architectural Model
+
+Mô hình tổng thể hiện tại:
+
+```text
+                         SAOVN-OS
+                            │
+          ┌─────────────────┴─────────────────┐
+          │                                   │
+     CORE PLATFORM                       APPLICATIONS
+          │                                   │
+    ┌─────┼─────┐                    ┌────────┼────────┐
+    │     │     │                    │        │        │
+ Identity Org Permission           HR       CRM     Projects
+    │
+    ├── Audit
+    ├── Notification
+    ├── File
+    ├── Search
+    └── Event
+```
+
+Technical flow:
+
+```text
+User
+ ↓
+Web Client
+ ↓
+API / Gateway
+ ↓
+Application
+ ↓
+Core / Domain
+ ↓
+Data Access
+ ↓
+Database / Cache / Storage
+ ↓
+Event / Queue / Workers
+ ↓
+External Systems
+```
+
+AI được đặt như một Layer có thể tích hợp:
+
+```text
+Applications
+     ↑
+  AI Layer
+     ↓
+AI Provider / Tools
+```
+
+AI không được trở thành Single Point of Failure cho những nghiệp vụ không phụ thuộc AI.
+
+---
+
+# 7. Core Architectural Principles
+
+Các nguyên tắc cần tiếp tục giữ:
+
+```text
+Modular
+API First
+Web First
+Security by Design
+Least Privilege
+Domain Boundaries
+Explicit Data Ownership
+Source of Truth
+Provider Independence
+Observable by Default
+Scalable
+Replaceable Components
+Automation First
+Documentation as Living Architecture
+```
+
+---
+
+# 8. Current Development Rule
+
+Trước khi triển khai một Module quan trọng:
+
+```text
+Architecture
+ ↓
+Module Specification
+ ↓
+Technical Design
+ ↓
+Implementation
+ ↓
+Testing
+ ↓
+Deployment
+```
+
+Không tự ý bỏ qua Architecture Boundary để triển khai nhanh.
+
+---
+
+# 9. What We Are Actually Building
+
+SAOVN-OS đang được xây như một **nền tảng làm việc trực tuyến thống nhất cho SAOVN**.
+
+Nó hướng tới việc đưa các năng lực sau vào cùng một môi trường:
+
+```text
+People
+Organization
+Identity
+Permissions
+Projects
+Tasks
+Documents
+Communication
+Business Applications
+Data
+Integrations
+AI
+Analytics
+```
+
+Các Application cụ thể sẽ được xây trên Core Platform thay vì trở thành những hệ thống rời rạc.
+
+---
+
+# 10. What Has NOT Been Built Yet
+
+Tại thời điểm chốt sổ này:
+
+```text
+Production Application       NOT BUILT
+Production Backend           NOT BUILT
+Production Database          NOT BUILT
+Production API               NOT BUILT
+Production AI Agent          NOT BUILT
+Deployment Infrastructure   NOT BUILT
+```
+
+Các nội dung trên thuộc giai đoạn Implementation sau này.
+
+---
+
+# 11. Next Phase
+
+Bước tiếp theo sau Architecture Foundation là bắt đầu chuyển Architecture thành các **Module Specifications cụ thể**.
+
+Trước tiên cần xác định:
+
+```text
+Which Module should be built first?
+```
+
+Sau khi chọn Module đầu tiên:
+
+```text
+Module Selection
+ ↓
+Module Specification
+ ↓
+Technical Design
+ ↓
+Data Design
+ ↓
+API Design
+ ↓
+UI Design
+ ↓
+Implementation
+ ↓
+Testing
+```
+
+Không nên chọn thứ tự Module chỉ dựa trên việc Module nào dễ code nhất.
+
+Ưu tiên nên dựa trên:
+
+* Foundation Dependency.
+* Business Value.
+* Architectural Importance.
+* Data Dependency.
+* Security Dependency.
+* Ability to unlock other Modules.
+
+---
+
+# 12. Recommended Next Investigation
+
+Trước khi bắt đầu Implementation lớn, cần xác định:
+
+```text
+1. Core Module nào phải tồn tại trước?
+2. Application đầu tiên của SAOVN-OS là gì?
+3. Module nào là Dependency của các Module khác?
+4. Data Ownership thực tế của từng Core Entity?
+5. Identity và Organization Model cần triển khai ở mức nào?
+6. Technology Stack nào phù hợp?
+7. Deployment Model ban đầu là gì?
+```
+
+Các câu hỏi này sẽ dẫn sang Technical Design và Implementation.
+
+---
+
+# 13. Session Closing Point
+
+Phiên làm việc hiện tại kết thúc tại:
+
+```text
+ARCHITECTURE FOUNDATION
+        ↓
+MODULE SPECIFICATION
+        ↓
+READY TO SELECT FIRST REAL MODULE
+```
+
+Đây là điểm tiếp tục cho phiên làm việc tiếp theo.
+
+Không cần xây lại các tài liệu Architecture đã hoàn thành trừ khi phát hiện mâu thuẫn hoặc có quyết định kiến trúc mới.
+
+---
+
+# 14. Working Protocol
+
+Quy trình làm việc giữa User và AI:
+
+```text
+1. Xác định file cần xây.
+2. Giới thiệu ngắn gọn file đó dùng để làm gì.
+3. Đưa nguyên khối nội dung hoàn chỉnh.
+4. User copy vào đúng vị trí.
+5. User commit + push.
+6. User báo "đã up".
+7. Tiếp tục file kế tiếp.
+8. Khi User nói "chốt sổ":
+   → Tổng hợp PROJECT_STATE.md một lần.
+```
+
+Không tạo Project State sau từng bước nhỏ.
+
+Không lặp lại dài dòng các giải thích đã được xác lập.
+
+---
+
+# 15. Continuation Rule
+
+Khi bắt đầu phiên làm việc mới, đọc:
+
+```text
+START_HERE.md
+PROJECT_STATE.md
+```
+
+Sau đó sử dụng Architecture hiện có để tiếp tục từ:
+
+```text
+READY TO SELECT FIRST REAL MODULE
+```
+
+Không bắt đầu lại từ đầu.
+
+---
+
+# 16. Current Status
+
+```text
+SAOVN-OS
+
+VISION                 COMPLETE
+CONSTITUTION           COMPLETE
+DOMAIN MODEL           COMPLETE
+MODULE MAP             COMPLETE
+SYSTEM ARCHITECTURE    COMPLETE
+PERMISSION MODEL       COMPLETE
+DATA MODEL              COMPLETE
+INTEGRATION             COMPLETE
+TECHNICAL ARCHITECTURE COMPLETE
+ARCHITECTURE DECISIONS COMPLETE
+MODULE SPECIFICATION   COMPLETE
+
+ARCHITECTURE FOUNDATION COMPLETE
 
 NEXT:
+SELECT FIRST REAL MODULE
+```
 
-01_ARCHITECTURE/PERMISSION_MODEL.md
+---
 
-Purpose:
+# 17. Final Project State
 
-Define:
+**SAOVN-OS đã hoàn thành lớp Architecture Foundation đầu tiên.**
 
-Identity
-Roles
-Permissions
-Scopes
-Access Policies
-Organization Boundaries
-Data Visibility
-Approval Authority
-Delegation
-Security Boundaries
+Điểm hiện tại không phải là:
 
-Permission Model must be completed before finalizing the Data Model.
+> "Chúng ta chưa làm gì."
 
-10. WHY PERMISSION COMES BEFORE DATA
-VÌ SAO PHÂN QUYỀN ĐI TRƯỚC DỮ LIỆU
+Mà là:
 
-SAOVN-OS will contain multiple classes of users:
-
-Founder
-CEO
-Executive
-Director
-Manager
-Team Lead
-Employee
-Intern
-Collaborator
-External Partner
-System Administrator
-
-Each user may have different:
-
-Access
-Visibility
-Authority
-Responsibilities
-Approval Rights
-Data Scope
-
-Therefore data architecture must be designed with authorization boundaries in mind.
-
-11. CURRENT MODULE ARCHITECTURE
-KIẾN TRÚC MODULE HIỆN TẠI
-
-Core groups identified:
-
-FOUNDATION
-
-PEOPLE
-
-STRATEGY
-
-WORK
-
-KNOWLEDGE
-
-COMMUNICATION
-
-BUSINESS
-
-FINANCE
-
-OPERATIONS
-
-GOVERNANCE
-
-ANALYTICS
-
-INTEGRATION
-
-AI
-
-PLATFORM
-
-Detailed definitions are stored in:
-
-01_ARCHITECTURE/MODULE_MAP.md
-12. CORE MODULE PRIORITY
-ƯU TIÊN MODULE
-
-P0:
-
-Identity
-Organization
-Access Control
-Audit
-Configuration
-Notification
-
-P1:
-
-People
-Projects
-Tasks
-Documents
-Files
-Knowledge
-Calendar
-Meetings
-Search
-Dashboard
-
-P2:
-
-Strategy
-Goals
-OKR
-KPI
-Performance
-Reporting
-Executive Dashboard
-Governance
-
-P3:
-
-CRM
-Sales
-Marketing
-Procurement
-Inventory
-Customer Support
-
-P4:
-
-Finance
-Accounting
-Budget
-Expenses
-Revenue
-Assets
-Equipment
-Logistics
-Resource Planning
-
-P5:
-
-API
-Webhooks
-External Integrations
-Import / Export
-Automation
-
-P6:
-
-AI Gateway
-AI Providers
-AI Agents
-AI Context
-AI Tools
-AI Automation
-AI Governance
-13. DEVELOPMENT PRINCIPLE
-NGUYÊN TẮC PHÁT TRIỂN
-
-SAOVN-OS must be built as a modular system.
-
-Do not create isolated pages that later become impossible to integrate.
-
-Every new feature must answer:
-
-Which Module owns this?
-Which Domain owns this?
-Which Entity owns this?
-Who can access it?
-What does it depend on?
-What depends on it?
-What events does it create?
-What APIs expose it?
-How will it be tested?
-How can it be extended later?
-14. AI BUILD PROTOCOL
-QUY TRÌNH AI KHI THAM GIA XÂY DỰNG
-
-Before modifying the project, AI MUST:
-
-1. Read START_HERE.md
-2. Read PROJECT_STATE.md
-3. Read relevant Constitution documents
-4. Read relevant Architecture documents
-5. Understand existing dependencies
-6. Identify the current phase
-7. Confirm the intended change
-8. Avoid breaking existing architecture
-9. Update documentation when architecture changes
-10. Update PROJECT_STATE.md when project state changes
-
-AI must NOT:
-
-Invent architecture without checking existing documents.
-
-Rewrite existing architecture casually.
-
-Create duplicate systems for the same responsibility.
-
-Introduce unnecessary dependencies.
-
-Make AI a mandatory dependency without explicit architectural approval.
-
-Hard-code business logic into UI.
-
-Allow modules to bypass permission boundaries.
-
-Directly access another module's private database without an approved architectural contract.
-15. LOW-COST DEVELOPMENT STRATEGY
-CHIẾN LƯỢC PHÁT TRIỂN CHI PHÍ THẤP
-
-Initial system should prioritize:
-
-Open Source
-Free Tiers
-Self-Hosted Options
-Simple Infrastructure
-Structured Data
-Efficient Architecture
-Manual Workflows Where Appropriate
-
-Paid infrastructure and AI should only be introduced when justified by:
-
-Business Value
-Scale
-Reliability
-Security
-Time Savings
-Revenue
-16. EXECUTIVE VISION
-TẦM NHÌN FOUNDER / CEO
-
-The final system should allow leadership to understand organizational health through structured dashboards.
-
-Target areas:
-
-People Health
-Project Health
-Task Health
-Financial Health
-Operational Health
-Strategic Health
-Risk Health
-Growth Health
-
-The system should answer these through:
-
-Data
-Metrics
-KPIs
-Reports
-Dashboards
-
-AI may later provide natural-language analysis, but AI is NOT required for the initial executive system.
-
-17. DATA AS ORGANIZATIONAL MEMORY
-DỮ LIỆU LÀ TRÍ NHỚ TỔ CHỨC
-
-SAOVN-OS should preserve structured organizational knowledge.
-
-Important entities include:
-
-People
-Organizations
-Departments
-Teams
-Projects
-Tasks
-Goals
-KPIs
-Documents
-Decisions
-Risks
-Events
-Transactions
-Activities
-
-The quality of this structured data will determine future reporting, automation and AI capabilities.
-
-18. REPOSITORY AS PROJECT MEMORY
-REPOSITORY LÀ BỘ NHỚ DỰ ÁN
-
-GitHub Repository is the persistent project memory.
-
-Conversation history is NOT the authoritative source of architecture.
-
-The authoritative sources are:
-
-00_CONSTITUTION/
-01_ARCHITECTURE/
-PROJECT_STATE.md
-START_HERE.md
-
-If conversation history conflicts with the repository:
-
-THE REPOSITORY MUST BE TREATED AS THE PRIMARY PROJECT SOURCE OF TRUTH.
-
-19. DAILY AI WORK SESSION
-QUY TRÌNH MỖI NGÀY
-
-At the beginning of a work session:
-
-Open Repository
-      ↓
-Read START_HERE.md
-      ↓
-Read PROJECT_STATE.md
-      ↓
-Read relevant architecture
-      ↓
-Identify current task
-      ↓
-Work
-      ↓
-Update documents
-      ↓
-Update PROJECT_STATE.md
-      ↓
-Commit
-      ↓
-Push
-20. END-OF-DAY REQUIREMENT
-QUY ĐỊNH CUỐI NGÀY
-
-Before ending a significant work session:
-
-PROJECT_STATE.md should reflect:
-
-Completed
-In Progress
-Next Step
-Important Decisions
-Known Issues
-Architecture Changes
-
-The goal is that another AI can continue the project without relying on today's conversation.
-
-21. CURRENT STATUS SNAPSHOT
-ẢNH CHỤP TRẠNG THÁI HIỆN TẠI
-
-Completed:
-
-✓ Repository created
-✓ Git initialized
-✓ GitHub remote connected
-✓ Initial commit completed
-✓ Constitution created
-✓ Master Blueprint created
-✓ AI Build Rules created
-✓ System Architecture created
-✓ Domain Model created
-✓ Module Map created
-✓ START_HERE created
-
-Current:
-
-Architecture Foundation
-
-Next:
-
-Create Permission Model
-22. IMPORTANT ARCHITECTURAL DECISIONS
-CÁC QUYẾT ĐỊNH KIẾN TRÚC QUAN TRỌNG
-
-Decision 001:
-
-SAOVN-OS is primarily an internal organizational operating system.
-
-Decision 002:
-
-The architecture must be modular.
-
-Decision 003:
-
-AI is optional and must not be required for normal operation.
-
-Decision 004:
-
-The initial system should prioritize low cost.
-
-Decision 005:
-
-AI integration must happen through an abstraction layer / AI Gateway.
-
-Decision 006:
-
-The repository is the long-term project memory.
-
-Decision 007:
-
-Architecture must be established before large-scale implementation.
-
-Decision 008:
-
-The system must support Founder, executives, managers, employees, interns and collaborators with different permissions.
-
-Decision 009:
-
-The system should be designed for future expansion into multiple business domains.
-
-Decision 010:
-
-The system must be bilingual-ready:
-
-Vietnamese
-English
-
-23. DO NOT BREAK
-NHỮNG THỨ TUYỆT ĐỐI KHÔNG ĐƯỢC PHÁ
-
-Do NOT:
-
-Make AI mandatory.
-
-Tie the entire system to one AI provider.
-
-Tie business logic directly to UI.
-
-Create uncontrolled direct database dependencies between modules.
-
-Ignore permissions.
-
-Mix unrelated business domains into one module.
-
-Delete architectural documents without review.
-
-Change core architecture without documenting the decision.
-
-Build features that contradict the Constitution.
-
-Optimize for appearance before structural correctness.
-24. NEXT SESSION INSTRUCTION
-CHỈ DẪN CHO PHIÊN LÀM VIỆC TIẾP THEO
-
-When starting a new AI session, use the following instruction:
-
-We are continuing the SAOVN-OS project.
-
-Please access and read the public GitHub repository.
-
-First read:
-
-START_HERE.md
-PROJECT_STATE.md
-
-Then read:
-
-00_CONSTITUTION/
-
-01_ARCHITECTURE/
-
-Determine:
-
-1. What SAOVN-OS is.
-2. What has already been completed.
-3. What architectural decisions have been made.
-4. What the current project phase is.
-5. What the next correct step is.
-
-Do not invent a new architecture.
-Do not repeat completed work.
-Do not skip architectural dependencies.
-
-Continue from the repository state.
-
-Vietnamese:
-
-Chúng ta đang tiếp tục xây dựng dự án SAOVN-OS.
-
-Hãy truy cập và đọc repository GitHub public của dự án.
-
-Đầu tiên đọc:
-
-START_HERE.md
-PROJECT_STATE.md
-
-Sau đó đọc:
-
-00_CONSTITUTION/
-
-01_ARCHITECTURE/
-
-Hãy xác định:
-
-1. SAOVN-OS là gì.
-2. Những gì đã hoàn thành.
-3. Những quyết định kiến trúc đã được thống nhất.
-4. Dự án hiện đang ở giai đoạn nào.
-5. Bước tiếp theo chính xác là gì.
-
-Không tự ý phát minh kiến trúc mới.
-Không làm lại những thứ đã hoàn thành.
-Không bỏ qua các phụ thuộc kiến trúc.
-
-Hãy tiếp tục từ trạng thái thực tế của repository.
-25. END
-HẾT PROJECT STATE
+> **"Chúng ta đã định nghĩa bộ khung, luật, dữ liệu, boundary và cách xây Module của hệ điều hành làm việc SAOVN. Bước tiếp theo là chọn Module thực tế đầu tiên và đưa nó từ Specification sang Technical Design rồi Implementation."**
