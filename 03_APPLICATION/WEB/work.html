@@ -1,11 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="SAOVN-OS — Work Module">
-<title>SAOVN-OS — Work</title>
-<link rel="stylesheet" href="css/work.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="SAOVN-OS — Work Module"><title>SAOVN-OS — Work</title><link rel="stylesheet" href="css/work.css">
 </head>
 <body>
 <div class="app-shell">
@@ -23,10 +19,7 @@
   <div class="toolbar glass"><div class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm công việc, người phụ trách..."></div><select id="statusFilter"><option value="ALL">Tất cả trạng thái</option><option value="BACKLOG">Backlog</option><option value="TODO">Todo</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="REVIEW">Review</option><option value="DONE">Hoàn thành</option></select><select id="priorityFilter"><option value="ALL">Tất cả ưu tiên</option><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option></select><div class="view-toggle"><button class="view-btn active" data-view="list">☷ Danh sách</button><button class="view-btn" data-view="kanban">▦ Kanban</button></div></div>
   <section class="work-board glass"><div class="board-head"><div><span class="eyebrow">WORKSPACE</span><h2 id="boardTitle">Danh sách công việc</h2></div><span id="resultCount" class="result-count">0 công việc</span></div><div id="taskList" class="task-list"></div><div id="kanbanBoard" class="kanban-board"></div></section>
 </section>
-</main>
-</div>
-<div class="modal" id="taskModal"><div class="modal-card glass"><div class="modal-head"><div><span class="eyebrow">WORK / TASK</span><h2 id="modalTitle">Tạo công việc</h2></div><button class="close" id="closeModal">×</button></div><form id="taskForm"><input type="hidden" id="taskId"><label>Tên công việc<input id="taskTitle" required maxlength="120" placeholder="Ví dụ: Hoàn thiện workflow Work"></label><label>Mô tả<textarea id="taskDescription" rows="3" placeholder="Mục tiêu hoặc ghi chú cho công việc..."></textarea></label><div class="form-grid"><label>Người phụ trách<input id="taskAssignee" maxlength="80" placeholder="Tên người thực hiện"></label><label>Deadline<input id="taskDueDate" type="date"></label><label>Trạng thái<select id="taskStatus"><option value="BACKLOG">Backlog</option><option value="TODO">Todo</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="REVIEW">Review</option><option value="DONE">Hoàn thành</option></select></label><label>Độ ưu tiên<select id="taskPriority"><option value="LOW">Thấp</option><option value="MEDIUM" selected>Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option></select></label></div><div class="modal-actions"><button type="button" class="ghost-btn" id="cancelModal">Hủy</button><button class="primary-btn" type="submit" id="saveTaskBtn">Lưu công việc</button></div></form></div></div>
-<script type="module" src="js/work.js"></script>
-<script type="module" src="js/work-collab.js"></script>
-</body>
-</html>
+</main></div>
+<div class="modal" id="taskModal"><div class="modal-card glass"><div class="modal-head"><div><span class="eyebrow">WORK / TASK</span><h2 id="modalTitle">Tạo công việc</h2></div><button class="close" id="closeModal">×</button></div><form id="taskForm"><input type="hidden" id="taskId"><label>Tên công việc<input id="taskTitle" required maxlength="120" placeholder="Ví dụ: Hoàn thiện workflow Work"></label><label>Mô tả<textarea id="taskDescription" rows="3" placeholder="Mục tiêu hoặc ghi chú cho công việc..."></textarea></label><div class="form-grid"><label>Người phụ trách<select id="taskAssignee"><option value="">Chưa giao</option></select><small class="field-hint" id="memberHint">Đang tải thành viên...</small></label><label>Deadline<input id="taskDueDate" type="date"></label><label>Trạng thái<select id="taskStatus"><option value="BACKLOG">Backlog</option><option value="TODO">Todo</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="REVIEW">Review</option><option value="DONE">Hoàn thành</option></select></label><label>Độ ưu tiên<select id="taskPriority"><option value="LOW">Thấp</option><option value="MEDIUM" selected>Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option></select></label></div><div class="modal-actions"><button type="button" class="ghost-btn" id="cancelModal">Hủy</button><button class="primary-btn" type="submit" id="saveTaskBtn">Lưu công việc</button></div></form></div></div>
+<script type="module" src="js/work.js"></script><script type="module" src="js/work-collab.js"></script>
+</body></html>
