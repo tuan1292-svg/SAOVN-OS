@@ -49,46 +49,41 @@ service cloud.firestore {
       return isAdmin() || isManager();
     }
 
-    // ------------------------------------------------------------
-    // Identity
-    // ------------------------------------------------------------
     match /identities/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isPrivileged());
       allow create, update: if signedIn() && (request.auth.uid == userId || isPrivileged());
       allow delete: if isAdmin();
     }
 
-    // ------------------------------------------------------------
-    // Membership
-    // ------------------------------------------------------------
     match /memberships/{membershipDocId} {
       allow read: if signedIn() && (membershipDocId == membershipId() || isPrivileged());
       allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
-    // ------------------------------------------------------------
-    // Work
-    // ------------------------------------------------------------
+    match /invitations/{invitationId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.organizationId == "org_saovn_01"
+        && request.resource.data.invitedBy == request.auth.uid
+        && request.resource.data.status == "PENDING"
+        && request.resource.data.email is string
+        && request.resource.data.role in ["MEMBER", "MANAGER", "ADMIN"];
+      allow update, delete: if isAdmin();
+    }
+
     match /workTasks/{taskId} {
       allow read: if isMember();
-
-      // A member may create a task for themselves. Managers/Admins may
-      // create tasks for anyone in the workspace.
       allow create: if isMember() && (
         isPrivileged()
         || request.resource.data.createdBy == request.auth.uid
         || request.resource.data.assigneeId == request.auth.uid
       );
-
-      // Members may update tasks they created or are assigned to.
-      // Managers/Admins may update every workspace task.
       allow update: if isMember() && (
         isPrivileged()
         || resource.data.createdBy == request.auth.uid
         || resource.data.assigneeId == request.auth.uid
       );
-
       allow delete: if isAdmin();
 
       match /comments/{commentId} {
@@ -103,15 +98,11 @@ service cloud.firestore {
       }
 
       match /activity/{activityId} {
-        allow read: if isMember();
-        allow create: if isMember();
+        allow read, create: if isMember();
         allow update, delete: if isPrivileged();
       }
     }
 
-    // ------------------------------------------------------------
-    // Projects
-    // ------------------------------------------------------------
     match /projects/{projectId} {
       allow read: if isMember();
       allow create, update: if isPrivileged();
@@ -128,9 +119,6 @@ service cloud.firestore {
       allow update, delete: if isPrivileged();
     }
 
-    // ------------------------------------------------------------
-    // Notifications
-    // ------------------------------------------------------------
     match /notifications/{userId} {
       allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
       match /items/{notificationId} {
@@ -138,9 +126,6 @@ service cloud.firestore {
       }
     }
 
-    // ------------------------------------------------------------
-    // Organization administration
-    // ------------------------------------------------------------
     match /departments/{departmentId} {
       allow read: if isMember();
       allow create, update: if isPrivileged();
@@ -162,9 +147,6 @@ service cloud.firestore {
       allow read, create, update, delete: if isSystemAdmin();
     }
 
-    // ------------------------------------------------------------
-    // Default deny
-    // ------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
