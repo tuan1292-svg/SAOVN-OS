@@ -11,190 +11,35 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="sidebar-main">
-            <a class="brand" href="dashboard.html">
-                <span class="brand-mark"><span>✦</span></span>
-                <span class="brand-name">SAOVN-OS</span>
-                <span class="brand-menu">☰</span>
-            </a>
-
-            <div class="sidebar-section">
-                <div class="sidebar-title">CORE <span>«</span></div>
-                <nav class="main-navigation">
-                    <a href="dashboard.html" class="navigation-item active">
-                        <span class="nav-icon">⌂</span><span>Tổng quan</span>
-                    </a>
-                    <a href="#work" class="navigation-item">
-                        <span class="nav-icon">▤</span><span>Công việc</span>
-                    </a>
-                    <a href="#modules" class="navigation-item">
-                        <span class="nav-icon">◇</span><span>Dự án</span>
-                    </a>
-                    <a href="#activity" class="navigation-item">
-                        <span class="nav-icon">□</span><span>Lịch</span>
-                    </a>
-                    <a href="#activity" class="navigation-item">
-                        <span class="nav-icon">♧</span><span>Thông báo</span>
-                    </a>
-                    <a href="#overview" class="navigation-item">
-                        <span class="nav-icon">◔</span><span>Báo cáo</span>
-                    </a>
-                </nav>
-            </div>
-
-            <div class="sidebar-section">
-                <div class="sidebar-title">QUẢN TRỊ <span>⌄</span></div>
-                <nav class="main-navigation">
-                    <a href="#modules" class="navigation-item"><span class="nav-icon">♙</span><span>Thành viên</span></a>
-                    <a href="#modules" class="navigation-item"><span class="nav-icon">♧</span><span>Phòng ban</span></a>
-                    <a href="#modules" class="navigation-item"><span class="nav-icon">♙</span><span>Vai trò</span></a>
-                    <a href="#modules" class="navigation-item"><span class="nav-icon">▣</span><span>Phân quyền</span></a>
-                    <a href="#modules" class="navigation-item"><span class="nav-icon">⚙</span><span>Cài đặt</span></a>
-                </nav>
-            </div>
-
-            <div class="sidebar-section module-section">
-                <div class="sidebar-title">MODULES <b>MỚI</b><span>×</span></div>
-                <a href="#work" class="navigation-item module-active">
-                    <span class="nav-icon work-icon">▱</span><span>Work</span><span class="nav-arrow">›</span>
-                </a>
-            </div>
+            <a class="brand" href="dashboard.html"><span class="brand-mark"><span>S</span></span><span class="brand-name">SAOVN-OS</span><span class="brand-menu">☰</span></a>
+            <div class="sidebar-section"><div class="sidebar-title">CORE <span>«</span></div><nav class="main-navigation">
+                <a href="dashboard.html" class="navigation-item active"><span class="nav-icon">⌂</span><span>Tổng quan</span></a>
+                <a href="work.html" class="navigation-item"><span class="nav-icon">▤</span><span>Công việc</span></a>
+                <a href="members.html" class="navigation-item"><span class="nav-icon">♙</span><span>Thành viên</span></a>
+            </nav></div>
+            <div class="sidebar-section"><div class="sidebar-title">QUẢN TRỊ <span>⌄</span></div><nav class="main-navigation">
+                <a href="members.html" class="navigation-item"><span class="nav-icon">♙</span><span>Thành viên</span></a>
+                <a href="#modules" class="navigation-item"><span class="nav-icon">♧</span><span>Phòng ban</span></a>
+                <a href="#modules" class="navigation-item"><span class="nav-icon">♙</span><span>Vai trò</span></a>
+                <a href="#modules" class="navigation-item"><span class="nav-icon">▣</span><span>Phân quyền</span></a>
+                <a href="#modules" class="navigation-item"><span class="nav-icon">⚙</span><span>Cài đặt</span></a>
+            </nav></div>
+            <div class="sidebar-section module-section"><div class="sidebar-title">MODULES <b>MỚI</b><span>×</span></div><a href="work.html" class="navigation-item module-active"><span class="nav-icon work-icon">▱</span><span>Work</span><span class="nav-arrow">›</span></a></div>
         </div>
-
-        <div class="sidebar-bottom">
-            <div class="workspace-card">
-                <div class="workspace-mark">✦</div>
-                <div><strong>SAO VIỆT GROUP</strong><span>Enterprise Workspace</span></div>
-                <span class="workspace-dot"></span>
-                <span class="workspace-chevron">⌄</span>
-            </div>
-            <div class="user-mini">
-                <div class="user-avatar">A</div>
-                <div class="user-info">
-                    <strong id="userIdentity">Admin</strong>
-                    <span>Administrator</span>
-                </div>
-                <button type="button" id="logoutButton" class="logout-button" aria-label="Đăng xuất">↗</button>
-            </div>
-        </div>
+        <div class="sidebar-bottom"><div class="workspace-card"><div class="workspace-mark">S</div><div><strong>SAOVN Organization</strong><span>Workspace</span></div><span class="workspace-dot"></span><span class="workspace-chevron">⌄</span></div><div class="user-mini"><div class="user-avatar">A</div><div class="user-info"><strong id="userIdentity">Admin</strong><span>Administrator</span></div><button type="button" id="logoutButton" class="logout-button" aria-label="Đăng xuất">↗</button></div></div>
     </aside>
-
     <main class="main-content">
-        <header class="topbar">
-            <div class="search-box"><span>⌕</span><input aria-label="Tìm kiếm" placeholder="Tìm kiếm nhanh (Ctrl + K)"></div>
-            <div class="topbar-actions">
-                <button class="top-icon" aria-label="Thông báo">♧<span>12</span></button>
-                <button class="top-icon" aria-label="Tin nhắn">▢</button>
-                <div class="topbar-user">
-                    <div class="topbar-avatar">A</div>
-                    <div><strong id="topbarIdentity">Admin</strong><span>System Administrator</span></div>
-                    <b>⌄</b>
-                </div>
-            </div>
-        </header>
-
+        <header class="topbar"><div class="search-box"><span>⌕</span><input aria-label="Tìm kiếm" placeholder="Tìm kiếm nhanh (Ctrl + K)"></div><div class="topbar-actions"><button class="top-icon" aria-label="Thông báo">♧<span>12</span></button><button class="top-icon" aria-label="Tin nhắn">▢</button><div class="topbar-user"><div class="topbar-avatar">A</div><div><strong id="topbarIdentity">Admin</strong><span>System Administrator</span></div><b>⌄</b></div></div></header>
         <div class="dashboard-content" id="overview">
-            <section class="hero-banner">
-                <div class="hero-mark">✦</div>
-                <div><span>Hey <strong id="welcomeIdentity">Admin</strong>,</span> báo cáo tình hình hoạt động hệ thống vừa qua</div>
-                <div class="hero-spark">✦</div>
-            </section>
-
-            <section class="report-card">
-                <div class="report-icon">◈</div>
-                <div class="report-copy">
-                    <p class="eyebrow">TỔNG QUAN HỆ THỐNG</p>
-                    <h1>Tiến độ công việc, vận hành và hoạt động tháng vừa qua</h1>
-                    <p>SAOVN-OS đang vận hành ổn định. Module Work là năng lực nghiệp vụ đầu tiên, trong khi Core tiếp tục hoàn thiện nền tảng Identity, Membership và Permission.</p>
-                    <ul>
-                        <li>Core Identity đã được thiết lập và kết nối Firebase.</li>
-                        <li>Work đang là module nghiệp vụ trọng tâm.</li>
-                        <li>Dashboard được thiết kế theo hệ giao diện glassmorphism thống nhất.</li>
-                    </ul>
-                    <button class="outline-button" id="openReportBtn">Xem chi tiết báo cáo <span>→</span></button>
-                </div>
-            </section>
-
-            <section class="metric-grid">
-                <article class="metric-card green-card">
-                    <div class="metric-head"><span>CÔNG VIỆC HOÀN THÀNH</span><b>↗ 8%</b></div>
-                    <strong>124</strong><small>So với tháng trước</small><div class="mini-chart green-chart"></div>
-                </article>
-                <article class="metric-card red-card">
-                    <div class="metric-head"><span>CÔNG VIỆC TRỄ / TỒN ĐỌNG</span><b>↘ 3%</b></div>
-                    <strong>12</strong><small>So với tháng trước</small><div class="mini-chart red-chart"></div>
-                </article>
-                <article class="metric-card blue-card">
-                    <div class="metric-head"><span>TIẾN ĐỘ WORK</span><b>68%</b></div>
-                    <strong>68%</strong><small>Tiến độ tổng thể</small><div class="progress-line"><i style="width:68%"></i></div>
-                </article>
-            </section>
-
-            <section class="content-grid">
-                <article class="glass-panel work-panel" id="work">
-                    <div class="panel-header"><div><span class="eyebrow">MODULE</span><h2>Work</h2></div><a href="#" class="panel-link">Mở Work →</a></div>
-                    <div class="work-body">
-                        <div class="work-ring"><div><strong>68%</strong><span>Overall</span></div></div>
-                        <div class="work-summary">
-                            <div><span>Đang thực hiện</span><strong class="green-text">05</strong></div>
-                            <div><span>Hoàn thành</span><strong class="blue-text">04</strong></div>
-                            <div><span>Chờ xử lý</span><strong class="orange-text">03</strong></div>
-                        </div>
-                    </div>
-                    <div class="task-list">
-                        <div class="task-item"><i class="task-dot green-dot"></i><div><strong>Hoàn thiện hệ thống Work</strong><span>Đang thực hiện</span></div><b>75%</b></div>
-                        <div class="task-item"><i class="task-dot green-dot"></i><div><strong>Xây dựng workflow</strong><span>Đang thực hiện</span></div><b>50%</b></div>
-                        <div class="task-item"><i class="task-dot blue-dot"></i><div><strong>Thiết lập Identity Model</strong><span>Hoàn thành</span></div><b>100%</b></div>
-                        <div class="task-item"><i class="task-dot red-dot"></i><div><strong>Hoàn thiện Permission layer</strong><span>Cần xử lý</span></div><b class="red-text">32%</b></div>
-                    </div>
-                </article>
-
-                <aside class="side-stack">
-                    <article class="glass-panel side-card" id="activity">
-                        <div class="panel-header"><h3>CÔNG VIỆC HÔM NAY</h3><button class="square-button">+</button></div>
-                        <div class="today-list">
-                            <div><i class="check">✓</i><span>Hoàn thiện workflow Work</span><time>09:00</time></div>
-                            <div><i class="check">✓</i><span>Review Identity Model</span><time>10:30</time></div>
-                            <div><i class="check">✓</i><span>Kiểm tra Permission</span><time>14:00</time></div>
-                            <div><i class="check">✓</i><span>Đồng bộ dashboard</span><time>16:00</time></div>
-                        </div>
-                        <a class="side-link" href="#work">Xem tất cả công việc →</a>
-                    </article>
-                    <article class="glass-panel side-card">
-                        <div class="panel-header"><h3>THÔNG BÁO</h3><span class="count-badge">12</span></div>
-                        <div class="notice-list">
-                            <div><i class="notice-dot green-dot"></i><span><strong>Work module</strong> đã cập nhật tiến độ mới<small>5 phút trước</small></span></div>
-                            <div><i class="notice-dot green-dot"></i><span><strong>Identity</strong> đã xác thực phiên đăng nhập<small>15 phút trước</small></span></div>
-                            <div><i class="notice-dot blue-dot"></i><span><strong>Dashboard</strong> đã chuyển sang giao diện mới<small>1 giờ trước</small></span></div>
-                        </div>
-                        <a class="side-link" href="#activity">Xem tất cả thông báo →</a>
-                    </article>
-                    <article class="glass-panel side-card">
-                        <div class="panel-header"><h3>TÀI LIỆU GẦN ĐÂY</h3><span>⌁</span></div>
-                        <div class="doc-list">
-                            <div><i class="doc-icon green-doc">X</i><span>Báo cáo Work 08/2026<small>XLSX · 2.4 MB</small></span><time>10 phút</time></div>
-                            <div><i class="doc-icon blue-doc">D</i><span>Work specification<small>DOCX · 1.8 MB</small></span><time>1 giờ</time></div>
-                            <div><i class="doc-icon red-doc">P</i><span>SAOVN-OS Proposal<small>PDF · 3.2 MB</small></span><time>3 giờ</time></div>
-                        </div>
-                        <a class="side-link" href="#modules">Xem tất cả tài liệu →</a>
-                    </article>
-                </aside>
-            </section>
-
-            <section class="chart-grid" id="modules">
-                <article class="glass-panel chart-card"><div class="panel-header"><div><span class="eyebrow">WORK</span><h3>TIẾN ĐỘ 6 THÁNG GẦN NHẤT</h3></div><select><option>6 tháng</option></select></div><div class="legend"><i class="legend-green"></i> Hoàn thành</div><div class="bar-chart"><div><span>52</span><i style="height:52%"></i><small>03/2026</small></div><div><span>61</span><i style="height:61%"></i><small>04/2026</small></div><div><span>70</span><i style="height:70%"></i><small>05/2026</small></div><div><span>78</span><i style="height:78%"></i><small>06/2026</small></div><div><span>86</span><i style="height:86%"></i><small>07/2026</small></div><div><span>92</span><i style="height:92%"></i><small>08/2026</small></div></div></article>
-                <article class="glass-panel chart-card"><div class="panel-header"><div><span class="eyebrow">RISK</span><h3>TÌNH TRẠNG CÔNG VIỆC</h3></div><select><option>Hiện tại</option></select></div><div class="risk-bars"><div><span>Đúng tiến độ</span><b class="green-fill" style="width:72%">72%</b></div><div><span>Cần chú ý</span><b class="orange-fill" style="width:18%">18%</b></div><div><span>Trễ hạn</span><b class="red-fill" style="width:10%">10%</b></div></div><div class="risk-note"><span>!</span> 2 công việc cần được xử lý trong hôm nay.</div></article>
-            </section>
+            <section class="hero-banner"><div class="hero-mark">S</div><div><span>Hey <strong id="welcomeIdentity">Admin</strong>,</span> báo cáo tình hình hoạt động hệ thống vừa qua</div><div class="hero-spark">✦</div></section>
+            <section class="report-card"><div class="report-icon">◈</div><div class="report-copy"><p class="eyebrow">TỔNG QUAN HỆ THỐNG</p><h1>Tiến độ công việc, vận hành và hoạt động tháng vừa qua</h1><p>SAOVN-OS đang vận hành ổn định. Module Work là năng lực nghiệp vụ đầu tiên, trong khi Core tiếp tục hoàn thiện nền tảng Identity, Membership và Permission.</p><ul><li>Core Identity đã được thiết lập và kết nối Firebase.</li><li>Work đang là module nghiệp vụ trọng tâm.</li><li>Dashboard được thiết kế theo hệ giao diện glassmorphism thống nhất.</li></ul><button class="outline-button" id="openReportBtn">Xem chi tiết báo cáo <span>→</span></button></div></section>
+            <section class="metric-grid"><article class="metric-card green-card"><div class="metric-head"><span>CÔNG VIỆC HOÀN THÀNH</span><b>↗ 8%</b></div><strong>124</strong><small>So với tháng trước</small><div class="mini-chart green-chart"></div></article><article class="metric-card red-card"><div class="metric-head"><span>CÔNG VIỆC TRỄ / TỒN ĐỌNG</span><b>↘ 3%</b></div><strong>12</strong><small>So với tháng trước</small><div class="mini-chart red-chart"></div></article><article class="metric-card blue-card"><div class="metric-head"><span>TIẾN ĐỘ WORK</span><b>68%</b></div><strong>68%</strong><small>Tiến độ tổng thể</small><div class="progress-line"><i style="width:68%"></i></div></article></section>
+            <section class="content-grid"><article class="glass-panel work-panel" id="work"><div class="panel-header"><div><span class="eyebrow">MODULE</span><h2>Work</h2></div><a href="work.html" class="panel-link">Mở Work →</a></div><div class="work-body"><div class="work-ring"><div><strong>68%</strong><span>Overall</span></div></div><div class="work-summary"><div><span>Đang thực hiện</span><strong class="green-text">05</strong></div><div><span>Hoàn thành</span><strong class="blue-text">04</strong></div><div><span>Chờ xử lý</span><strong class="orange-text">03</strong></div></div></div><div class="task-list"><div class="task-item"><i class="task-dot green-dot"></i><div><strong>Hoàn thiện hệ thống Work</strong><span>Đang thực hiện</span></div><b>75%</b></div><div class="task-item"><i class="task-dot green-dot"></i><div><strong>Xây dựng workflow</strong><span>Đang thực hiện</span></div><b>50%</b></div><div class="task-item"><i class="task-dot blue-dot"></i><div><strong>Thiết lập Identity Model</strong><span>Hoàn thành</span></div><b>100%</b></div><div class="task-item"><i class="task-dot red-dot"></i><div><strong>Hoàn thiện Permission layer</strong><span>Cần xử lý</span></div><b class="red-text">32%</b></div></div></article>
+                <aside class="side-stack"><article class="glass-panel side-card" id="activity"><div class="panel-header"><h3>CÔNG VIỆC HÔM NAY</h3><button class="square-button">+</button></div><div class="today-list"><div><i class="check">✓</i><span>Hoàn thiện workflow Work</span><time>09:00</time></div><div><i class="check">✓</i><span>Review Identity Model</span><time>10:30</time></div><div><i class="check">✓</i><span>Kiểm tra Permission</span><time>14:00</time></div><div><i class="check">✓</i><span>Đồng bộ dashboard</span><time>16:00</time></div></div><a class="side-link" href="work.html">Xem tất cả công việc →</a></article><article class="glass-panel side-card"><div class="panel-header"><h3>THÔNG BÁO</h3><span class="count-badge">12</span></div><div class="notice-list"><div><i class="notice-dot green-dot"></i><span><strong>Work module</strong> đã cập nhật tiến độ mới<small>5 phút trước</small></span></div><div><i class="notice-dot green-dot"></i><span><strong>Identity</strong> đã xác thực phiên đăng nhập<small>15 phút trước</small></span></div><div><i class="notice-dot blue-dot"></i><span><strong>Dashboard</strong> đã chuyển sang giao diện mới<small>1 giờ trước</small></span></div></div><a class="side-link" href="#activity">Xem tất cả thông báo →</a></article><article class="glass-panel side-card"><div class="panel-header"><h3>TÀI LIỆU GẦN ĐÂY</h3><span>⌁</span></div><div class="doc-list"><div><i class="doc-icon green-doc">X</i><span>Báo cáo Work 08/2026<small>XLSX · 2.4 MB</small></span><time>10 phút</time></div><div><i class="doc-icon blue-doc">D</i><span>Work specification<small>DOCX · 1.8 MB</small></span><time>1 giờ</time></div><div><i class="doc-icon red-doc">P</i><span>SAOVN-OS Proposal<small>PDF · 3.2 MB</small></span><time>3 giờ</time></div></div><a class="side-link" href="#modules">Xem tất cả tài liệu →</a></article></aside></section>
+            <section class="chart-grid" id="modules"><article class="glass-panel chart-card"><div class="panel-header"><div><span class="eyebrow">WORK</span><h3>TIẾN ĐỘ 6 THÁNG GẦN NHẤT</h3></div><select><option>6 tháng</option></select></div><div class="legend"><i class="legend-green"></i> Hoàn thành</div><div class="bar-chart"><div><span>52</span><i style="height:52%"></i><small>03/2026</small></div><div><span>61</span><i style="height:61%"></i><small>04/2026</small></div><div><span>70</span><i style="height:70%"></i><small>05/2026</small></div><div><span>78</span><i style="height:78%"></i><small>06/2026</small></div><div><span>86</span><i style="height:86%"></i><small>07/2026</small></div><div><span>92</span><i style="height:92%"></i><small>08/2026</small></div></div></article><article class="glass-panel chart-card"><div class="panel-header"><div><span class="eyebrow">RISK</span><h3>TÌNH TRẠNG CÔNG VIỆC</h3></div><select><option>Hiện tại</option></select></div><div class="risk-bars"><div><span>Đúng tiến độ</span><b class="green-fill" style="width:72%">72%</b></div><div><span>Cần chú ý</span><b class="orange-fill" style="width:18%">18%</b></div><div><span>Trễ hạn</span><b class="red-fill" style="width:10%">10%</b></div></div><div class="risk-note"><span>!</span> 2 công việc cần được xử lý trong hôm nay.</div></article></section>
         </div>
-
-        <footer class="footer"><span>SAOVN-OS v1.0.0</span><span>© 2026 SAO VIỆT GROUP. All rights reserved.</span><span>◌ Hỗ trợ &nbsp;&nbsp; ? Trợ giúp &nbsp;&nbsp; ⌨ Phím tắt</span></footer>
-
-        <div class="glass-modal-overlay" id="workReportModal">
-            <div class="glass-panel modal-panel">
-                <div class="modal-head"><div><span class="eyebrow">SAOVN-OS / WORK</span><h2>Tổng quan Work / Dự án SAOVN</h2></div><button id="closeReportBtn" class="modal-close">×</button></div>
-                <p>Tiến độ tổng thể của hệ thống đang ở mức khả quan. Core Identity đã được thiết lập, dashboard đang chuyển sang hệ giao diện glassmorphism và Work là module nghiệp vụ đầu tiên.</p>
-                <div class="modal-data-grid"><div class="modal-data green-border"><span>CÔNG VIỆC HOÀN THÀNH</span><strong>124</strong><b>↑ 15%</b></div><div class="modal-data red-border"><span>TỒN ĐỌNG / TRỄ HẠN</span><strong>12</strong><b>↓ 3%</b></div></div>
-            </div>
-        </div>
+        <footer class="footer"><span>SAOVN-OS v1.0.0</span><span>© 2026 SAOVN Organization. All rights reserved.</span><span>◌ Hỗ trợ &nbsp;&nbsp; ? Trợ giúp &nbsp;&nbsp; ⌨ Phím tắt</span></footer>
+        <div class="glass-modal-overlay" id="workReportModal"><div class="glass-panel modal-panel"><div class="modal-head"><div><span class="eyebrow">SAOVN-OS / WORK</span><h2>Tổng quan Work / Dự án SAOVN</h2></div><button id="closeReportBtn" class="modal-close">×</button></div><p>Tiến độ tổng thể của hệ thống đang ở mức khả quan. Core Identity đã được thiết lập, dashboard đang chuyển sang hệ giao diện glassmorphism và Work là module nghiệp vụ đầu tiên.</p><div class="modal-data-grid"><div class="modal-data green-border"><span>CÔNG VIỆC HOÀN THÀNH</span><strong>124</strong><b>↑ 15%</b></div><div class="modal-data red-border"><span>TỒN ĐỌNG / TRỄ HẠN</span><strong>12</strong><b>↓ 3%</b></div></div></div></div>
     </main>
 </div>
 <script type="module" src="js/dashboard.js"></script>
