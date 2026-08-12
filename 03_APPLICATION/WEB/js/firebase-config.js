@@ -2,9 +2,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js"; // Bổ sung dòng này
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyBXm7X-OPt1tIZH6ZyjO9jQalqCd9QqNyo",
   authDomain: "saovn-os.firebaseapp.com",
   projectId: "saovn-os",
@@ -14,8 +14,7 @@ const firebaseConfig = {
   measurementId: "G-7T2NC73FR8"
 };
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
+export const app = initializeApp(firebaseConfig);
+getAnalytics(app);
 export const auth = getAuth(app);
-export const db = getFirestore(app); // Xuất thêm biến db để dùng
+export const db = getFirestore(app);
