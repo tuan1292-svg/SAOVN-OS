@@ -2,7 +2,7 @@ import { auth, db, firebaseConfig } from './firebase-config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js';
 import { getAuth, createUserWithEmailAndPassword, signOut as signOutProvisioning } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { collection, getDocs, doc, getDoc, setDoc, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { collection, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { renderPermissionGrid, saveMemberRole } from './role-permissions.js';
 
 const $ = id => document.getElementById(id);
@@ -30,7 +30,7 @@ async function loadMembers() {
     const activeMembers=identitySnap.docs.map(s=>memberFrom({...s.data(),id:s.id},membershipsByUid.get(s.id),s.id));
     let pendingInvites=[]; try { const invitationSnap=await getDocs(collection(db,'invitations')); pendingInvites=invitationSnap.docs.filter(s=>String(s.data()?.status||'PENDING').toUpperCase()==='PENDING').map(invitationFrom); } catch(inviteError) { console.warn('Không thể đọc invitations:',inviteError); }
     members=[...activeMembers,...pendingInvites];
-    if(!members.length&&currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid)];}
+    if(!members.length&&currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid);}
     render();
   } catch(error) { console.error('Lỗi tải thành viên:',error); render(); if(resultCount) resultCount.textContent='Không thể tải toàn bộ danh sách với quyền hiện tại'; }
 }
@@ -45,39 +45,30 @@ function render() {
 
 function openMemberDetail(member) { if(!member)return; currentMember=member; const fields={detailAvatar:initials(member.name),detailName:member.name,detailEmail:member.email||'Không có email',detailRole:roleLabel(member.role),detailStatus:statusLabel(member.status),detailJoined:formatDate(member.joinedAt),detailId:member.id}; Object.entries(fields).forEach(([id,value])=>{const el=$(id);if(el)el.textContent=value;}); const roleSelect=$('roleSelect');if(roleSelect)roleSelect.value=member.role;const saveStatus=$('roleSaveStatus');if(saveStatus){saveStatus.textContent='';saveStatus.className='role-save-status';}const permissionGrid=$('permissionGrid');if(permissionGrid)renderPermissionGrid(permissionGrid,member.role);const overlay=$('memberDetailOverlay');if(!overlay)return;overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open')); }
 function closeMemberDetail(){const overlay=$('memberDetailOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);currentMember=null;}
-function openInvite(){const overlay=$('inviteOverlay');if(!overlay)return;const form=$('inviteForm');if(form)form.reset();const status=$('inviteStatus');if(status){status.textContent='';status.className='role-save-status';}const result=$('inviteResult');if(result)result.hidden=true;const code=$('inviteCode');if(code)code.textContent='—';const password=$('generatedPassword');if(password)password.textContent='—';const credentials=$('credentialsResult');if(credentials)credentials.hidden=true;const button=$('sendInviteBtn');if(button){button.textContent='Tạo tài khoản';button.disabled=false;}overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>$('inviteName')?.focus(),60);}
+function openInvite(){const overlay=$('inviteOverlay');if(!overlay)return;const form=$('inviteForm');if(form)form.reset();const status=$('inviteStatus');if(status){status.textContent='';status.className='role-save-status';}const password=$('generatedPassword');if(password)password.textContent='—';const credentials=$('credentialsResult');if(credentials)credentials.hidden=true;const button=$('sendInviteBtn');if(button){button.textContent='Tạo tài khoản';button.disabled=false;}overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>$('inviteName')?.focus(),60);}
 function closeInvite(){const overlay=$('inviteOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);}
 function formatDate(value){if(!value)return'—';try{const d=value?.toDate?value.toDate():new Date(value);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('vi-VN');}catch{return'—';}}
 function generatePassword(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';const bytes=new Uint8Array(14);crypto.getRandomValues(bytes);return Array.from(bytes,b=>alphabet[b%alphabet.length]).join('');}
-
 async function getProvisioningAuth(){if(provisioningAuth)return provisioningAuth;const app=initializeApp(firebaseConfig,`saovn-provision-${Date.now()}`);provisioningAuth=getAuth(app);return provisioningAuth;}
 
 async function provisionMemberAccount(){
   const name=String($('inviteName')?.value||'').trim(); const email=String($('inviteEmail')?.value||'').trim().toLowerCase(); const role=String($('inviteRole')?.value||'MEMBER').toUpperCase(); const status=$('inviteStatus'); const button=$('sendInviteBtn');
   if(!name||!email)return;
   if(status){status.textContent='Đang tạo tài khoản và Membership...';status.className='role-save-status pending';} if(button){button.disabled=true;button.textContent='Đang tạo...';}
-  let secondary=null;
   try {
     const identityQuery=await getDocs(collection(db,'identities')); if(identityQuery.docs.some(s=>String(s.data()?.email||'').toLowerCase()===email))throw new Error('Email này đã tồn tại trong SAOVN-OS.');
-    const provisioningAuthInstance=await getProvisioningAuth(); secondary=provisioningAuthInstance; const password=generatePassword(); const credential=await createUserWithEmailAndPassword(secondary,email,password); const uid=credential.user.uid;
+    const provisioningAuthInstance=await getProvisioningAuth(); const password=generatePassword(); const credential=await createUserWithEmailAndPassword(provisioningAuthInstance,email,password); const uid=credential.user.uid;
     await setDoc(doc(db,'identities',uid),{uid,email,displayName:name,status:'ACTIVE',createdAt:serverTimestamp(),createdBy:auth.currentUser.uid});
     await setDoc(doc(db,'memberships',`mem_${uid}_org_saovn_01`),{uid,userId:uid,identityId:uid,organizationId:'org_saovn_01',status:'ACTIVE',roles:{system:[],organization:[roleValue(role)]},joinedAt:serverTimestamp(),createdAt:serverTimestamp(),updatedAt:serverTimestamp(),createdBy:auth.currentUser.uid});
-    try{await signOutProvisioning(secondary);}catch(_){ }
-    if($('generatedPassword'))$('generatedPassword').textContent=password; if($('credentialsResult'))$('credentialsResult').hidden=false;
-    if($('inviteResult'))$('inviteResult').hidden=true;
-    if(status){status.textContent='Đã tạo tài khoản thành công. Hãy sao chép thông tin đăng nhập và gửi cho thành viên.';status.className='role-save-status success';}
-    if(button)button.textContent='Tạo tài khoản khác';
-    await loadMembers();
-  } catch(error) {
-    console.error('Lỗi tạo tài khoản thành viên:',error); let message=error?.message||'Không thể tạo tài khoản.';
-    if(error?.code==='auth/email-already-in-use')message='Email này đã có tài khoản Firebase Auth.'; if(error?.code==='auth/invalid-email')message='Email không hợp lệ.'; if(error?.code==='auth/weak-password')message='Mật khẩu sinh tự động không đạt yêu cầu.';
-    if(status){status.textContent=message;status.className='role-save-status error';}
-  } finally {if(button)button.disabled=false;}
+    try{await signOutProvisioning(provisioningAuthInstance);}catch(_){ }
+    if($('generatedEmail'))$('generatedEmail').textContent=email; if($('generatedPassword'))$('generatedPassword').textContent=password; if($('credentialsResult'))$('credentialsResult').hidden=false;
+    if(status){status.textContent='Đã tạo tài khoản thành công. Hãy sao chép thông tin đăng nhập và gửi cho thành viên.';status.className='role-save-status success';} if(button)button.textContent='Tạo tài khoản khác'; await loadMembers();
+  } catch(error) { console.error('Lỗi tạo tài khoản thành viên:',error); let message=error?.message||'Không thể tạo tài khoản.'; if(error?.code==='auth/email-already-in-use')message='Email này đã có tài khoản Firebase Auth.'; if(error?.code==='auth/invalid-email')message='Email không hợp lệ.'; if(status){status.textContent=message;status.className='role-save-status error';} } finally {if(button)button.disabled=false;}
 }
 
 [['searchInput','input'],['statusFilter','change'],['roleFilter','change']].forEach(([id,event])=>$(id)?.addEventListener(event,render));
 $('refreshBtn')?.addEventListener('click',loadMembers); $('logoutBtn')?.addEventListener('click',()=>signOut(auth)); $('detailClose')?.addEventListener('click',closeMemberDetail); $('memberDetailOverlay')?.addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();}); $('inviteMemberBtn')?.addEventListener('click',openInvite); $('inviteClose')?.addEventListener('click',closeInvite); $('inviteOverlay')?.addEventListener('click',e=>{if(e.target.id==='inviteOverlay')closeInvite();}); $('inviteForm')?.addEventListener('submit',e=>{e.preventDefault();provisionMemberAccount();});
-$('copyCredentials')?.addEventListener('click',async()=>{const email=$('inviteEmail')?.value.trim(),password=$('generatedPassword')?.textContent;if(!email||!password)return;const text=`SAOVN-OS\nEmail: ${email}\nMật khẩu tạm: ${password}`;try{await navigator.clipboard.writeText(text);const b=$('copyCredentials');b.textContent='Đã sao chép';setTimeout(()=>b.textContent='Sao chép thông tin',1500);}catch{const s=$('inviteStatus');if(s){s.textContent='Không thể sao chép tự động. Hãy copy thông tin bằng tay.';s.className='role-save-status error';}}});
+$('copyCredentials')?.addEventListener('click',async()=>{const email=$('generatedEmail')?.textContent,password=$('generatedPassword')?.textContent;if(!email||email==='—'||!password||password==='—')return;const text=`SAOVN-OS\nEmail: ${email}\nMật khẩu tạm: ${password}`;try{await navigator.clipboard.writeText(text);const b=$('copyCredentials');b.textContent='Đã sao chép';setTimeout(()=>b.textContent='Sao chép thông tin',1500);}catch{const s=$('inviteStatus');if(s){s.textContent='Không thể sao chép tự động. Hãy copy thông tin bằng tay.';s.className='role-save-status error';}}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMemberDetail();closeInvite();}});
 $('roleSelect')?.addEventListener('change',e=>{renderPermissionGrid($('permissionGrid'),e.target.value);const s=$('roleSaveStatus');if(s){s.textContent='Thay đổi chưa lưu';s.className='role-save-status pending';}});
 $('saveRoleBtn')?.addEventListener('click',async()=>{if(!currentMember)return;const role=$('roleSelect')?.value;const button=$('saveRoleBtn');if(!button)return;button.disabled=true;button.textContent='Đang lưu...';const s=$('roleSaveStatus');if(s)s.textContent='';try{if(!currentMember.membershipId)throw new Error('Thành viên này chưa có Membership trong workspace.');await saveMemberRole(currentMember.membershipId,role);currentMember.role=role;const target=members.find(m=>m.id===currentMember.id);if(target)target.role=role;if($('detailRole'))$('detailRole').textContent=roleLabel(role);if(s){s.textContent='Đã lưu vai trò thành công.';s.className='role-save-status success';}render();}catch(error){console.error('Lỗi lưu vai trò:',error);if(s){s.textContent=error?.message||'Không thể lưu vai trò.';s.className='role-save-status error';}}finally{button.disabled=false;button.textContent='Lưu vai trò';}});
