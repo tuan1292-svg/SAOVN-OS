@@ -1,6 +1,6 @@
 import { auth, db } from './firebase-config.js';
-import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { collection, getDocs, doc, getDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
+import { collection, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
 const $ = id => document.getElementById(id);
 let currentUid = null;
@@ -12,7 +12,6 @@ const normalizeRole = role => {
   if (r.includes('manager')) return 'MANAGER';
   return 'MEMBER';
 };
-
 const roleLabel = role => ({ADMIN:'Admin',MANAGER:'Manager',MEMBER:'Member'})[role] || role;
 const statusLabel = status => ({ACTIVE:'Active',PENDING:'Pending',SUSPENDED:'Suspended'})[status] || status;
 const initials = name => String(name || 'U').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase();
@@ -53,18 +52,14 @@ async function loadMembers() {
     });
 
     members = identitySnap.docs.map(s => memberFrom({...s.data(), id:s.id}, membershipsByUid.get(s.id), s.id));
-
-    // If Rules restrict the directory query, keep the signed-in member visible.
     if (!members.length && currentUid) {
       const own = await getDoc(doc(db, 'identities', currentUid));
-      const memId = `mem_${currentUid}_org_saovn_01`;
-      const ownMem = await getDoc(doc(db, 'memberships', memId));
+      const ownMem = await getDoc(doc(db, 'memberships', `mem_${currentUid}_org_saovn_01`));
       if (own.exists()) members = [memberFrom({...own.data(),id:currentUid}, ownMem.exists()?ownMem.data():{}, currentUid)];
     }
     render();
   } catch (error) {
     console.error('Lỗi tải thành viên:', error);
-    // Try the current user only as a graceful fallback.
     try {
       if (currentUid) {
         const own = await getDoc(doc(db, 'identities', currentUid));
