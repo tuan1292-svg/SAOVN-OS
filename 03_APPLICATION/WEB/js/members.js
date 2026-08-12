@@ -15,15 +15,32 @@ const initials = name => String(name || 'U').split(/\s+/).filter(Boolean).slice(
 const safe = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
 function collectRoles(data) { const roles=data?.roles||{}; return [...(Array.isArray(roles.system)?roles.system:[]),...(Array.isArray(roles.organization)?roles.organization:[]),...(Array.isArray(data?.role)?data.role:[data?.role].filter(Boolean))]; }
-function memberFrom(identity, membership, fallbackId) { const id=identity.id||fallbackId; const roles=collectRoles(membership); const statusRaw=String(membership?.status||identity?.status||'ACTIVE').toUpperCase(); const status=['PENDING','SUSPENDED'].includes(statusRaw)?statusRaw:'ACTIVE'; const name=identity.displayName||identity.name||identity.fullName||identity.email||id; return {id,name,email:identity.email||identity.emailAddress||'',role:normalizeRole(roles.join(' ')),status,joinedAt:membership?.joinedAt||membership?.createdAt||identity?.createdAt||null,membershipId:membership?.id||null}; }
+function memberFrom(identity, membership, fallbackId) { const id=identity.id||fallbackId; const roles=collectRoles(membership); const statusRaw=String(membership?.status||identity?.status||'ACTIVE').toUpperCase(); const status=['PENDING','SUSPENDED'].includes(statusRaw)?statusRaw:'ACTIVE'; const name=identity.displayName||identity.name||identity.fullName||identity.email||id; return {id,name,email:identity.email||identity.emailAddress||'',role:normalizeRole(roles.join(' ')),status,joinedAt:membership?.joinedAt||membership?.createdAt||identity?.createdAt||null,membershipId:membership?.id||null,type:'member'}; }
+function invitationFrom(snapshot) { const d=snapshot.data(); return {id:`invite_${snapshot.id}`,name:d.email||'Lời mời thành viên',email:d.email||'',role:normalizeRole(d.role),status:'PENDING',joinedAt:d.createdAt||null,membershipId:null,type:'invitation',inviteId:snapshot.id}; }
 
 async function loadMembers() {
   const resultCount=$('resultCount'); if(resultCount) resultCount.textContent='Đang tải...';
   try {
-    const identitySnap=await getDocs(collection(db,'identities')); const membershipSnap=await getDocs(collection(db,'memberships')); const membershipsByUid=new Map();
+    const identitySnap=await getDocs(collection(db,'identities'));
+    const membershipSnap=await getDocs(collection(db,'memberships'));
+    const membershipsByUid=new Map();
     membershipSnap.forEach(s=>{const d=s.data(); const uid=d.identityId||d.userId||d.uid||s.id.match(/^mem_(.+)_org_/)?.[1]; if(uid) membershipsByUid.set(uid,{...d,id:s.id});});
-    members=identitySnap.docs.map(s=>memberFrom({...s.data(),id:s.id},membershipsByUid.get(s.id),s.id));
-    if(!members.length&&currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid)];}
+    const activeMembers=identitySnap.docs.map(s=>memberFrom({...s.data(),id:s.id},membershipsByUid.get(s.id),s.id));
+
+    let pendingInvites=[];
+    try {
+      const invitationSnap=await getDocs(collection(db,'invitations'));
+      pendingInvites=invitationSnap.docs.filter(s=>String(s.data()?.status||'PENDING').toUpperCase()==='PENDING').map(invitationFrom);
+    } catch(inviteError) {
+      console.warn('Không thể đọc invitations:',inviteError);
+    }
+
+    members=[...activeMembers,...pendingInvites];
+    if(!members.length&&currentUid){
+      const own=await getDoc(doc(db,'identities',currentUid));
+      const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));
+      if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid)];
+    }
     render();
   } catch(error) {
     console.error('Lỗi tải thành viên:',error);
@@ -34,11 +51,17 @@ async function loadMembers() {
 
 function render() {
   const search=$('searchInput'),status=$('statusFilter'),role=$('roleFilter'); if(!search||!status||!role)return;
-  const q=search.value.trim().toLowerCase(),sf=status.value,rf=role.value; const filtered=members.filter(m=>(!q?true:`${m.name} ${m.email}`.toLowerCase().includes(q))&&(sf==='ALL'||m.status===sf)&&(rf==='ALL'||m.role===rf));
-  if($('totalMembers'))$('totalMembers').textContent=members.length; if($('activeMembers'))$('activeMembers').textContent=members.filter(m=>m.status==='ACTIVE').length; if($('adminMembers'))$('adminMembers').textContent=members.filter(m=>m.role==='ADMIN'||m.role==='MANAGER').length; if($('inactiveMembers'))$('inactiveMembers').textContent=members.filter(m=>m.status!=='ACTIVE').length; if($('resultCount'))$('resultCount').textContent=`${filtered.length} thành viên`; if($('emptyState'))$('emptyState').hidden=filtered.length>0;
+  const q=search.value.trim().toLowerCase(),sf=status.value,rf=role.value;
+  const filtered=members.filter(m=>(!q?true:`${m.name} ${m.email}`.toLowerCase().includes(q))&&(sf==='ALL'||m.status===sf)&&(rf==='ALL'||m.role===rf));
+  if($('totalMembers'))$('totalMembers').textContent=members.length;
+  if($('activeMembers'))$('activeMembers').textContent=members.filter(m=>m.status==='ACTIVE').length;
+  if($('adminMembers'))$('adminMembers').textContent=members.filter(m=>m.role==='ADMIN'||m.role==='MANAGER').length;
+  if($('inactiveMembers'))$('inactiveMembers').textContent=members.filter(m=>m.status!=='ACTIVE').length;
+  if($('resultCount'))$('resultCount').textContent=`${filtered.length} thành viên`;
+  if($('emptyState'))$('emptyState').hidden=filtered.length>0;
   const list=$('memberList'); if(!list)return;
-  list.innerHTML=filtered.map(m=>`<div class="member-row" data-member-id="${safe(m.id)}" tabindex="0" role="button"><div class="member-info"><div class="member-avatar">${safe(initials(m.name))}</div><div><strong>${safe(m.name)}</strong><small>${safe(m.email)}</small></div></div><span class="role ${m.role}">${safe(roleLabel(m.role))}</span><span class="status ${m.status}">${safe(statusLabel(m.status))}</span><span class="joined">${formatDate(m.joinedAt)}</span></div>`).join('');
-  document.querySelectorAll('.member-row').forEach(row=>{const open=()=>openMemberDetail(members.find(m=>m.id===row.dataset.memberId));row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});
+  list.innerHTML=filtered.map(m=>`<div class="member-row ${m.type==='invitation'?'is-pending-invite':''}" data-member-id="${safe(m.id)}" tabindex="0" role="button"><div class="member-info"><div class="member-avatar">${safe(initials(m.name))}</div><div><strong>${safe(m.name)}</strong><small>${safe(m.email)}</small></div></div><span class="role ${m.role}">${safe(roleLabel(m.role))}</span><span class="status ${m.status}">${safe(statusLabel(m.status))}</span><span class="joined">${formatDate(m.joinedAt)}</span></div>`).join('');
+  document.querySelectorAll('.member-row').forEach(row=>{const open=()=>{const member=members.find(m=>m.id===row.dataset.memberId);if(member?.type==='invitation')return;openMemberDetail(member);};row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});
 }
 
 function openMemberDetail(member) {
@@ -64,6 +87,7 @@ async function createManualInvitation() {
     await addDoc(collection(db,'invitations'),{email,role,status:'PENDING',organizationId:'org_saovn_01',invitedBy:auth.currentUser.uid,inviteCode:code,delivery:'MANUAL',createdAt:serverTimestamp()});
     if($('inviteCode'))$('inviteCode').textContent=code; if($('inviteResult'))$('inviteResult').hidden=false; if(status){status.textContent='Đã tạo mã mời. Không có email nào được gửi tự động.';status.className='role-save-status success';}
     if($('sendInviteBtn'))$('sendInviteBtn').textContent='Tạo mã khác';
+    await loadMembers();
   } catch(error) { console.error('Lỗi tạo mã mời:',error); if(status){status.textContent=error?.message||'Không thể tạo mã mời.';status.className='role-save-status error';} }
   finally {if(button)button.disabled=false;}
 }
