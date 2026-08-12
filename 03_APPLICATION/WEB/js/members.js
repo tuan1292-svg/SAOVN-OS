@@ -1,6 +1,6 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { collection, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { renderPermissionGrid, saveMemberRole } from './role-permissions.js';
 
 const $ = id => document.getElementById(id);
@@ -52,10 +52,29 @@ function openMemberDetail(member) {
   const overlay=$('memberDetailOverlay'); if(!overlay)return; overlay.hidden=false; requestAnimationFrame(()=>overlay.classList.add('open'));
 }
 function closeMemberDetail(){const overlay=$('memberDetailOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);currentMember=null;}
+function openInvite(){const overlay=$('inviteOverlay');if(!overlay)return;const form=$('inviteForm');if(form)form.reset();const status=$('inviteStatus');if(status){status.textContent='';status.className='role-save-status';}overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>$('inviteEmail')?.focus(),60);}
+function closeInvite(){const overlay=$('inviteOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);}
 function formatDate(value){if(!value)return'—';try{const d=value?.toDate?value.toDate():new Date(value);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('vi-VN');}catch{return'—';}}
 
+async function sendInvitation() {
+  const email=String($('inviteEmail')?.value||'').trim().toLowerCase(); const role=String($('inviteRole')?.value||'MEMBER').toUpperCase(); const status=$('inviteStatus'); const button=$('sendInviteBtn');
+  if(!email)return;
+  if(status){status.textContent='Đang tạo lời mời...';status.className='role-save-status pending';} if(button){button.disabled=true;button.textContent='Đang gửi...';}
+  try {
+    const duplicate=await getDocs(collection(db,'invitations')); const exists=duplicate.docs.some(s=>String(s.data()?.email||'').toLowerCase()===email && String(s.data()?.status||'PENDING').toUpperCase()==='PENDING');
+    if(exists)throw new Error('Email này đang có một lời mời chờ xử lý.');
+    await addDoc(collection(db,'invitations'),{email,role,status:'PENDING',organizationId:'org_saovn_01',invitedBy:auth.currentUser.uid,createdAt:serverTimestamp()});
+    if(status){status.textContent='Đã tạo lời mời. Trạng thái hiện tại: Pending.';status.className='role-save-status success';}
+    if($('inviteEmail'))$('inviteEmail').value='';
+  } catch(error) {
+    console.error('Lỗi tạo lời mời:',error); if(status){status.textContent=error?.message||'Không thể tạo lời mời.';status.className='role-save-status error';}
+  } finally {if(button){button.disabled=false;button.textContent='Gửi lời mời';}}
+}
+
 [['searchInput','input'],['statusFilter','change'],['roleFilter','change']].forEach(([id,event])=>$(id)?.addEventListener(event,render));
-$('refreshBtn')?.addEventListener('click',loadMembers); $('logoutBtn')?.addEventListener('click',()=>signOut(auth)); $('detailClose')?.addEventListener('click',closeMemberDetail); $('memberDetailOverlay')?.addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();}); document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMemberDetail();});
+$('refreshBtn')?.addEventListener('click',loadMembers); $('logoutBtn')?.addEventListener('click',()=>signOut(auth)); $('detailClose')?.addEventListener('click',closeMemberDetail); $('memberDetailOverlay')?.addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();});
+$('inviteMemberBtn')?.addEventListener('click',openInvite); $('inviteClose')?.addEventListener('click',closeInvite); $('inviteOverlay')?.addEventListener('click',e=>{if(e.target.id==='inviteOverlay')closeInvite();}); $('inviteForm')?.addEventListener('submit',e=>{e.preventDefault();sendInvitation();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMemberDetail();closeInvite();}});
 $('roleSelect')?.addEventListener('change',e=>{renderPermissionGrid($('permissionGrid'),e.target.value);const s=$('roleSaveStatus');if(s){s.textContent='Thay đổi chưa lưu';s.className='role-save-status pending';}});
 $('saveRoleBtn')?.addEventListener('click',async()=>{if(!currentMember)return;const role=$('roleSelect')?.value;const button=$('saveRoleBtn');if(!button)return;button.disabled=true;button.textContent='Đang lưu...';const s=$('roleSaveStatus');if(s)s.textContent='';try{if(!currentMember.membershipId)throw new Error('Thành viên này chưa có Membership trong workspace.');await saveMemberRole(currentMember.membershipId,role);currentMember.role=role;const target=members.find(m=>m.id===currentMember.id);if(target)target.role=role;if($('detailRole'))$('detailRole').textContent=roleLabel(role);if(s){s.textContent='Đã lưu vai trò thành công.';s.className='role-save-status success';}render();}catch(error){console.error('Lỗi lưu vai trò:',error);if(s){s.textContent=error?.message||'Không thể lưu vai trò.';s.className='role-save-status error';}}finally{button.disabled=false;button.textContent='Lưu vai trò';}});
 
