@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function membershipId() {
+      return "mem_" + request.auth.uid + "_org_saovn_01";
+    }
+
+    function isMember() {
+      return signedIn() && exists(
+        /databases/$(database)/documents/memberships/$(membershipId())
+      );
+    }
+
+    function membership() {
+      return get(
+        /databases/$(database)/documents/memberships/$(membershipId())
+      ).data;
+    }
+
+    function hasRole(roleName) {
+      return isMember()
+        && membership().roles != null
+        && membership().roles.organization != null
+        && roleName in membership().roles.organization;
+    }
+
+    function isSystemAdmin() {
+      return isMember()
+        && membership().roles != null
+        && membership().roles.system != null
+        && "system_admin" in membership().roles.system;
+    }
+
+    function isAdmin() {
+      return isSystemAdmin() || hasRole("org_admin") || hasRole("organization_admin");
+    }
+
+    function isManager() {
+      return hasRole("manager") || hasRole("org_manager");
+    }
+
+    function isPrivileged() {
+      return isAdmin() || isManager();
+    }
+
+    // ------------------------------------------------------------
+    // Identity
+    // ------------------------------------------------------------
+    match /identities/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      allow create, update: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------
+    // Membership
+    // ------------------------------------------------------------
+    match /memberships/{membershipDocId} {
+      allow read: if signedIn() && (membershipDocId == membershipId() || isPrivileged());
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------
+    // Work
+    // ------------------------------------------------------------
+    match /workTasks/{taskId} {
+      allow read: if isMember();
+
+      // A member may create a task for themselves. Managers/Admins may
+      // create tasks for anyone in the workspace.
+      allow create: if isMember() && (
+        isPrivileged()
+        || request.resource.data.createdBy == request.auth.uid
+        || request.resource.data.assigneeId == request.auth.uid
+      );
+
+      // Members may update tasks they created or are assigned to.
+      // Managers/Admins may update every workspace task.
+      allow update: if isMember() && (
+        isPrivileged()
+        || resource.data.createdBy == request.auth.uid
+        || resource.data.assigneeId == request.auth.uid
+      );
+
+      allow delete: if isAdmin();
+
+      match /comments/{commentId} {
+        allow read, create: if isMember();
+        allow update, delete: if isMember() && (
+          resource.data.authorId == request.auth.uid || isPrivileged()
+        );
+      }
+
+      match /checklist/{itemId} {
+        allow read, create, update, delete: if isMember();
+      }
+
+      match /activity/{activityId} {
+        allow read: if isMember();
+        allow create: if isMember();
+        allow update, delete: if isPrivileged();
+      }
+    }
+
+    // ------------------------------------------------------------
+    // Projects
+    // ------------------------------------------------------------
+    match /projects/{projectId} {
+      allow read: if isMember();
+      allow create, update: if isPrivileged();
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{projectId}/members/{memberId} {
+      allow read: if isMember();
+      allow create, update, delete: if isPrivileged();
+    }
+
+    match /projects/{projectId}/activity/{activityId} {
+      allow read, create: if isMember();
+      allow update, delete: if isPrivileged();
+    }
+
+    // ------------------------------------------------------------
+    // Notifications
+    // ------------------------------------------------------------
+    match /notifications/{userId} {
+      allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      match /items/{notificationId} {
+        allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      }
+    }
+
+    // ------------------------------------------------------------
+    // Organization administration
+    // ------------------------------------------------------------
+    match /departments/{departmentId} {
+      allow read: if isMember();
+      allow create, update: if isPrivileged();
+      allow delete: if isAdmin();
+    }
+
+    match /roles/{roleId} {
+      allow read: if isMember();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /documents/{documentId} {
+      allow read: if isMember();
+      allow create, update: if isPrivileged();
+      allow delete: if isAdmin();
+    }
+
+    match /system/{documentId} {
+      allow read, create, update, delete: if isSystemAdmin();
+    }
+
+    // ------------------------------------------------------------
+    // Default deny
+    // ------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
