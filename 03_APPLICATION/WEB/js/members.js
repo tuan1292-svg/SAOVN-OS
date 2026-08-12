@@ -83,12 +83,50 @@ function render() {
   $('inactiveMembers').textContent = members.filter(m=>m.status!=='ACTIVE').length;
   $('resultCount').textContent = `${filtered.length} thành viên`;
   $('emptyState').hidden = filtered.length > 0;
-  $('memberList').innerHTML = filtered.map(m => `<div class="member-row">
+  $('memberList').innerHTML = filtered.map(m => `<div class="member-row" data-member-id="${safe(m.id)}" tabindex="0" role="button">
     <div class="member-info"><div class="member-avatar">${safe(initials(m.name))}</div><div><strong>${safe(m.name)}</strong><small>${safe(m.email)}</small></div></div>
     <span class="role ${m.role}">${safe(roleLabel(m.role))}</span>
     <span class="status ${m.status}">${safe(statusLabel(m.status))}</span>
     <span class="joined">${formatDate(m.joinedAt)}</span>
   </div>`).join('');
+  document.querySelectorAll('.member-row').forEach(row => {
+    const open = () => openMemberDetail(members.find(m => m.id === row.dataset.memberId));
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+}
+
+function permissionSet(role) {
+  if (role === 'ADMIN') return [
+    ['Dashboard','allow','Toàn quyền'],['Work','allow','Quản lý'],['Thành viên','allow','Quản lý'],['Dự án','allow','Quản lý'],['Vai trò & quyền','allow','Quản lý'],['Cài đặt hệ thống','limited','Theo cấp hệ thống']
+  ];
+  if (role === 'MANAGER') return [
+    ['Dashboard','allow','Xem'],['Work','allow','Quản lý'],['Thành viên','limited','Theo nhóm'],['Dự án','allow','Quản lý'],['Vai trò & quyền','deny','Không có'],['Cài đặt hệ thống','deny','Không có']
+  ];
+  return [
+    ['Dashboard','allow','Xem'],['Work','allow','Làm việc'],['Thành viên','limited','Xem'],['Dự án','limited','Theo phân công'],['Vai trò & quyền','deny','Không có'],['Cài đặt hệ thống','deny','Không có']
+  ];
+}
+
+function openMemberDetail(member) {
+  if (!member) return;
+  $('detailAvatar').textContent = initials(member.name);
+  $('detailName').textContent = member.name;
+  $('detailEmail').textContent = member.email || 'Không có email';
+  $('detailRole').textContent = roleLabel(member.role);
+  $('detailStatus').textContent = statusLabel(member.status);
+  $('detailJoined').textContent = formatDate(member.joinedAt);
+  $('detailId').textContent = member.id;
+  $('permissionGrid').innerHTML = permissionSet(member.role).map(([name, cls, label]) => `<div class="permission-item"><span>${safe(name)}</span><b class="${cls}">${safe(label)}</b></div>`).join('');
+  const overlay = $('memberDetailOverlay');
+  overlay.hidden = false;
+  requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+function closeMemberDetail() {
+  const overlay = $('memberDetailOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.hidden = true; }, 120);
 }
 
 function formatDate(value) {
@@ -104,6 +142,9 @@ $('statusFilter').addEventListener('change', render);
 $('roleFilter').addEventListener('change', render);
 $('refreshBtn').addEventListener('click', loadMembers);
 $('logoutBtn').addEventListener('click', () => signOut(auth));
+$('detailClose').addEventListener('click', closeMemberDetail);
+$('memberDetailOverlay').addEventListener('click', e => { if (e.target.id === 'memberDetailOverlay') closeMemberDetail(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMemberDetail(); });
 
 onAuthStateChanged(auth, async user => {
   if (!user) { location.href = 'index.html'; return; }
