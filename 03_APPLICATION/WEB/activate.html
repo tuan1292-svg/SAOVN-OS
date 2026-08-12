@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAOVN-OS — Kích hoạt workspace</title>
+<link rel="stylesheet" href="css/login.css"><link rel="stylesheet" href="css/activate.css">
+</head>
+<body class="activate-page">
+<main class="activate-shell">
+  <section class="activate-card glass">
+    <div class="brand"><span class="brand-mark">S</span><strong>SAOVN-OS</strong></div>
+    <span class="eyebrow">WORKSPACE ACCESS</span>
+    <h1>Kích hoạt workspace</h1>
+    <p class="lead">Đăng nhập Firebase rồi nhập mã mời do quản trị viên cấp. Không cần email API hay dịch vụ trả phí.</p>
+    <div class="signed-user" id="signedUser">Chưa đăng nhập</div>
+    <form id="activateForm">
+      <label>Mã mời<input id="inviteCode" autocomplete="off" placeholder="A7F2-91BC" required></label>
+      <button class="primary-btn" id="activateBtn" type="submit">Kích hoạt thành viên</button>
+    </form>
+    <div id="activateStatus" class="status" aria-live="polite"></div>
+    <a class="back-link" href="index.html">← Quay lại đăng nhập</a>
+  </section>
+</main>
+<script type="module" src="js/activate.js"></script>
+</body>
+</html>
