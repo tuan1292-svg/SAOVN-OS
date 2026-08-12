@@ -34,11 +34,15 @@ service cloud.firestore {
       return isMember()
         && membership().roles != null
         && membership().roles.system != null
-        && "system_admin" in membership().roles.system;
+        && ("system_admin" in membership().roles.system
+          || "admin" in membership().roles.system);
     }
 
     function isAdmin() {
-      return isSystemAdmin() || hasRole("org_admin") || hasRole("organization_admin");
+      return isSystemAdmin()
+        || hasRole("org_admin")
+        || hasRole("organization_admin")
+        || hasRole("admin");
     }
 
     function isManager() {
