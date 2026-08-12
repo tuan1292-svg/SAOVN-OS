@@ -23,7 +23,7 @@
   <main class="main">
     <header class="topbar"><div class="crumb"><span>Core</span><b>/</b><strong>Thành viên</strong></div><div class="top-actions"><span class="sync"><i></i> Firebase connected</span><button class="icon-btn" aria-label="Tìm kiếm">⌕</button><button class="icon-btn" aria-label="Thông báo">♢</button></div></header>
     <section class="page">
-      <div class="page-head"><div><span class="eyebrow">IDENTITY &amp; ACCESS</span><h1>Thành viên</h1><p>Quản lý thành viên, vai trò và trạng thái trong SAOVN Organization.</p></div><button class="primary-btn" id="refreshBtn">↻ Làm mới</button></div>
+      <div class="page-head"><div><span class="eyebrow">IDENTITY &amp; ACCESS</span><h1>Thành viên</h1><p>Quản lý thành viên, vai trò và trạng thái trong SAOVN Organization.</p></div><div class="page-actions"><button class="secondary-btn" id="refreshBtn">↻ Làm mới</button><button class="primary-btn" id="inviteMemberBtn">＋ Mời thành viên</button></div></div>
       <div class="stats"><article><span>TỔNG THÀNH VIÊN</span><strong id="totalMembers">—</strong><small>Identity records</small></article><article class="green"><span>ĐANG HOẠT ĐỘNG</span><strong id="activeMembers">—</strong><small>Active membership</small></article><article class="blue"><span>QUẢN TRỊ</span><strong id="adminMembers">—</strong><small>Admin / manager</small></article><article class="red"><span>CHƯA KÍCH HOẠT</span><strong id="inactiveMembers">—</strong><small>Pending / inactive</small></article></div>
       <div class="glass toolbar"><div class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm theo tên hoặc email..." autocomplete="off"></div><select id="statusFilter"><option value="ALL">Tất cả trạng thái</option><option value="ACTIVE">Active</option><option value="PENDING">Pending</option><option value="SUSPENDED">Suspended</option></select><select id="roleFilter"><option value="ALL">Tất cả vai trò</option><option value="ADMIN">Admin</option><option value="MANAGER">Manager</option><option value="MEMBER">Member</option></select></div>
       <div class="glass member-panel"><div class="panel-head"><div><h2>Workspace members</h2><span id="resultCount">Đang tải...</span></div></div><div class="member-head"><span>THÀNH VIÊN</span><span>VAI TRÒ</span><span>TRẠNG THÁI</span><span>THAM GIA</span></div><div id="memberList"></div><div id="emptyState" class="empty" hidden><div>♙</div><strong>Chưa có thành viên phù hợp</strong><span>Thử thay đổi bộ lọc hoặc từ khóa.</span></div></div>
@@ -36,6 +36,17 @@
     <div class="member-detail-body"><div class="detail-grid"><div class="detail-box"><label>VAI TRÒ</label><select id="roleSelect"><option value="MEMBER">Member</option><option value="MANAGER">Manager</option><option value="ADMIN">Admin</option></select><span id="roleSaveStatus" class="role-save-status" aria-live="polite"></span></div><div class="detail-box"><label>TRẠNG THÁI</label><strong id="detailStatus">—</strong></div><div class="detail-box"><label>NGÀY THAM GIA</label><strong id="detailJoined">—</strong></div><div class="detail-box"><label>IDENTITY ID</label><strong id="detailId">—</strong></div></div>
       <div class="permission-section"><div class="permission-heading"><div><h3>Quyền trong SAOVN-OS</h3><span>Quyền được suy ra tự động từ vai trò.</span></div><button class="primary-btn" id="saveRoleBtn">Lưu vai trò</button></div><div class="permission-grid" id="permissionGrid"></div></div>
     </div>
+  </section>
+</div>
+<div class="member-detail-overlay" id="inviteOverlay" hidden>
+  <section class="member-detail invite-dialog" role="dialog" aria-modal="true" aria-labelledby="inviteTitle">
+    <div class="member-detail-head"><div><span class="eyebrow">WORKSPACE ACCESS</span><h2 id="inviteTitle">Mời thành viên</h2><p>Gửi một lời mời tham gia SAOVN Organization.</p></div><button class="detail-close" id="inviteClose" aria-label="Đóng">×</button></div>
+    <form class="invite-form" id="inviteForm">
+      <label>Email thành viên<input id="inviteEmail" type="email" placeholder="ten@domain.com" autocomplete="email" required></label>
+      <label>Vai trò<select id="inviteRole"><option value="MEMBER">Member</option><option value="MANAGER">Manager</option><option value="ADMIN">Admin</option></select></label>
+      <div class="invite-note">Người được mời sẽ được tạo lời mời ở trạng thái <strong>Pending</strong>. Việc kích hoạt tài khoản sẽ diễn ra sau bước xác thực đăng nhập.</div>
+      <div class="invite-actions"><span id="inviteStatus" class="role-save-status" aria-live="polite"></span><button type="submit" class="primary-btn" id="sendInviteBtn">Gửi lời mời</button></div>
+    </form>
   </section>
 </div>
 <script type="module" src="js/members.js"></script>
