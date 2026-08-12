@@ -18,7 +18,7 @@ function collectRoles(data) { const roles=data?.roles||{}; return [...(Array.isA
 function memberFrom(identity, membership, fallbackId) { const id=identity.id||fallbackId; const roles=collectRoles(membership); const statusRaw=String(membership?.status||identity?.status||'ACTIVE').toUpperCase(); const status=['PENDING','SUSPENDED'].includes(statusRaw)?statusRaw:'ACTIVE'; const name=identity.displayName||identity.name||identity.fullName||identity.email||id; return {id,name,email:identity.email||identity.emailAddress||'',role:normalizeRole(roles.join(' ')),status,joinedAt:membership?.joinedAt||membership?.createdAt||identity?.createdAt||null,membershipId:membership?.id||null}; }
 
 async function loadMembers() {
-  $('resultCount').textContent='Đang tải...';
+  const resultCount=$('resultCount'); if(resultCount) resultCount.textContent='Đang tải...';
   try {
     const identitySnap=await getDocs(collection(db,'identities')); const membershipSnap=await getDocs(collection(db,'memberships')); const membershipsByUid=new Map();
     membershipSnap.forEach(s=>{const d=s.data(); const uid=d.identityId||d.userId||d.uid||s.id.match(/^mem_(.+)_org_/)?.[1]; if(uid) membershipsByUid.set(uid,{...d,id:s.id});});
@@ -28,25 +28,35 @@ async function loadMembers() {
   } catch(error) {
     console.error('Lỗi tải thành viên:',error);
     try{if(currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));members=own.exists()?[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid)]:[];}}catch(_){members=[];}
-    render(); $('resultCount').textContent='Không thể tải toàn bộ danh sách với quyền hiện tại';
+    render(); if(resultCount) resultCount.textContent='Không thể tải toàn bộ danh sách với quyền hiện tại';
   }
 }
 
 function render() {
-  const q=$('searchInput').value.trim().toLowerCase(),sf=$('statusFilter').value,rf=$('roleFilter').value; const filtered=members.filter(m=>(!q?true:`${m.name} ${m.email}`.toLowerCase().includes(q))&&(sf==='ALL'||m.status===sf)&&(rf==='ALL'||m.role===rf));
-  $('totalMembers').textContent=members.length; $('activeMembers').textContent=members.filter(m=>m.status==='ACTIVE').length; $('adminMembers').textContent=members.filter(m=>m.role==='ADMIN'||m.role==='MANAGER').length; $('inactiveMembers').textContent=members.filter(m=>m.status!=='ACTIVE').length; $('resultCount').textContent=`${filtered.length} thành viên`; $('emptyState').hidden=filtered.length>0;
-  $('memberList').innerHTML=filtered.map(m=>`<div class="member-row" data-member-id="${safe(m.id)}" tabindex="0" role="button"><div class="member-info"><div class="member-avatar">${safe(initials(m.name))}</div><div><strong>${safe(m.name)}</strong><small>${safe(m.email)}</small></div></div><span class="role ${m.role}">${safe(roleLabel(m.role))}</span><span class="status ${m.status}">${safe(statusLabel(m.status))}</span><span class="joined">${formatDate(m.joinedAt)}</span></div>`).join('');
+  const search=$('searchInput'),status=$('statusFilter'),role=$('roleFilter');
+  if(!search||!status||!role)return;
+  const q=search.value.trim().toLowerCase(),sf=status.value,rf=role.value; const filtered=members.filter(m=>(!q?true:`${m.name} ${m.email}`.toLowerCase().includes(q))&&(sf==='ALL'||m.status===sf)&&(rf==='ALL'||m.role===rf));
+  if($('totalMembers'))$('totalMembers').textContent=members.length; if($('activeMembers'))$('activeMembers').textContent=members.filter(m=>m.status==='ACTIVE').length; if($('adminMembers'))$('adminMembers').textContent=members.filter(m=>m.role==='ADMIN'||m.role==='MANAGER').length; if($('inactiveMembers'))$('inactiveMembers').textContent=members.filter(m=>m.status!=='ACTIVE').length; if($('resultCount'))$('resultCount').textContent=`${filtered.length} thành viên`; if($('emptyState'))$('emptyState').hidden=filtered.length>0;
+  const list=$('memberList'); if(!list)return;
+  list.innerHTML=filtered.map(m=>`<div class="member-row" data-member-id="${safe(m.id)}" tabindex="0" role="button"><div class="member-info"><div class="member-avatar">${safe(initials(m.name))}</div><div><strong>${safe(m.name)}</strong><small>${safe(m.email)}</small></div></div><span class="role ${m.role}">${safe(roleLabel(m.role))}</span><span class="status ${m.status}">${safe(statusLabel(m.status))}</span><span class="joined">${formatDate(m.joinedAt)}</span></div>`).join('');
   document.querySelectorAll('.member-row').forEach(row=>{const open=()=>openMemberDetail(members.find(m=>m.id===row.dataset.memberId));row.addEventListener('click',open);row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});
 }
 
 function openMemberDetail(member) {
-  if(!member)return; currentMember=member; $('detailAvatar').textContent=initials(member.name); $('detailName').textContent=member.name; $('detailEmail').textContent=member.email||'Không có email'; $('detailRole').textContent=roleLabel(member.role); $('roleSelect').value=member.role; $('detailStatus').textContent=statusLabel(member.status); $('detailJoined').textContent=formatDate(member.joinedAt); $('detailId').textContent=member.id; $('roleSaveStatus').textContent=''; renderPermissionGrid($('permissionGrid'),member.role); $('memberDetailOverlay').hidden=false; requestAnimationFrame(()=>$('memberDetailOverlay').classList.add('open'));
+  if(!member)return; currentMember=member;
+  const fields={detailAvatar:initials(member.name),detailName:member.name,detailEmail:member.email||'Không có email',detailRole:roleLabel(member.role),detailStatus:statusLabel(member.status),detailJoined:formatDate(member.joinedAt),detailId:member.id};
+  Object.entries(fields).forEach(([id,value])=>{const el=$(id);if(el)el.textContent=value;});
+  const roleSelect=$('roleSelect'); if(roleSelect)roleSelect.value=member.role;
+  const saveStatus=$('roleSaveStatus'); if(saveStatus){saveStatus.textContent='';saveStatus.className='role-save-status';}
+  const permissionGrid=$('permissionGrid'); if(permissionGrid)renderPermissionGrid(permissionGrid,member.role);
+  const overlay=$('memberDetailOverlay'); if(!overlay)return; overlay.hidden=false; requestAnimationFrame(()=>overlay.classList.add('open'));
 }
-function closeMemberDetail(){const overlay=$('memberDetailOverlay');overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);currentMember=null;}
+function closeMemberDetail(){const overlay=$('memberDetailOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);currentMember=null;}
 function formatDate(value){if(!value)return'—';try{const d=value?.toDate?value.toDate():new Date(value);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('vi-VN');}catch{return'—';}}
 
-$('searchInput').addEventListener('input',render); $('statusFilter').addEventListener('change',render); $('roleFilter').addEventListener('change',render); $('refreshBtn').addEventListener('click',loadMembers); $('logoutBtn').addEventListener('click',()=>signOut(auth)); $('detailClose').addEventListener('click',closeMemberDetail); $('memberDetailOverlay').addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();}); document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMemberDetail();});
-$('roleSelect').addEventListener('change',e=>{renderPermissionGrid($('permissionGrid'),e.target.value);$('roleSaveStatus').textContent='Thay đổi chưa lưu';$('roleSaveStatus').className='role-save-status pending';});
-$('saveRoleBtn').addEventListener('click',async()=>{if(!currentMember)return;const role=$('roleSelect').value;const button=$('saveRoleBtn');button.disabled=true;button.textContent='Đang lưu...';$('roleSaveStatus').textContent='';try{if(!currentMember.membershipId){throw new Error('Thành viên này chưa có Membership trong workspace.');}await saveMemberRole(currentMember.membershipId,role);currentMember.role=role;const target=members.find(m=>m.id===currentMember.id);if(target)target.role=role;$('detailRole').textContent=roleLabel(role);$('roleSaveStatus').textContent='Đã lưu vai trò thành công.';$('roleSaveStatus').className='role-save-status success';render();}catch(error){console.error('Lỗi lưu vai trò:',error);$('roleSaveStatus').textContent=error?.message||'Không thể lưu vai trò.';$('roleSaveStatus').className='role-save-status error';}finally{button.disabled=false;button.textContent='Lưu vai trò';}});
+[['searchInput','input'],['statusFilter','change'],['roleFilter','change']].forEach(([id,event])=>$(id)?.addEventListener(event,render));
+$('refreshBtn')?.addEventListener('click',loadMembers); $('logoutBtn')?.addEventListener('click',()=>signOut(auth)); $('detailClose')?.addEventListener('click',closeMemberDetail); $('memberDetailOverlay')?.addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();}); document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMemberDetail();});
+$('roleSelect')?.addEventListener('change',e=>{renderPermissionGrid($('permissionGrid'),e.target.value);const s=$('roleSaveStatus');if(s){s.textContent='Thay đổi chưa lưu';s.className='role-save-status pending';}});
+$('saveRoleBtn')?.addEventListener('click',async()=>{if(!currentMember)return;const role=$('roleSelect')?.value;const button=$('saveRoleBtn');if(!button)return;button.disabled=true;button.textContent='Đang lưu...';const s=$('roleSaveStatus');if(s)s.textContent='';try{if(!currentMember.membershipId)throw new Error('Thành viên này chưa có Membership trong workspace.');await saveMemberRole(currentMember.membershipId,role);currentMember.role=role;const target=members.find(m=>m.id===currentMember.id);if(target)target.role=role;if($('detailRole'))$('detailRole').textContent=roleLabel(role);if(s){s.textContent='Đã lưu vai trò thành công.';s.className='role-save-status success';}render();}catch(error){console.error('Lỗi lưu vai trò:',error);if(s){s.textContent=error?.message||'Không thể lưu vai trò.';s.className='role-save-status error';}}finally{button.disabled=false;button.textContent='Lưu vai trò';}});
 
-onAuthStateChanged(auth,async user=>{if(!user){location.href='index.html';return;}currentUid=user.uid;$('userName').textContent=user.displayName||user.email?.split('@')[0]||'User';$('userAvatar').textContent=initials(user.displayName||user.email?.split('@')[0]);await loadMembers();});
+onAuthStateChanged(auth,async user=>{if(!user){location.href='index.html';return;}currentUid=user.uid;if($('userName'))$('userName').textContent=user.displayName||user.email?.split('@')[0]||'User';if($('userAvatar'))$('userAvatar').textContent=initials(user.displayName||user.email?.split('@')[0]);await loadMembers();});
