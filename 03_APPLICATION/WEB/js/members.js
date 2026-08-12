@@ -33,8 +33,7 @@ async function loadMembers() {
 }
 
 function render() {
-  const search=$('searchInput'),status=$('statusFilter'),role=$('roleFilter');
-  if(!search||!status||!role)return;
+  const search=$('searchInput'),status=$('statusFilter'),role=$('roleFilter'); if(!search||!status||!role)return;
   const q=search.value.trim().toLowerCase(),sf=status.value,rf=role.value; const filtered=members.filter(m=>(!q?true:`${m.name} ${m.email}`.toLowerCase().includes(q))&&(sf==='ALL'||m.status===sf)&&(rf==='ALL'||m.role===rf));
   if($('totalMembers'))$('totalMembers').textContent=members.length; if($('activeMembers'))$('activeMembers').textContent=members.filter(m=>m.status==='ACTIVE').length; if($('adminMembers'))$('adminMembers').textContent=members.filter(m=>m.role==='ADMIN'||m.role==='MANAGER').length; if($('inactiveMembers'))$('inactiveMembers').textContent=members.filter(m=>m.status!=='ACTIVE').length; if($('resultCount'))$('resultCount').textContent=`${filtered.length} thành viên`; if($('emptyState'))$('emptyState').hidden=filtered.length>0;
   const list=$('memberList'); if(!list)return;
@@ -44,36 +43,35 @@ function render() {
 
 function openMemberDetail(member) {
   if(!member)return; currentMember=member;
-  const fields={detailAvatar:initials(member.name),detailName:member.name,detailEmail:member.email||'Không có email',detailRole:roleLabel(member.role),detailStatus:statusLabel(member.status),detailJoined:formatDate(member.joinedAt),detailId:member.id};
-  Object.entries(fields).forEach(([id,value])=>{const el=$(id);if(el)el.textContent=value;});
-  const roleSelect=$('roleSelect'); if(roleSelect)roleSelect.value=member.role;
-  const saveStatus=$('roleSaveStatus'); if(saveStatus){saveStatus.textContent='';saveStatus.className='role-save-status';}
-  const permissionGrid=$('permissionGrid'); if(permissionGrid)renderPermissionGrid(permissionGrid,member.role);
+  const fields={detailAvatar:initials(member.name),detailName:member.name,detailEmail:member.email||'Không có email',detailRole:roleLabel(member.role),detailStatus:statusLabel(member.status),detailJoined:formatDate(member.joinedAt),detailId:member.id}; Object.entries(fields).forEach(([id,value])=>{const el=$(id);if(el)el.textContent=value;});
+  const roleSelect=$('roleSelect'); if(roleSelect)roleSelect.value=member.role; const saveStatus=$('roleSaveStatus'); if(saveStatus){saveStatus.textContent='';saveStatus.className='role-save-status';} const permissionGrid=$('permissionGrid'); if(permissionGrid)renderPermissionGrid(permissionGrid,member.role);
   const overlay=$('memberDetailOverlay'); if(!overlay)return; overlay.hidden=false; requestAnimationFrame(()=>overlay.classList.add('open'));
 }
 function closeMemberDetail(){const overlay=$('memberDetailOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);currentMember=null;}
-function openInvite(){const overlay=$('inviteOverlay');if(!overlay)return;const form=$('inviteForm');if(form)form.reset();const status=$('inviteStatus');if(status){status.textContent='';status.className='role-save-status';}overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>$('inviteEmail')?.focus(),60);}
+function openInvite(){const overlay=$('inviteOverlay');if(!overlay)return;const form=$('inviteForm');if(form)form.reset();const status=$('inviteStatus');if(status){status.textContent='';status.className='role-save-status';}const result=$('inviteResult');if(result)result.hidden=true;const code=$('inviteCode');if(code)code.textContent='—';overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>$('inviteEmail')?.focus(),60);}
 function closeInvite(){const overlay=$('inviteOverlay');if(!overlay)return;overlay.classList.remove('open');setTimeout(()=>overlay.hidden=true,120);}
 function formatDate(value){if(!value)return'—';try{const d=value?.toDate?value.toDate():new Date(value);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('vi-VN');}catch{return'—';}}
+function createInviteCode(){const bytes=new Uint8Array(6);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase().match(/.{1,4}/g).join('-');}
 
-async function sendInvitation() {
+async function createManualInvitation() {
   const email=String($('inviteEmail')?.value||'').trim().toLowerCase(); const role=String($('inviteRole')?.value||'MEMBER').toUpperCase(); const status=$('inviteStatus'); const button=$('sendInviteBtn');
   if(!email)return;
-  if(status){status.textContent='Đang tạo lời mời...';status.className='role-save-status pending';} if(button){button.disabled=true;button.textContent='Đang gửi...';}
+  if(status){status.textContent='Đang tạo mã mời...';status.className='role-save-status pending';} if(button){button.disabled=true;button.textContent='Đang tạo...';}
   try {
     const duplicate=await getDocs(collection(db,'invitations')); const exists=duplicate.docs.some(s=>String(s.data()?.email||'').toLowerCase()===email && String(s.data()?.status||'PENDING').toUpperCase()==='PENDING');
     if(exists)throw new Error('Email này đang có một lời mời chờ xử lý.');
-    await addDoc(collection(db,'invitations'),{email,role,status:'PENDING',organizationId:'org_saovn_01',invitedBy:auth.currentUser.uid,createdAt:serverTimestamp()});
-    if(status){status.textContent='Đã tạo lời mời. Trạng thái hiện tại: Pending.';status.className='role-save-status success';}
-    if($('inviteEmail'))$('inviteEmail').value='';
-  } catch(error) {
-    console.error('Lỗi tạo lời mời:',error); if(status){status.textContent=error?.message||'Không thể tạo lời mời.';status.className='role-save-status error';}
-  } finally {if(button){button.disabled=false;button.textContent='Gửi lời mời';}}
+    const code=createInviteCode();
+    await addDoc(collection(db,'invitations'),{email,role,status:'PENDING',organizationId:'org_saovn_01',invitedBy:auth.currentUser.uid,inviteCode:code,delivery:'MANUAL',createdAt:serverTimestamp()});
+    if($('inviteCode'))$('inviteCode').textContent=code; if($('inviteResult'))$('inviteResult').hidden=false; if(status){status.textContent='Đã tạo mã mời. Không có email nào được gửi tự động.';status.className='role-save-status success';}
+    if($('sendInviteBtn'))$('sendInviteBtn').textContent='Tạo mã khác';
+  } catch(error) { console.error('Lỗi tạo mã mời:',error); if(status){status.textContent=error?.message||'Không thể tạo mã mời.';status.className='role-save-status error';} }
+  finally {if(button)button.disabled=false;}
 }
 
 [['searchInput','input'],['statusFilter','change'],['roleFilter','change']].forEach(([id,event])=>$(id)?.addEventListener(event,render));
 $('refreshBtn')?.addEventListener('click',loadMembers); $('logoutBtn')?.addEventListener('click',()=>signOut(auth)); $('detailClose')?.addEventListener('click',closeMemberDetail); $('memberDetailOverlay')?.addEventListener('click',e=>{if(e.target.id==='memberDetailOverlay')closeMemberDetail();});
-$('inviteMemberBtn')?.addEventListener('click',openInvite); $('inviteClose')?.addEventListener('click',closeInvite); $('inviteOverlay')?.addEventListener('click',e=>{if(e.target.id==='inviteOverlay')closeInvite();}); $('inviteForm')?.addEventListener('submit',e=>{e.preventDefault();sendInvitation();});
+$('inviteMemberBtn')?.addEventListener('click',openInvite); $('inviteClose')?.addEventListener('click',closeInvite); $('inviteOverlay')?.addEventListener('click',e=>{if(e.target.id==='inviteOverlay')closeInvite();}); $('inviteForm')?.addEventListener('submit',e=>{e.preventDefault();createManualInvitation();});
+$('copyInviteCode')?.addEventListener('click',async()=>{const code=$('inviteCode')?.textContent;if(!code||code==='—')return;try{await navigator.clipboard.writeText(code);const b=$('copyInviteCode');b.textContent='Đã sao chép';setTimeout(()=>b.textContent='Sao chép',1500);}catch{const status=$('inviteStatus');if(status){status.textContent='Không thể sao chép tự động. Hãy copy mã bằng tay.';status.className='role-save-status error';}}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMemberDetail();closeInvite();}});
 $('roleSelect')?.addEventListener('change',e=>{renderPermissionGrid($('permissionGrid'),e.target.value);const s=$('roleSaveStatus');if(s){s.textContent='Thay đổi chưa lưu';s.className='role-save-status pending';}});
 $('saveRoleBtn')?.addEventListener('click',async()=>{if(!currentMember)return;const role=$('roleSelect')?.value;const button=$('saveRoleBtn');if(!button)return;button.disabled=true;button.textContent='Đang lưu...';const s=$('roleSaveStatus');if(s)s.textContent='';try{if(!currentMember.membershipId)throw new Error('Thành viên này chưa có Membership trong workspace.');await saveMemberRole(currentMember.membershipId,role);currentMember.role=role;const target=members.find(m=>m.id===currentMember.id);if(target)target.role=role;if($('detailRole'))$('detailRole').textContent=roleLabel(role);if(s){s.textContent='Đã lưu vai trò thành công.';s.className='role-save-status success';}render();}catch(error){console.error('Lỗi lưu vai trò:',error);if(s){s.textContent=error?.message||'Không thể lưu vai trò.';s.className='role-save-status error';}}finally{button.disabled=false;button.textContent='Lưu vai trò';}});
