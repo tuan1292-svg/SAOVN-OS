@@ -524,12 +524,7 @@
 
                             </div>
 
-                            <a
-                                href="#"
-                                class="panel-action"
-                            >
-                                Open →
-                            </a>
+                            <a href="#" class="panel-action" id="openReportBtn">Open →</a>
 
                         </div>
 
@@ -906,14 +901,69 @@
 
             </div>
 
+<!-- =====================================================
+                 MODAL BÓNG GƯƠNG (GLASSMORPHISM)
+            ====================================================== -->
+            <div class="glass-modal-overlay" id="workReportModal">
+                <div class="glass-panel">
+                    
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="font-size: 18px; font-weight: 650; color: #fff;">
+                            Tổng quan Work / Dự án SAOVN
+                        </h3>
+                        <button id="closeReportBtn" style="background: transparent; border: none; color: #a5afc2; font-size: 28px;">&times;</button>
+                    </div>
+
+                    <!-- Nội dung báo cáo văn bản -->
+                    <div style="color: #a9b2c5; font-size: 14px; line-height: 1.7;">
+                        <p style="margin-bottom: 12px;">
+                            Tiến độ tổng thể của toàn bộ hệ thống trong tháng vừa qua đạt mức <strong>Khả quan</strong>.
+                            Hệ thống đã ghi nhận hoàn tất các phân hệ nền tảng.
+                        </p>
+                        <ul style="margin-left: 20px; list-style-type: disc;">
+                            <li>Module Cốt lõi (Core Identity) - 100%</li>
+                            <li>Giao diện quản trị viên (Admin Dashboard) - 85%</li>
+                            <li>Tích hợp cơ sở dữ liệu Firebase - Đang xử lý</li>
+                        </ul>
+                    </div>
+
+                    <!-- Khối Dữ liệu Tương phản cao -->
+                    <div class="data-grid">
+                        
+                        <!-- Cột Xanh (Hoàn thành) -->
+                        <div class="data-box">
+                            <div class="data-box-label">CÔNG VIỆC HOÀN THÀNH</div>
+                            <div class="data-box-value text-glow-green">
+                                124 
+                                <span class="trend-pill up">↑ 15%</span>
+                            </div>
+                            <!-- Đáy gradient xanh -->
+                            <div class="chart-fade-bottom green"></div>
+                        </div>
+
+                        <!-- Cột Đỏ (Tồn đọng) -->
+                        <div class="data-box">
+                            <div class="data-box-label">TỒN ĐỌNG / TRỄ HẠN</div>
+                            <div class="data-box-value text-glow-red">
+                                12 
+                                <span class="trend-pill down">↓ 3%</span>
+                            </div>
+                            <!-- Đáy gradient đỏ -->
+                            <div class="chart-fade-bottom red"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
 
         </main>
 
     </div>
 
 
-    <script src="js/dashboard.js"></script>
-
+    
+<script type="module" src="js/dashboard.js"></script>
 </body>
 
 </html>

@@ -1501,3 +1501,112 @@ button {
     }
 
 }
+
+/* =========================================================
+   GLASSMORPHISM MODAL (BÓNG GƯƠNG & TƯƠNG PHẢN CAO)
+========================================================= */
+
+/* Lớp phủ làm mờ toàn bộ màn hình phía sau */
+.glass-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 18, 0.5); /* Phủ đen nhẹ */
+    backdrop-filter: blur(16px); /* Làm mờ nhòe mạnh xung quanh */
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.glass-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Bảng nổi lên chứa nội dung (Card) */
+.glass-panel {
+    width: 100%;
+    max-width: 720px;
+    background: rgba(22, 28, 45, 0.85); /* Xám đen mờ */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    transform: translateY(20px) scale(0.98);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.glass-modal-overlay.active .glass-panel {
+    transform: translateY(0) scale(1);
+}
+
+/* Các khối số liệu chia cột */
+.data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    border-top: 1px solid var(--line-strong);
+    padding-top: 24px;
+}
+
+.data-box {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px 20px 0 20px; /* Bỏ padding dưới để dải gradient sát đáy */
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tiêu đề Box */
+.data-box-label {
+    font-size: 10px;
+    font-weight: 750;
+    color: #8b95a8;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+/* Chữ số to, tương phản cao */
+.data-box-value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Màu sắc nhấn (Xanh lá & Đỏ) */
+.text-glow-green { color: #00e676; text-shadow: 0 0 16px rgba(0, 230, 118, 0.2); }
+.text-glow-red { color: #ff5252; text-shadow: 0 0 16px rgba(255, 82, 82, 0.2); }
+
+/* Chỉ số tăng/giảm (Pill) */
+.trend-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+.trend-pill.up { background: rgba(0, 230, 118, 0.12); color: #00e676; }
+.trend-pill.down { background: rgba(255, 82, 82, 0.12); color: #ff5252; }
+
+/* Hiệu ứng biểu đồ mờ dưới đáy (giống Base) */
+.chart-fade-bottom {
+    height: 48px;
+    margin-top: 16px;
+    border-radius: 8px 8px 0 0;
+    opacity: 0.5;
+}
+.chart-fade-bottom.green { background: linear-gradient(to top, rgba(0, 230, 118, 0.3), transparent); }
+.chart-fade-bottom.red { background: linear-gradient(to top, rgba(255, 82, 82, 0.3), transparent); }

@@ -1,318 +1,112 @@
-const loginForm = document.getElementById("loginForm");
+// Import Firebase Auth và biến auth đã cấu hình
+import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { auth } from "./firebase-config.js";
 
+// Lấy các phần tử trên giao diện
+const loginForm = document.getElementById("loginForm");
 const identityInput = document.getElementById("identity");
 const passwordInput = document.getElementById("password");
-
 const identityError = document.getElementById("identityError");
 const passwordError = document.getElementById("passwordError");
-
 const formStatus = document.getElementById("formStatus");
-
 const loginButton = document.getElementById("loginButton");
 const passwordToggle = document.getElementById("passwordToggle");
 
-/*
+// ----------------------------------------------------------------
+// 1. Tự động chuyển trang nếu đã đăng nhập từ trước
+// ----------------------------------------------------------------
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        window.location.href = "dashboard.html";
+    }
+});
 
-* ---
-* Demo Authentication
-* ---
-*
-* This is temporary frontend-only authentication.
-*
-* It will later be replaced by the real SAOVN-OS
-* Authentication / Session API.
-  */
-
-const DEMO_IDENTITY = "admin";
-const DEMO_PASSWORD = "saovn";
-
-/*
-
-* ---
-* Helpers
-* ---
-
-*/
-
+// ----------------------------------------------------------------
+// 2. Các hàm hỗ trợ giao diện (Xóa lỗi, Hiển thị lỗi, Bật/Tắt Loading)
+// ----------------------------------------------------------------
 function clearErrors() {
-identityError.textContent = "";
-passwordError.textContent = "";
-
-```
-document
-    .querySelectorAll(".form-group")
-    .forEach((group) => {
-        group.classList.remove("has-error");
-    });
-
-formStatus.textContent = "";
-formStatus.className = "form-status";
-```
-
-}
-
-function showIdentityError(message) {
-identityError.textContent = message;
-
-```
-identityInput
-    .closest(".form-group")
-    .classList.add("has-error");
-```
-
-}
-
-function showPasswordError(message) {
-passwordError.textContent = message;
-
-```
-passwordInput
-    .closest(".form-group")
-    .classList.add("has-error");
-```
-
+    identityError.textContent = "";
+    passwordError.textContent = "";
+    document.querySelectorAll(".form-group").forEach(group => group.classList.remove("has-error"));
+    formStatus.textContent = "";
+    formStatus.className = "form-status";
 }
 
 function showFormError(message) {
-formStatus.textContent = message;
-
-```
-formStatus.className =
-    "form-status visible error";
-```
-
+    formStatus.textContent = message;
+    formStatus.className = "form-status visible error";
 }
 
 function setLoading(isLoading) {
-loginButton.disabled = isLoading;
-
-```
-if (isLoading) {
-    loginButton.classList.add("loading");
-} else {
-    loginButton.classList.remove("loading");
-}
-```
-
+    loginButton.disabled = isLoading;
+    if (isLoading) {
+        loginButton.classList.add("loading");
+    } else {
+        loginButton.classList.remove("loading");
+    }
 }
 
-/*
-
-* ---
-* Password Visibility
-* ---
-
-*/
-
-passwordToggle.addEventListener("click", () => {
-
-```
-const isPassword =
-    passwordInput.type === "password";
-
-passwordInput.type =
-    isPassword ? "text" : "password";
-
-passwordToggle.setAttribute(
-    "aria-label",
-    isPassword
-        ? "Ẩn mật khẩu"
-        : "Hiện mật khẩu"
-);
-```
-
-});
-
-/*
-
-* ---
-* Validation
-* ---
-
-*/
-
-function validateForm() {
-
-```
-clearErrors();
-
-const identity =
-    identityInput.value.trim();
-
-const password =
-    passwordInput.value;
-
-let valid = true;
-
-
-if (!identity) {
-
-    showIdentityError(
-        "Vui lòng nhập Identity."
-    );
-
-    valid = false;
-
+// ----------------------------------------------------------------
+// 3. Xử lý nút hiện/ẩn mật khẩu (CON MẮT)
+// ----------------------------------------------------------------
+if (passwordToggle && passwordInput) {
+    passwordToggle.addEventListener("click", () => {
+        const isPassword = passwordInput.type === "password";
+        // Đổi loại input
+        passwordInput.type = isPassword ? "text" : "password";
+        // Cập nhật thuộc tính aria
+        passwordToggle.setAttribute("aria-label", isPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+    });
 }
 
+// ----------------------------------------------------------------
+// 4. Xử lý form đăng nhập
+// ----------------------------------------------------------------
+if (loginForm) {
+    loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault(); // Ngăn trình duyệt reload trang
+        clearErrors();
 
-if (!password) {
+        const email = identityInput.value.trim();
+        const password = passwordInput.value;
 
-    showPasswordError(
-        "Vui lòng nhập mật khẩu."
-    );
+        // Xác thực cơ bản
+        if (!email || !password) {
+            showFormError("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+            return;
+        }
 
-    valid = false;
+        setLoading(true);
 
+        try {
+            // Đăng nhập qua Firebase
+            await signInWithEmailAndPassword(auth, email, password);
+            // Thành công sẽ được hàm onAuthStateChanged ở trên bắt và chuyển trang
+        } catch (error) {
+            setLoading(false);
+            // Xử lý các mã lỗi phổ biến
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    showFormError("Định dạng email không hợp lệ.");
+                    break;
+                case 'auth/user-disabled':
+                    showFormError("Tài khoản này đã bị vô hiệu hóa.");
+                    break;
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    showFormError("Email hoặc mật khẩu không chính xác.");
+                    break;
+                case 'auth/too-many-requests':
+                    showFormError("Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau.");
+                    break;
+                default:
+                    showFormError("Đã xảy ra lỗi: " + error.message);
+            }
+        }
+    });
+
+    // Tự động xóa thông báo lỗi khi người dùng bắt đầu gõ lại
+    identityInput.addEventListener("input", clearErrors);
+    passwordInput.addEventListener("input", clearErrors);
 }
-
-
-return valid;
-```
-
-}
-
-/*
-
-* ---
-* Demo Authentication
-* ---
-
-*/
-
-function authenticate(identity, password) {
-
-```
-return (
-    identity === DEMO_IDENTITY &&
-    password === DEMO_PASSWORD
-);
-```
-
-}
-
-/*
-
-* ---
-* Login
-* ---
-
-*/
-
-loginForm.addEventListener("submit", async (event) => {
-
-```
-event.preventDefault();
-
-if (!validateForm()) {
-    return;
-}
-
-
-const identity =
-    identityInput.value.trim();
-
-const password =
-    passwordInput.value;
-
-
-setLoading(true);
-
-
-/*
- * Simulate network latency.
- *
- * This delay will disappear when the real
- * Authentication API is connected.
- */
-
-await new Promise((resolve) => {
-    setTimeout(resolve, 700);
-});
-
-
-const authenticated =
-    authenticate(identity, password);
-
-
-if (!authenticated) {
-
-    setLoading(false);
-
-    showFormError(
-        "Identity hoặc mật khẩu không chính xác."
-    );
-
-    passwordInput.focus();
-
-    return;
-}
-
-
-/*
- * Temporary demo session.
- *
- * The real implementation will receive a
- * server-generated Session from SAOVN-OS Core.
- */
-
-sessionStorage.setItem(
-    "saovn_demo_authenticated",
-    "true"
-);
-
-sessionStorage.setItem(
-    "saovn_demo_identity",
-    identity
-);
-
-
-/*
- * Temporary navigation.
- *
- * Dashboard will be created in the next UI slice.
- */
-
-window.location.href =
-    "dashboard.html";
-```
-
-});
-
-/*
-
-* ---
-* Input Cleanup
-* ---
-
-*/
-
-identityInput.addEventListener("input", () => {
-
-```
-identityError.textContent = "";
-
-identityInput
-    .closest(".form-group")
-    .classList.remove("has-error");
-
-formStatus.textContent = "";
-formStatus.className = "form-status";
-```
-
-});
-
-passwordInput.addEventListener("input", () => {
-
-```
-passwordError.textContent = "";
-
-passwordInput
-    .closest(".form-group")
-    .classList.remove("has-error");
-
-formStatus.textContent = "";
-formStatus.className = "form-status";
-```
-
-});
