@@ -30,7 +30,7 @@ async function loadMembers() {
     const activeMembers=identitySnap.docs.map(s=>memberFrom({...s.data(),id:s.id},membershipsByUid.get(s.id),s.id));
     let pendingInvites=[]; try { const invitationSnap=await getDocs(collection(db,'invitations')); pendingInvites=invitationSnap.docs.filter(s=>String(s.data()?.status||'PENDING').toUpperCase()==='PENDING').map(invitationFrom); } catch(inviteError) { console.warn('Không thể đọc invitations:',inviteError); }
     members=[...activeMembers,...pendingInvites];
-    if(!members.length&&currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid);}
+    if(!members.length&&currentUid){const own=await getDoc(doc(db,'identities',currentUid));const ownMem=await getDoc(doc(db,'memberships',`mem_${currentUid}_org_saovn_01`));if(own.exists())members=[memberFrom({...own.data(),id:currentUid},ownMem.exists()?{...ownMem.data(),id:ownMem.id}:{},currentUid)];}
     render();
   } catch(error) { console.error('Lỗi tải thành viên:',error); render(); if(resultCount) resultCount.textContent='Không thể tải toàn bộ danh sách với quyền hiện tại'; }
 }
