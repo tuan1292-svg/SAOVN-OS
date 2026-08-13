@@ -1,6 +1,6 @@
 // js/dashboard.js
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
 
 const userIdentity = document.getElementById("userIdentity");
@@ -10,48 +10,61 @@ const logoutButton = document.getElementById("logoutButton");
 const currentDate = document.getElementById("currentDate");
 const userRoleText = document.querySelector(".user-info span");
 
+function isPrivilegedMembership(membership) {
+    const roles = membership?.roles || {};
+    const systemRoles = Array.isArray(roles.system) ? roles.system : [];
+    const organizationRoles = Array.isArray(roles.organization) ? roles.organization : [];
+    return systemRoles.includes("system_admin") || systemRoles.includes("admin") ||
+        organizationRoles.some(role => ["org_admin", "organization_admin", "admin", "manager", "org_manager"].includes(role));
+}
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         try {
             updateUI("Đang tải...", "Khởi tạo dữ liệu...");
+
             const identityRef = doc(db, "identities", user.uid);
             let identitySnap = await getDoc(identityRef);
             if (!identitySnap.exists()) {
+                // Chỉ tự tạo identity cho chính tài khoản đang đăng nhập.
+                // Firestore Rules cho phép thao tác này; membership không tự tạo ở đây.
                 await setDoc(identityRef, {
-                    fullName: "Nguyễn Anh Tuấn",
-                    email: user.email,
-                    status: "active",
+                    fullName: user.displayName || user.email?.split("@")[0] || "Thành viên",
+                    email: user.email || "",
+                    status: "ACTIVE",
                     createdAt: new Date().toISOString()
-                });
+                }, { merge: true });
                 identitySnap = await getDoc(identityRef);
             }
 
             const membershipRef = doc(db, "memberships", `mem_${user.uid}_org_saovn_01`);
-            let membershipSnap = await getDoc(membershipRef);
+            const membershipSnap = await getDoc(membershipRef);
             if (!membershipSnap.exists()) {
-                await setDoc(membershipRef, {
-                    identityId: user.uid,
-                    organizationId: "org_saovn_01",
-                    status: "active",
-                    roles: { system: ["system_admin"], organization: ["org_member"] },
-                    joinedAt: new Date().toISOString()
-                });
-                membershipSnap = await getDoc(membershipRef);
+                throw new Error("Không tìm thấy Membership của tài khoản. Hãy kiểm tra tài khoản đã được cấp quyền trong SAOVN-OS.");
             }
 
-            const fullName = identitySnap.data().fullName;
+            const membership = membershipSnap.data();
+            const fullName = identitySnap.data().fullName || user.email || "Thành viên";
             let displayRole = "Thành viên";
-            const roles = membershipSnap.data().roles;
+            const roles = membership.roles || {};
             if (roles?.system?.includes("system_admin")) {
                 displayRole = "System Administrator";
-            } else if (roles?.organization) {
-                displayRole = roles.organization[0].replace("_", " ").toUpperCase();
+            } else if (roles?.organization?.length) {
+                const roleMap = {
+                    org_admin: "Organization Administrator",
+                    organization_admin: "Organization Administrator",
+                    admin: "Administrator",
+                    org_manager: "Organization Manager",
+                    manager: "Manager",
+                    member: "Thành viên"
+                };
+                displayRole = roleMap[roles.organization[0]] || roles.organization[0].replaceAll("_", " ");
             }
             updateUI(fullName, displayRole);
-            await loadWorkDashboard();
+            await loadWorkDashboard(user.uid, isPrivilegedMembership(membership));
         } catch (error) {
             console.error("Lỗi kéo dữ liệu từ Firestore:", error);
-            updateUI("Lỗi dữ liệu", "Vui lòng kiểm tra kết nối");
+            updateUI("Lỗi dữ liệu", error?.code === "permission-denied" ? "Không đủ quyền truy cập Firestore" : "Vui lòng kiểm tra kết nối");
         }
     } else {
         window.location.href = "index.html";
@@ -65,9 +78,27 @@ function updateUI(name, roleInfo) {
     if (userRoleText) userRoleText.textContent = roleInfo;
 }
 
-async function loadWorkDashboard() {
-    const snap = await getDocs(collection(db, "workTasks"));
-    const tasks = snap.docs.map(item => ({ id: item.id, ...item.data() }));
+async function loadWorkDashboard(uid, privileged) {
+    let taskDocs = [];
+
+    if (privileged) {
+        // Admin/Manager được xem toàn bộ Work của workspace.
+        const snap = await getDocs(collection(db, "workTasks"));
+        taskDocs = snap.docs;
+    } else {
+        // Member không được query toàn bộ workTasks vì Rules giới hạn theo assignment.
+        // Tách thành các query phù hợp với Security Rules rồi gộp kết quả.
+        const [assignedSnap, createdSnap, legacyAssignedSnap] = await Promise.all([
+            getDocs(query(collection(db, "workTasks"), where("assigneeIds", "array-contains", uid))),
+            getDocs(query(collection(db, "workTasks"), where("createdBy", "==", uid))),
+            getDocs(query(collection(db, "workTasks"), where("assigneeId", "==", uid)))
+        ]);
+        const unique = new Map();
+        [...assignedSnap.docs, ...createdSnap.docs, ...legacyAssignedSnap.docs].forEach(item => unique.set(item.id, item));
+        taskDocs = [...unique.values()];
+    }
+
+    const tasks = taskDocs.map(item => ({ id: item.id, ...item.data() }));
     const today = new Date().toISOString().slice(0, 10);
     const total = tasks.length;
     const inProgress = tasks.filter(t => t.status === "IN_PROGRESS").length;
@@ -75,7 +106,6 @@ async function loadWorkDashboard() {
     const overdue = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== "DONE").length;
     const waiting = tasks.filter(t => ["BACKLOG", "TODO", "REVIEW"].includes(t.status)).length;
 
-    // Tiến độ tổng thể: DONE=100%, REVIEW=75%, IN_PROGRESS=50%, TODO/BACKLOG=0%.
     const score = total ? Math.round(tasks.reduce((sum, t) => sum + ({ DONE: 1, REVIEW: .75, IN_PROGRESS: .5, TODO: 0, BACKLOG: 0 }[t.status] || 0), 0) / total * 100) : 0;
 
     const metricCards = document.querySelectorAll(".metric-card");
