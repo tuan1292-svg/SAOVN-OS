@@ -1,23 +1,22 @@
 import { db, auth } from './firebase-config.js';
 import { doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
-
-const ROLE_PERMISSIONS = {
-  MEMBER: ['dashboard.view', 'work.view', 'work.create', 'work.edit', 'work.comment', 'work.checklist'],
-  MANAGER: ['dashboard.view', 'work.view', 'work.create', 'work.edit', 'work.delete', 'work.assign', 'work.comment', 'work.checklist', 'members.view', 'projects.view', 'projects.create', 'projects.edit'],
-  ADMIN: ['dashboard.view', 'work.view', 'work.create', 'work.edit', 'work.delete', 'work.assign', 'work.comment', 'work.checklist', 'members.view', 'members.manage', 'projects.view', 'projects.create', 'projects.edit', 'projects.delete', 'roles.manage', 'system.manage']
-};
+import { ROLE_PERMISSIONS, PERMISSIONS } from './permissions.js';
 
 const LABELS = {
-  'dashboard.view': 'Xem Dashboard', 'work.view': 'Xem công việc', 'work.create': 'Tạo công việc',
-  'work.edit': 'Sửa công việc', 'work.delete': 'Xóa công việc', 'work.assign': 'Giao việc',
-  'work.comment': 'Trao đổi', 'work.checklist': 'Checklist', 'members.view': 'Xem thành viên',
-  'members.manage': 'Quản lý thành viên', 'projects.view': 'Xem dự án', 'projects.create': 'Tạo dự án',
-  'projects.edit': 'Sửa dự án', 'projects.delete': 'Xóa dự án', 'roles.manage': 'Quản lý vai trò', 'system.manage': 'Quản trị hệ thống'
+  [PERMISSIONS.DASHBOARD_VIEW]: 'Xem Dashboard', [PERMISSIONS.WORK_VIEW]: 'Xem công việc',
+  [PERMISSIONS.WORK_CREATE]: 'Tạo công việc', [PERMISSIONS.WORK_EDIT]: 'Sửa công việc',
+  [PERMISSIONS.WORK_DELETE]: 'Xóa công việc', [PERMISSIONS.WORK_ASSIGN]: 'Giao việc',
+  [PERMISSIONS.WORK_COMMENT]: 'Trao đổi', [PERMISSIONS.WORK_CHECKLIST]: 'Checklist',
+  [PERMISSIONS.MEMBERS_VIEW]: 'Xem thành viên', [PERMISSIONS.MEMBERS_CREATE]: 'Thêm thành viên',
+  [PERMISSIONS.MEMBERS_UPDATE]: 'Sửa thành viên', [PERMISSIONS.MEMBERS_ROLE_MANAGE]: 'Quản lý vai trò thành viên',
+  [PERMISSIONS.MEMBERS_DELETE]: 'Xóa thành viên', [PERMISSIONS.PROJECTS_VIEW]: 'Xem dự án',
+  [PERMISSIONS.PROJECTS_CREATE]: 'Tạo dự án', [PERMISSIONS.PROJECTS_EDIT]: 'Sửa dự án',
+  [PERMISSIONS.PROJECTS_DELETE]: 'Xóa dự án', [PERMISSIONS.ROLES_MANAGE]: 'Quản lý vai trò hệ thống',
+  [PERMISSIONS.SYSTEM_MANAGE]: 'Quản trị hệ thống'
 };
 
 export function permissionsForRole(role) {
-  const key = String(role || 'MEMBER').toUpperCase();
-  return ROLE_PERMISSIONS[key] || ROLE_PERMISSIONS.MEMBER;
+  return [...(ROLE_PERMISSIONS[String(role || 'MEMBER').toUpperCase()] || ROLE_PERMISSIONS.MEMBER)];
 }
 
 export function renderPermissionGrid(container, role) {
