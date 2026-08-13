@@ -1,4 +1,4 @@
-// js/dashboard.js
+import './permissions.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { doc, getDoc, setDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
@@ -22,12 +22,9 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         try {
             updateUI("Đang tải...", "Khởi tạo dữ liệu...");
-
             const identityRef = doc(db, "identities", user.uid);
             let identitySnap = await getDoc(identityRef);
             if (!identitySnap.exists()) {
-                // Chỉ tự tạo identity cho chính tài khoản đang đăng nhập.
-                // Firestore Rules cho phép thao tác này; membership không tự tạo ở đây.
                 await setDoc(identityRef, {
                     fullName: user.displayName || user.email?.split("@")[0] || "Thành viên",
                     email: user.email || "",
@@ -36,13 +33,11 @@ onAuthStateChanged(auth, async (user) => {
                 }, { merge: true });
                 identitySnap = await getDoc(identityRef);
             }
-
             const membershipRef = doc(db, "memberships", `mem_${user.uid}_org_saovn_01`);
             const membershipSnap = await getDoc(membershipRef);
             if (!membershipSnap.exists()) {
                 throw new Error("Không tìm thấy Membership của tài khoản. Hãy kiểm tra tài khoản đã được cấp quyền trong SAOVN-OS.");
             }
-
             const membership = membershipSnap.data();
             const fullName = identitySnap.data().fullName || user.email || "Thành viên";
             let displayRole = "Thành viên";
@@ -80,14 +75,10 @@ function updateUI(name, roleInfo) {
 
 async function loadWorkDashboard(uid, privileged) {
     let taskDocs = [];
-
     if (privileged) {
-        // Admin/Manager được xem toàn bộ Work của workspace.
         const snap = await getDocs(collection(db, "workTasks"));
         taskDocs = snap.docs;
     } else {
-        // Member không được query toàn bộ workTasks vì Rules giới hạn theo assignment.
-        // Tách thành các query phù hợp với Security Rules rồi gộp kết quả.
         const [assignedSnap, createdSnap, legacyAssignedSnap] = await Promise.all([
             getDocs(query(collection(db, "workTasks"), where("assigneeIds", "array-contains", uid))),
             getDocs(query(collection(db, "workTasks"), where("createdBy", "==", uid))),
@@ -97,7 +88,6 @@ async function loadWorkDashboard(uid, privileged) {
         [...assignedSnap.docs, ...createdSnap.docs, ...legacyAssignedSnap.docs].forEach(item => unique.set(item.id, item));
         taskDocs = [...unique.values()];
     }
-
     const tasks = taskDocs.map(item => ({ id: item.id, ...item.data() }));
     const today = new Date().toISOString().slice(0, 10);
     const total = tasks.length;
@@ -105,9 +95,7 @@ async function loadWorkDashboard(uid, privileged) {
     const done = tasks.filter(t => t.status === "DONE").length;
     const overdue = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== "DONE").length;
     const waiting = tasks.filter(t => ["BACKLOG", "TODO", "REVIEW"].includes(t.status)).length;
-
     const score = total ? Math.round(tasks.reduce((sum, t) => sum + ({ DONE: 1, REVIEW: .75, IN_PROGRESS: .5, TODO: 0, BACKLOG: 0 }[t.status] || 0), 0) / total * 100) : 0;
-
     const metricCards = document.querySelectorAll(".metric-card");
     if (metricCards[0]) metricCards[0].querySelector("strong").textContent = done;
     if (metricCards[1]) metricCards[1].querySelector("strong").textContent = overdue;
@@ -116,17 +104,14 @@ async function loadWorkDashboard(uid, privileged) {
         metricCards[2].querySelector(".progress-line i").style.width = `${score}%`;
         metricCards[2].querySelector(".metric-head b").textContent = `${score}%`;
     }
-
     const summary = document.querySelectorAll(".work-summary > div strong");
     if (summary[0]) summary[0].textContent = String(inProgress).padStart(2, "0");
     if (summary[1]) summary[1].textContent = String(done).padStart(2, "0");
     if (summary[2]) summary[2].textContent = String(waiting).padStart(2, "0");
-
     const ring = document.querySelector(".work-ring");
     const ringText = ring?.querySelector("strong");
     if (ring) ring.style.background = `conic-gradient(#2587ff 0 ${score}%, #ffffff0e ${score}% 100%)`;
     if (ringText) ringText.textContent = `${score}%`;
-
     renderDashboardTasks(tasks);
     renderTodayTasks(tasks, today);
 }
@@ -153,23 +138,10 @@ function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
-if (logoutButton) {
-    logoutButton.addEventListener("click", () => signOut(auth).catch(error => console.error("Lỗi khi đăng xuất:", error)));
-}
-
-if (currentDate) {
-    currentDate.textContent = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date());
-}
-
-document.querySelectorAll('a[href="#work"]').forEach(link => {
-    link.addEventListener("click", e => {
-        e.preventDefault();
-        window.location.href = "work.html";
-    });
-});
-
+if (logoutButton) logoutButton.addEventListener("click", () => signOut(auth).catch(error => console.error("Lỗi khi đăng xuất:", error)));
+if (currentDate) currentDate.textContent = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date());
+document.querySelectorAll('a[href="#work"]').forEach(link => link.addEventListener("click", e => { e.preventDefault(); window.location.href = "work.html"; }));
 document.querySelectorAll('a[href="#"]').forEach(link => link.addEventListener("click", e => e.preventDefault()));
-
 const workReportModal = document.getElementById("workReportModal");
 const openReportBtn = document.getElementById("openReportBtn");
 const closeReportBtn = document.getElementById("closeReportBtn");
