@@ -1,26 +1,16 @@
 <!doctype html>
 <html lang="vi">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SAOVN-OS — Kích hoạt workspace</title>
-<link rel="stylesheet" href="css/login.css"><link rel="stylesheet" href="css/activate.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAOVN-OS — Kích hoạt tài khoản</title><link rel="stylesheet" href="css/login.css"><link rel="stylesheet" href="css/activate.css"></head>
 <body class="activate-page">
-<main class="activate-shell">
-  <section class="activate-card glass">
-    <div class="brand"><span class="brand-mark">S</span><strong>SAOVN-OS</strong></div>
-    <span class="eyebrow">WORKSPACE ACCESS</span>
-    <h1>Kích hoạt workspace</h1>
-    <p class="lead">Đăng nhập Firebase rồi nhập mã mời do quản trị viên cấp. Không cần email API hay dịch vụ trả phí.</p>
-    <div class="signed-user" id="signedUser">Chưa đăng nhập</div>
-    <form id="activateForm">
-      <label>Mã mời<input id="inviteCode" autocomplete="off" placeholder="A7F2-91BC" required></label>
-      <button class="primary-btn" id="activateBtn" type="submit">Kích hoạt thành viên</button>
-    </form>
-    <div id="activateStatus" class="status" aria-live="polite"></div>
-    <a class="back-link" href="index.html">← Quay lại đăng nhập</a>
-  </section>
-</main>
-<script type="module" src="js/activate.js"></script>
-</body>
-</html>
+<main class="activate-shell"><section class="activate-card glass">
+<div class="brand"><span class="brand-mark">S</span><strong>SAOVN-OS</strong></div>
+<span class="eyebrow">FIRST LOGIN / ACCOUNT ACTIVATION</span><h1>Kích hoạt tài khoản</h1>
+<p class="lead">Quản trị viên đã cấp cho bạn một tài khoản SAOVN-OS. Hãy đăng nhập bằng mật khẩu tạm, sau đó đổi sang mật khẩu riêng của bạn.</p>
+<div class="signed-user" id="signedUser">Đang xác thực...</div>
+<form id="activateForm">
+<label>Mật khẩu mới<input id="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Tối thiểu 8 ký tự" required></label>
+<label>Nhập lại mật khẩu mới<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Nhập lại mật khẩu mới" required></label>
+<div class="password-rules"><span>• Tối thiểu 8 ký tự.</span><span>• Không sử dụng lại mật khẩu tạm do quản trị viên cấp.</span><span>• Sau khi hoàn tất, tài khoản sẽ chuyển từ Pending → Active.</span></div>
+<button class="primary-btn" id="activateBtn" type="submit">Kích hoạt &amp; đổi mật khẩu</button>
+</form><div id="activateStatus" class="status" aria-live="polite"></div>
+</section></main><script type="module" src="js/activate.js"></script></body></html>
