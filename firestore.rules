@@ -11,6 +11,11 @@ service cloud.firestore {
     function isAdmin() { return isSystemAdmin() || hasRole("org_admin") || hasRole("organization_admin") || hasRole("admin"); }
     function isManager() { return hasRole("manager") || hasRole("org_manager"); }
     function isPrivileged() { return isAdmin() || isManager(); }
+    function canReadTask(taskId) { return isPrivileged() || (isMember() && (
+      get(/databases/$(database)/documents/workTasks/$(taskId)).data.createdBy == request.auth.uid
+      || (get(/databases/$(database)/documents/workTasks/$(taskId)).data.assigneeIds is list && request.auth.uid in get(/databases/$(database)/documents/workTasks/$(taskId)).data.assigneeIds)
+      || get(/databases/$(database)/documents/workTasks/$(taskId)).data.assigneeId == request.auth.uid
+    )); }
 
     match /identities/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isPrivileged() || (isMember() && resource.data.status == "ACTIVE"));
@@ -46,41 +51,29 @@ service cloud.firestore {
     }
 
     match /invitations/{invitationId} {
-      allow read: if isAdmin() || (
-        signedIn()
-        && resource.data.status == "PENDING"
-        && resource.data.email == request.auth.token.email
-      );
-      allow create: if isAdmin()
-        && request.resource.data.organizationId == "org_saovn_01"
-        && request.resource.data.invitedBy == request.auth.uid
-        && request.resource.data.status == "PENDING"
-        && request.resource.data.email is string
-        && request.resource.data.role in ["MEMBER", "MANAGER", "ADMIN"];
-      allow update: if isAdmin() || (
-        signedIn()
-        && resource.data.status == "PENDING"
-        && resource.data.email == request.auth.token.email
-        && request.resource.data.status == "ACCEPTED"
-        && request.resource.data.acceptedBy == request.auth.uid
-      );
+      allow read: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && resource.data.email == request.auth.token.email);
+      allow create: if isAdmin() && request.resource.data.organizationId == "org_saovn_01" && request.resource.data.invitedBy == request.auth.uid && request.resource.data.status == "PENDING" && request.resource.data.email is string && request.resource.data.role in ["MEMBER", "MANAGER", "ADMIN"];
+      allow update: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && resource.data.email == request.auth.token.email && request.resource.data.status == "ACCEPTED" && request.resource.data.acceptedBy == request.auth.uid);
       allow delete: if isAdmin();
     }
 
     match /workTasks/{taskId} {
-      // Admin/Manager can see the whole workspace. Normal members can only read
-      // tasks assigned to them or tasks they created themselves.
-      allow read: if isPrivileged() || (isMember() && (
-        resource.data.createdBy == request.auth.uid
-        || (resource.data.assigneeIds is list && request.auth.uid in resource.data.assigneeIds)
-        || resource.data.assigneeId == request.auth.uid
-      ));
+      // Admin/Manager: entire workspace. Member: only assigned or self-created tasks.
+      allow read: if isPrivileged() || (isMember() && (resource.data.createdBy == request.auth.uid || (resource.data.assigneeIds is list && request.auth.uid in resource.data.assigneeIds) || resource.data.assigneeId == request.auth.uid));
       allow create: if isMember() && (isPrivileged() || request.resource.data.createdBy == request.auth.uid || (request.resource.data.assigneeIds is list && request.auth.uid in request.resource.data.assigneeIds) || request.resource.data.assigneeId == request.auth.uid);
       allow update: if isMember() && (isPrivileged() || resource.data.createdBy == request.auth.uid || request.resource.data.createdBy == request.auth.uid || (resource.data.assigneeIds is list && request.auth.uid in resource.data.assigneeIds) || (request.resource.data.assigneeIds is list && request.auth.uid in request.resource.data.assigneeIds) || resource.data.assigneeId == request.auth.uid || request.resource.data.assigneeId == request.auth.uid);
       allow delete: if isAdmin();
-      match /comments/{commentId} { allow read, create: if isMember(); allow update, delete: if isMember() && (resource.data.authorId == request.auth.uid || isPrivileged()); }
-      match /checklist/{itemId} { allow read, create, update, delete: if isMember(); }
-      match /activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
+      match /comments/{commentId} {
+        allow read, create: if canReadTask(taskId);
+        allow update, delete: if canReadTask(taskId) && (resource.data.authorId == request.auth.uid || isPrivileged());
+      }
+      match /checklist/{itemId} {
+        allow read, create, update, delete: if canReadTask(taskId);
+      }
+      match /activity/{activityId} {
+        allow read, create: if canReadTask(taskId);
+        allow update, delete: if canReadTask(taskId) && isPrivileged();
+      }
     }
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
