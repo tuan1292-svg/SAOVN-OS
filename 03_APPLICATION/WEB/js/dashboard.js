@@ -19,65 +19,65 @@ function isPrivilegedMembership(membership) {
 }
 
 onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        try {
-            updateUI("Đang tải...", "Khởi tạo dữ liệu...");
-            const identityRef = doc(db, "identities", user.uid);
-            let identitySnap = await getDoc(identityRef);
-            if (!identitySnap.exists()) {
-                await setDoc(identityRef, {
-                    fullName: user.displayName || user.email?.split("@")[0] || "Thành viên",
-                    email: user.email || "",
-                    status: "ACTIVE",
-                    createdAt: new Date().toISOString()
-                }, { merge: true });
-                identitySnap = await getDoc(identityRef);
-            }
-            const membershipRef = doc(db, "memberships", `mem_${user.uid}_org_saovn_01`);
-            const membershipSnap = await getDoc(membershipRef);
-            if (!membershipSnap.exists()) {
-                throw new Error("Không tìm thấy Membership của tài khoản. Hãy kiểm tra tài khoản đã được cấp quyền trong SAOVN-OS.");
-            }
-            const membership = membershipSnap.data();
-            const fullName = identitySnap.data().fullName || user.email || "Thành viên";
-            let displayRole = "Thành viên";
-            const roles = membership.roles || {};
-            if (roles?.system?.includes("system_admin")) {
-                displayRole = "System Administrator";
-            } else if (roles?.organization?.length) {
-                const roleMap = {
-                    org_admin: "Organization Administrator",
-                    organization_admin: "Organization Administrator",
-                    admin: "Administrator",
-                    org_manager: "Organization Manager",
-                    manager: "Manager",
-                    member: "Thành viên"
-                };
-                displayRole = roleMap[roles.organization[0]] || roles.organization[0].replaceAll("_", " ");
-            }
-            updateUI(fullName, displayRole);
-            await loadWorkDashboard(user.uid, isPrivilegedMembership(membership));
-        } catch (error) {
-            console.error("Lỗi kéo dữ liệu từ Firestore:", error);
-            updateUI("Lỗi dữ liệu", error?.code === "permission-denied" ? "Không đủ quyền truy cập Firestore" : "Vui lòng kiểm tra kết nối");
-        }
-    } else {
+    if (!user) {
         window.location.href = "index.html";
+        return;
+    }
+    try {
+        updateUI("", "Đang tải dữ liệu...");
+        const identityRef = doc(db, "identities", user.uid);
+        let identitySnap = await getDoc(identityRef);
+        if (!identitySnap.exists()) {
+            await setDoc(identityRef, {
+                fullName: user.displayName || user.email?.split("@")[0] || "Thành viên",
+                email: user.email || "",
+                status: "ACTIVE",
+                createdAt: new Date().toISOString()
+            }, { merge: true });
+            identitySnap = await getDoc(identityRef);
+        }
+        const membershipRef = doc(db, "memberships", `mem_${user.uid}_org_saovn_01`);
+        const membershipSnap = await getDoc(membershipRef);
+        if (!membershipSnap.exists()) throw new Error("Không tìm thấy Membership của tài khoản.");
+        const membership = membershipSnap.data();
+        const displayRole = getDisplayRole(membership);
+        updateUI(identitySnap.data().fullName || "", displayRole);
+        await loadWorkDashboard(user.uid, isPrivilegedMembership(membership));
+    } catch (error) {
+        console.error("Lỗi kéo dữ liệu từ Firestore:", error);
+        updateUI("", error?.code === "permission-denied" ? "Không đủ quyền truy cập Firestore" : "Không thể tải dữ liệu");
+        showDashboardError(error?.message || "Không thể tải dữ liệu Dashboard.");
     }
 });
+
+function getDisplayRole(membership) {
+    const roles = membership?.roles || {};
+    if (roles?.system?.includes("system_admin")) return "System Administrator";
+    const roleMap = {
+        org_admin: "Organization Administrator",
+        organization_admin: "Organization Administrator",
+        admin: "Administrator",
+        org_manager: "Organization Manager",
+        manager: "Manager",
+        member: "Thành viên"
+    };
+    const role = Array.isArray(roles.organization) ? roles.organization[0] : "member";
+    return roleMap[role] || String(role).replaceAll("_", " ");
+}
 
 function updateUI(name, roleInfo) {
     if (userIdentity) userIdentity.textContent = name;
     if (topbarIdentity) topbarIdentity.textContent = name;
-    if (welcomeIdentity) welcomeIdentity.textContent = name;
+    if (welcomeIdentity) welcomeIdentity.textContent = "";
     if (userRoleText) userRoleText.textContent = roleInfo;
+    const hero = document.querySelector(".hero-banner");
+    if (hero) hero.remove();
 }
 
 async function loadWorkDashboard(uid, privileged) {
     let taskDocs = [];
     if (privileged) {
-        const snap = await getDocs(collection(db, "workTasks"));
-        taskDocs = snap.docs;
+        taskDocs = (await getDocs(collection(db, "workTasks"))).docs;
     } else {
         const [assignedSnap, createdSnap, legacyAssignedSnap] = await Promise.all([
             getDocs(query(collection(db, "workTasks"), where("assigneeIds", "array-contains", uid))),
@@ -89,21 +89,46 @@ async function loadWorkDashboard(uid, privileged) {
         taskDocs = [...unique.values()];
     }
     const tasks = taskDocs.map(item => ({ id: item.id, ...item.data() }));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    const todayKey = dateKey(today);
     const total = tasks.length;
     const inProgress = tasks.filter(t => t.status === "IN_PROGRESS").length;
     const done = tasks.filter(t => t.status === "DONE").length;
-    const overdue = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== "DONE").length;
+    const overdue = tasks.filter(t => toDateKey(t.dueDate) && toDateKey(t.dueDate) < todayKey && t.status !== "DONE").length;
     const waiting = tasks.filter(t => ["BACKLOG", "TODO", "REVIEW"].includes(t.status)).length;
-    const score = total ? Math.round(tasks.reduce((sum, t) => sum + ({ DONE: 1, REVIEW: .75, IN_PROGRESS: .5, TODO: 0, BACKLOG: 0 }[t.status] || 0), 0) / total * 100) : 0;
+    const score = total ? Math.round(tasks.reduce((sum, t) => sum + progressForTask(t), 0) / total) : 0;
+
+    updateMetricCards({ done, overdue, score });
+    updateWorkSummary({ inProgress, done, waiting, score });
+    renderDashboardTasks(tasks);
+    renderTodayTasks(tasks, todayKey);
+    renderMonthlyChart(tasks, today);
+    renderRisk(tasks);
+    renderReportCard({ total, done, inProgress, waiting, overdue, score });
+    renderEmptySecondaryPanels();
+}
+
+function updateMetricCards({ done, overdue, score }) {
     const metricCards = document.querySelectorAll(".metric-card");
-    if (metricCards[0]) metricCards[0].querySelector("strong").textContent = done;
-    if (metricCards[1]) metricCards[1].querySelector("strong").textContent = overdue;
+    if (metricCards[0]) {
+        metricCards[0].querySelector("strong").textContent = done;
+        metricCards[0].querySelector("small").textContent = "Theo dữ liệu Work hiện tại";
+        metricCards[0].querySelector(".metric-head b").textContent = "LIVE";
+    }
+    if (metricCards[1]) {
+        metricCards[1].querySelector("strong").textContent = overdue;
+        metricCards[1].querySelector("small").textContent = "Chưa hoàn thành và đã quá hạn";
+        metricCards[1].querySelector(".metric-head b").textContent = overdue ? "CẦN XỬ LÝ" : "ỔN ĐỊNH";
+    }
     if (metricCards[2]) {
         metricCards[2].querySelector("strong").textContent = `${score}%`;
-        metricCards[2].querySelector(".progress-line i").style.width = `${score}%`;
         metricCards[2].querySelector(".metric-head b").textContent = `${score}%`;
+        metricCards[2].querySelector("small").textContent = "Tính từ trạng thái công việc";
+        metricCards[2].querySelector(".progress-line i").style.width = `${score}%`;
     }
+}
+
+function updateWorkSummary({ inProgress, done, waiting, score }) {
     const summary = document.querySelectorAll(".work-summary > div strong");
     if (summary[0]) summary[0].textContent = String(inProgress).padStart(2, "0");
     if (summary[1]) summary[1].textContent = String(done).padStart(2, "0");
@@ -112,26 +137,109 @@ async function loadWorkDashboard(uid, privileged) {
     const ringText = ring?.querySelector("strong");
     if (ring) ring.style.background = `conic-gradient(#2587ff 0 ${score}%, #ffffff0e ${score}% 100%)`;
     if (ringText) ringText.textContent = `${score}%`;
-    renderDashboardTasks(tasks);
-    renderTodayTasks(tasks, today);
 }
 
 function renderDashboardTasks(tasks) {
     const list = document.querySelector("#work .task-list");
     if (!list) return;
     const statusText = { BACKLOG: "Backlog", TODO: "Chờ xử lý", IN_PROGRESS: "Đang thực hiện", REVIEW: "Đang review", DONE: "Hoàn thành" };
-    const sorted = [...tasks].sort((a, b) => (a.dueDate || "9999").localeCompare(b.dueDate || "9999")).slice(0, 5);
+    const sorted = [...tasks].sort((a, b) => (toDateKey(a.dueDate) || "9999").localeCompare(toDateKey(b.dueDate) || "9999")).slice(0, 5);
     list.innerHTML = sorted.length ? sorted.map(t => {
         const color = t.status === "DONE" ? "blue-dot" : t.status === "IN_PROGRESS" ? "green-dot" : t.status === "REVIEW" ? "orange-dot" : t.priority === "URGENT" ? "red-dot" : "blue-dot";
-        return `<div class="task-item"><i class="task-dot ${color}"></i><div><strong>${escapeHTML(t.title || "Không tên")}</strong><span>${statusText[t.status] || "Chưa xác định"}</span></div><b>${t.status === "DONE" ? "100%" : t.status === "REVIEW" ? "75%" : t.status === "IN_PROGRESS" ? "50%" : "0%"}</b></div>`;
-    }).join("") : `<div class="task-item"><i class="task-dot blue-dot"></i><div><strong>Chưa có công việc</strong><span>Hãy tạo công việc đầu tiên trong Work</span></div><b>—</b></div>`;
+        return `<div class="task-item"><i class="task-dot ${color}"></i><div><strong>${escapeHTML(t.title || "Không tên")}</strong><span>${statusText[t.status] || "Chưa xác định"}</span></div><b>${progressForTask(t)}%</b></div>`;
+    }).join("") : emptyTask("Chưa có công việc", "Chưa có dữ liệu Work trong phạm vi của bạn");
 }
 
 function renderTodayTasks(tasks, today) {
     const list = document.querySelector(".today-list");
     if (!list) return;
-    const todayTasks = tasks.filter(t => t.dueDate === today).slice(0, 5);
-    list.innerHTML = todayTasks.length ? todayTasks.map(t => `<div><i class="check">${t.status === "DONE" ? "✓" : "•"}</i><span>${escapeHTML(t.title || "Không tên")}</span><time>${t.status === "DONE" ? "Xong" : (t.assignee ? escapeHTML(t.assignee) : "Hôm nay")}</time></div>`).join("") : `<div><i class="check">✓</i><span>Không có công việc đến hạn hôm nay</span><time>—</time></div>`;
+    const todayTasks = tasks.filter(t => toDateKey(t.dueDate) === today).slice(0, 5);
+    list.innerHTML = todayTasks.length ? todayTasks.map(t => `<div><i class="check">${t.status === "DONE" ? "✓" : "•"}</i><span>${escapeHTML(t.title || "Không tên")}</span><time>${t.status === "DONE" ? "Xong" : "Hôm nay"}</time></div>`).join("") : `<div><i class="check">✓</i><span>Không có công việc đến hạn hôm nay</span><time>—</time></div>`;
+}
+
+function renderMonthlyChart(tasks, today) {
+    const chart = document.querySelector(".bar-chart");
+    if (!chart) return;
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` });
+    }
+    const counts = months.map(m => tasks.filter(t => toDateKey(t.completedAt || t.updatedAt || t.createdAt)?.startsWith(m.key) && t.status === "DONE").length);
+    const max = Math.max(...counts, 1);
+    chart.innerHTML = months.map((m, i) => {
+        const value = counts[i];
+        const height = Math.max(4, Math.round(value / max * 92));
+        return `<div><span>${value}</span><i style="height:${height}%"></i><small>${m.label}</small></div>`;
+    }).join("");
+}
+
+function renderRisk(tasks) {
+    const riskBars = document.querySelectorAll(".risk-bars > div");
+    if (!riskBars.length) return;
+    const total = tasks.length || 1;
+    const overdue = tasks.filter(t => toDateKey(t.dueDate) && toDateKey(t.dueDate) < dateKey(new Date()) && t.status !== "DONE").length;
+    const attention = tasks.filter(t => ["REVIEW", "IN_PROGRESS"].includes(t.status) && t.priority === "URGENT").length;
+    const onTrack = Math.max(0, total - overdue - attention);
+    const values = [Math.round(onTrack / total * 100), Math.round(attention / total * 100), Math.round(overdue / total * 100)];
+    ["Đúng tiến độ", "Cần chú ý", "Trễ hạn"].forEach((label, i) => {
+        const row = riskBars[i];
+        if (!row) return;
+        const bar = row.querySelector("b");
+        row.querySelector("span").textContent = label;
+        bar.textContent = `${values[i]}%`;
+        bar.style.width = `${values[i]}%`;
+    });
+    const note = document.querySelector(".risk-note");
+    if (note) note.innerHTML = `<span>!</span> ${overdue} công việc quá hạn trong phạm vi hiện tại.`;
+}
+
+function renderReportCard({ total, done, inProgress, waiting, overdue, score }) {
+    const card = document.querySelector(".report-card");
+    if (!card) return;
+    const copy = card.querySelector(".report-copy");
+    if (!copy) return;
+    copy.querySelector("h1").textContent = "Tổng quan công việc";
+    const p = copy.querySelector("p:not(.eyebrow)");
+    if (p) p.textContent = `Đang theo dõi ${total} công việc trong phạm vi quyền của tài khoản. Tiến độ hiện tại ${score}%, ${done} công việc đã hoàn thành và ${overdue} công việc quá hạn.`;
+    const ul = copy.querySelector("ul");
+    if (ul) ul.innerHTML = `<li>${inProgress} công việc đang thực hiện.</li><li>${waiting} công việc đang chờ xử lý/review.</li><li>${overdue ? `${overdue} công việc cần ưu tiên xử lý.` : "Không có công việc quá hạn."}</li>`;
+    const button = copy.querySelector("button");
+    if (button) button.textContent = "Mở Work →";
+}
+
+function renderEmptySecondaryPanels() {
+    const noticeList = document.querySelector(".notice-list");
+    if (noticeList) noticeList.innerHTML = `<div><i class="notice-dot blue-dot"></i><span><strong>Thông báo</strong> sẽ xuất hiện khi module Notifications được kết nối<small>Chưa có dữ liệu</small></span></div>`;
+    const count = document.querySelector(".count-badge");
+    if (count) count.textContent = "0";
+    const docList = document.querySelector(".doc-list");
+    if (docList) docList.innerHTML = `<div><i class="doc-icon blue-doc">D</i><span>Chưa có tài liệu gần đây<small>Documents chưa được kết nối</small></span><time>—</time></div>`;
+}
+
+function showDashboardError(message) {
+    const card = document.querySelector(".report-card .report-copy p:not(.eyebrow)");
+    if (card) card.textContent = message;
+}
+
+function progressForTask(task) {
+    return ({ DONE: 100, REVIEW: 75, IN_PROGRESS: 50, TODO: 0, BACKLOG: 0 }[task.status] ?? Number(task.progress) || 0);
+}
+
+function dateKey(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function toDateKey(value) {
+    if (!value) return "";
+    if (typeof value === "object" && typeof value.toDate === "function") return dateKey(value.toDate());
+    return dateKey(value);
+}
+
+function emptyTask(title, detail) {
+    return `<div class="task-item"><i class="task-dot blue-dot"></i><div><strong>${escapeHTML(title)}</strong><span>${escapeHTML(detail)}</span></div><b>—</b></div>`;
 }
 
 function escapeHTML(value) {
@@ -146,7 +254,7 @@ const workReportModal = document.getElementById("workReportModal");
 const openReportBtn = document.getElementById("openReportBtn");
 const closeReportBtn = document.getElementById("closeReportBtn");
 if (workReportModal && openReportBtn && closeReportBtn) {
-    openReportBtn.addEventListener("click", e => { e.preventDefault(); workReportModal.classList.add("active"); });
+    openReportBtn.addEventListener("click", e => { e.preventDefault(); window.location.href = "work.html"; });
     closeReportBtn.addEventListener("click", () => workReportModal.classList.remove("active"));
     workReportModal.addEventListener("click", e => { if (e.target === workReportModal) workReportModal.classList.remove("active"); });
 }
