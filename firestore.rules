@@ -6,19 +6,30 @@ service cloud.firestore {
     function membershipId() { return "mem_" + request.auth.uid + "_org_saovn_01"; }
     function isMember() { return signedIn() && exists(/databases/$(database)/documents/memberships/$(membershipId())); }
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
-    function hasRole(roleName) { return isMember() && membership().roles != null && membership().roles.organization != null && roleName in membership().roles.organization; }
-    function isSystemAdmin() { return isMember() && membership().roles != null && membership().roles.system != null && ("system_admin" in membership().roles.system || "admin" in membership().roles.system); }
-    function isAdmin() { return isSystemAdmin() || hasRole("org_admin") || hasRole("organization_admin") || hasRole("admin"); }
-    function isManager() { return hasRole("manager") || hasRole("org_manager"); }
+    function hasOrgRole(roleName) { return isMember() && membership().roles != null && membership().roles.organization != null && roleName in membership().roles.organization; }
+    function hasSystemRole(roleName) { return isMember() && membership().roles != null && membership().roles.system != null && roleName in membership().roles.system; }
+    function isSystemAdmin() { return hasSystemRole("system_admin") || hasSystemRole("admin"); }
+    function isAdmin() { return isSystemAdmin() || hasOrgRole("org_admin") || hasOrgRole("organization_admin") || hasOrgRole("admin"); }
+    function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager"); }
     function isPrivileged() { return isAdmin() || isManager(); }
 
-    function taskAssigneeIds(data) {
-      return data.get("assigneeIds", []);
-    }
+    // Keep the Firestore security model aligned with the Core permission matrix.
+    // The application permission engine cannot be imported into Rules, so the same
+    // role-to-permission decisions are expressed here at the security boundary.
+    function canReadMembers() { return isAdmin(); }
+    function canCreateMembers() { return isAdmin(); }
+    function canUpdateMembers() { return isAdmin(); }
+    function canManageMemberRoles() { return isAdmin(); }
+    function canDeleteMembers() { return isAdmin(); }
 
-    function taskAssigneeId(data) {
-      return data.get("assigneeId", "");
-    }
+    function canReadWork() { return isMember(); }
+    function canCreateWork() { return isMember(); }
+    function canEditWork() { return isMember(); }
+    function canDeleteWork() { return isAdmin() || isManager(); }
+    function canAssignWork() { return isAdmin() || isManager(); }
+
+    function taskAssigneeIds(data) { return data.get("assigneeIds", []); }
+    function taskAssigneeId(data) { return data.get("assigneeId", ""); }
 
     function canReadTask(taskId) {
       return isPrivileged() || (isMember() && (
@@ -29,14 +40,23 @@ service cloud.firestore {
     }
 
     match /identities/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isPrivileged() || (isMember() && resource.data.status == "ACTIVE"));
-      allow create, update: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      // Identity directory is intentionally broader than the Members admin module:
+      // active members may resolve names for work assignment/collaboration, but only
+      // the account owner or Admin may access the full identity record.
+      allow read: if signedIn() && (
+        request.auth.uid == userId
+        || isAdmin()
+        || (isMember() && resource.data.status == "ACTIVE")
+      );
+      allow create, update: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
     match /memberships/{membershipDocId} {
-      allow read: if signedIn() && (membershipDocId == membershipId() || isPrivileged() || (isMember() && resource.data.status == "ACTIVE"));
-      allow create: if isAdmin() || (
+      // A member can read only their own membership. The Members administration
+      // module is Admin-only, matching members.view/manage in the Core matrix.
+      allow read: if signedIn() && (membershipDocId == membershipId() || canReadMembers());
+      allow create: if canCreateMembers() || (
         signedIn()
         && membershipDocId == membershipId()
         && request.resource.data.status == "ACTIVE"
@@ -49,7 +69,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email
         && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId == "org_saovn_01"
       );
-      allow update: if isAdmin() || (
+      allow update: if canUpdateMembers() || (
         signedIn()
         && membershipDocId == membershipId()
         && resource.data.status == "PENDING"
@@ -58,7 +78,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.organizationId == "org_saovn_01"
       );
-      allow delete: if isAdmin();
+      allow delete: if canDeleteMembers();
     }
 
     match /invitations/{invitationId} {
@@ -69,19 +89,19 @@ service cloud.firestore {
     }
 
     match /workTasks/{taskId} {
-      // Admin/Manager: entire workspace. Member: only assigned or self-created tasks.
-      allow read: if isPrivileged() || (isMember() && (
-        resource.data.get("createdBy", "") == request.auth.uid
+      allow read: if canReadWork() && (
+        isPrivileged()
+        || resource.data.get("createdBy", "") == request.auth.uid
         || request.auth.uid in resource.data.get("assigneeIds", [])
         || resource.data.get("assigneeId", "") == request.auth.uid
-      ));
-      allow create: if isMember() && (
+      );
+      allow create: if canCreateWork() && (
         isPrivileged()
         || request.resource.data.get("createdBy", "") == request.auth.uid
         || request.auth.uid in request.resource.data.get("assigneeIds", [])
         || request.resource.data.get("assigneeId", "") == request.auth.uid
       );
-      allow update: if isMember() && (
+      allow update: if canEditWork() && (
         isPrivileged()
         || resource.data.get("createdBy", "") == request.auth.uid
         || request.resource.data.get("createdBy", "") == request.auth.uid
@@ -90,7 +110,7 @@ service cloud.firestore {
         || resource.data.get("assigneeId", "") == request.auth.uid
         || request.resource.data.get("assigneeId", "") == request.auth.uid
       );
-      allow delete: if isAdmin();
+      allow delete: if canDeleteWork();
 
       match /comments/{commentId} {
         allow read, create: if canReadTask(taskId);
