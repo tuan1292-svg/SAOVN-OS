@@ -14,34 +14,23 @@ function isPrivilegedMembership(membership) {
     const roles = membership?.roles || {};
     const systemRoles = Array.isArray(roles.system) ? roles.system : [];
     const organizationRoles = Array.isArray(roles.organization) ? roles.organization : [];
-    return systemRoles.includes("system_admin") || systemRoles.includes("admin") ||
-        organizationRoles.some(role => ["org_admin", "organization_admin", "admin", "manager", "org_manager"].includes(role));
+    return systemRoles.includes("system_admin") || systemRoles.includes("admin") || organizationRoles.some(role => ["org_admin", "organization_admin", "admin", "manager", "org_manager"].includes(role));
 }
 
 onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.href = "index.html";
-        return;
-    }
+    if (!user) { window.location.href = "index.html"; return; }
     try {
         updateUI("", "Đang tải dữ liệu...");
         const identityRef = doc(db, "identities", user.uid);
         let identitySnap = await getDoc(identityRef);
         if (!identitySnap.exists()) {
-            await setDoc(identityRef, {
-                fullName: user.displayName || user.email?.split("@")[0] || "Thành viên",
-                email: user.email || "",
-                status: "ACTIVE",
-                createdAt: new Date().toISOString()
-            }, { merge: true });
+            await setDoc(identityRef, { fullName: user.displayName || user.email?.split("@")[0] || "Thành viên", email: user.email || "", status: "ACTIVE", createdAt: new Date().toISOString() }, { merge: true });
             identitySnap = await getDoc(identityRef);
         }
-        const membershipRef = doc(db, "memberships", `mem_${user.uid}_org_saovn_01`);
-        const membershipSnap = await getDoc(membershipRef);
+        const membershipSnap = await getDoc(doc(db, "memberships", `mem_${user.uid}_org_saovn_01`));
         if (!membershipSnap.exists()) throw new Error("Không tìm thấy Membership của tài khoản.");
         const membership = membershipSnap.data();
-        const displayRole = getDisplayRole(membership);
-        updateUI(identitySnap.data().fullName || "", displayRole);
+        updateUI(identitySnap.data().fullName || "", getDisplayRole(membership));
         await loadWorkDashboard(user.uid, isPrivilegedMembership(membership));
     } catch (error) {
         console.error("Lỗi kéo dữ liệu từ Firestore:", error);
@@ -53,14 +42,7 @@ onAuthStateChanged(auth, async (user) => {
 function getDisplayRole(membership) {
     const roles = membership?.roles || {};
     if (roles?.system?.includes("system_admin")) return "System Administrator";
-    const roleMap = {
-        org_admin: "Organization Administrator",
-        organization_admin: "Organization Administrator",
-        admin: "Administrator",
-        org_manager: "Organization Manager",
-        manager: "Manager",
-        member: "Thành viên"
-    };
+    const roleMap = { org_admin: "Organization Administrator", organization_admin: "Organization Administrator", admin: "Administrator", org_manager: "Organization Manager", manager: "Manager", member: "Thành viên" };
     const role = Array.isArray(roles.organization) ? roles.organization[0] : "member";
     return roleMap[role] || String(role).replaceAll("_", " ");
 }
@@ -70,15 +52,13 @@ function updateUI(name, roleInfo) {
     if (topbarIdentity) topbarIdentity.textContent = name;
     if (welcomeIdentity) welcomeIdentity.textContent = "";
     if (userRoleText) userRoleText.textContent = roleInfo;
-    const hero = document.querySelector(".hero-banner");
-    if (hero) hero.remove();
+    document.querySelector(".hero-banner")?.remove();
 }
 
 async function loadWorkDashboard(uid, privileged) {
     let taskDocs = [];
-    if (privileged) {
-        taskDocs = (await getDocs(collection(db, "workTasks"))).docs;
-    } else {
+    if (privileged) taskDocs = (await getDocs(collection(db, "workTasks"))).docs;
+    else {
         const [assignedSnap, createdSnap, legacyAssignedSnap] = await Promise.all([
             getDocs(query(collection(db, "workTasks"), where("assigneeIds", "array-contains", uid))),
             getDocs(query(collection(db, "workTasks"), where("createdBy", "==", uid))),
@@ -97,7 +77,6 @@ async function loadWorkDashboard(uid, privileged) {
     const overdue = tasks.filter(t => toDateKey(t.dueDate) && toDateKey(t.dueDate) < todayKey && t.status !== "DONE").length;
     const waiting = tasks.filter(t => ["BACKLOG", "TODO", "REVIEW"].includes(t.status)).length;
     const score = total ? Math.round(tasks.reduce((sum, t) => sum + progressForTask(t), 0) / total) : 0;
-
     updateMetricCards({ done, overdue, score });
     updateWorkSummary({ inProgress, done, waiting, score });
     renderDashboardTasks(tasks);
@@ -109,23 +88,10 @@ async function loadWorkDashboard(uid, privileged) {
 }
 
 function updateMetricCards({ done, overdue, score }) {
-    const metricCards = document.querySelectorAll(".metric-card");
-    if (metricCards[0]) {
-        metricCards[0].querySelector("strong").textContent = done;
-        metricCards[0].querySelector("small").textContent = "Theo dữ liệu Work hiện tại";
-        metricCards[0].querySelector(".metric-head b").textContent = "LIVE";
-    }
-    if (metricCards[1]) {
-        metricCards[1].querySelector("strong").textContent = overdue;
-        metricCards[1].querySelector("small").textContent = "Chưa hoàn thành và đã quá hạn";
-        metricCards[1].querySelector(".metric-head b").textContent = overdue ? "CẦN XỬ LÝ" : "ỔN ĐỊNH";
-    }
-    if (metricCards[2]) {
-        metricCards[2].querySelector("strong").textContent = `${score}%`;
-        metricCards[2].querySelector(".metric-head b").textContent = `${score}%`;
-        metricCards[2].querySelector("small").textContent = "Tính từ trạng thái công việc";
-        metricCards[2].querySelector(".progress-line i").style.width = `${score}%`;
-    }
+    const cards = document.querySelectorAll(".metric-card");
+    if (cards[0]) { cards[0].querySelector("strong").textContent = done; cards[0].querySelector("small").textContent = "Theo dữ liệu Work hiện tại"; cards[0].querySelector(".metric-head b").textContent = "LIVE"; }
+    if (cards[1]) { cards[1].querySelector("strong").textContent = overdue; cards[1].querySelector("small").textContent = "Chưa hoàn thành và đã quá hạn"; cards[1].querySelector(".metric-head b").textContent = overdue ? "CẦN XỬ LÝ" : "ỔN ĐỊNH"; }
+    if (cards[2]) { cards[2].querySelector("strong").textContent = `${score}%`; cards[2].querySelector(".metric-head b").textContent = `${score}%`; cards[2].querySelector("small").textContent = "Tính từ trạng thái công việc"; cards[2].querySelector(".progress-line i").style.width = `${score}%`; }
 }
 
 function updateWorkSummary({ inProgress, done, waiting, score }) {
@@ -134,9 +100,8 @@ function updateWorkSummary({ inProgress, done, waiting, score }) {
     if (summary[1]) summary[1].textContent = String(done).padStart(2, "0");
     if (summary[2]) summary[2].textContent = String(waiting).padStart(2, "0");
     const ring = document.querySelector(".work-ring");
-    const ringText = ring?.querySelector("strong");
     if (ring) ring.style.background = `conic-gradient(#2587ff 0 ${score}%, #ffffff0e ${score}% 100%)`;
-    if (ringText) ringText.textContent = `${score}%`;
+    if (ring?.querySelector("strong")) ring.querySelector("strong").textContent = `${score}%`;
 }
 
 function renderDashboardTasks(tasks) {
@@ -161,43 +126,27 @@ function renderMonthlyChart(tasks, today) {
     const chart = document.querySelector(".bar-chart");
     if (!chart) return;
     const months = [];
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` });
-    }
+    for (let i = 5; i >= 0; i--) { const d = new Date(today.getFullYear(), today.getMonth() - i, 1); months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}` }); }
     const counts = months.map(m => tasks.filter(t => toDateKey(t.completedAt || t.updatedAt || t.createdAt)?.startsWith(m.key) && t.status === "DONE").length);
     const max = Math.max(...counts, 1);
-    chart.innerHTML = months.map((m, i) => {
-        const value = counts[i];
-        const height = Math.max(4, Math.round(value / max * 92));
-        return `<div><span>${value}</span><i style="height:${height}%"></i><small>${m.label}</small></div>`;
-    }).join("");
+    chart.innerHTML = months.map((m, i) => { const value = counts[i]; const height = Math.max(4, Math.round(value / max * 92)); return `<div><span>${value}</span><i style="height:${height}%"></i><small>${m.label}</small></div>`; }).join("");
 }
 
 function renderRisk(tasks) {
-    const riskBars = document.querySelectorAll(".risk-bars > div");
-    if (!riskBars.length) return;
+    const rows = document.querySelectorAll(".risk-bars > div");
+    if (!rows.length) return;
     const total = tasks.length || 1;
     const overdue = tasks.filter(t => toDateKey(t.dueDate) && toDateKey(t.dueDate) < dateKey(new Date()) && t.status !== "DONE").length;
     const attention = tasks.filter(t => ["REVIEW", "IN_PROGRESS"].includes(t.status) && t.priority === "URGENT").length;
     const onTrack = Math.max(0, total - overdue - attention);
     const values = [Math.round(onTrack / total * 100), Math.round(attention / total * 100), Math.round(overdue / total * 100)];
-    ["Đúng tiến độ", "Cần chú ý", "Trễ hạn"].forEach((label, i) => {
-        const row = riskBars[i];
-        if (!row) return;
-        const bar = row.querySelector("b");
-        row.querySelector("span").textContent = label;
-        bar.textContent = `${values[i]}%`;
-        bar.style.width = `${values[i]}%`;
-    });
+    ["Đúng tiến độ", "Cần chú ý", "Trễ hạn"].forEach((label, i) => { const row = rows[i]; if (!row) return; row.querySelector("span").textContent = label; const bar = row.querySelector("b"); bar.textContent = `${values[i]}%`; bar.style.width = `${values[i]}%`; });
     const note = document.querySelector(".risk-note");
     if (note) note.innerHTML = `<span>!</span> ${overdue} công việc quá hạn trong phạm vi hiện tại.`;
 }
 
 function renderReportCard({ total, done, inProgress, waiting, overdue, score }) {
-    const card = document.querySelector(".report-card");
-    if (!card) return;
-    const copy = card.querySelector(".report-copy");
+    const copy = document.querySelector(".report-card .report-copy");
     if (!copy) return;
     copy.querySelector("h1").textContent = "Tổng quan công việc";
     const p = copy.querySelector("p:not(.eyebrow)");
@@ -217,34 +166,12 @@ function renderEmptySecondaryPanels() {
     if (docList) docList.innerHTML = `<div><i class="doc-icon blue-doc">D</i><span>Chưa có tài liệu gần đây<small>Documents chưa được kết nối</small></span><time>—</time></div>`;
 }
 
-function showDashboardError(message) {
-    const card = document.querySelector(".report-card .report-copy p:not(.eyebrow)");
-    if (card) card.textContent = message;
-}
-
-function progressForTask(task) {
-    return ({ DONE: 100, REVIEW: 75, IN_PROGRESS: 50, TODO: 0, BACKLOG: 0 }[task.status] ?? Number(task.progress) || 0);
-}
-
-function dateKey(date) {
-    const d = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(d.getTime())) return "";
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function toDateKey(value) {
-    if (!value) return "";
-    if (typeof value === "object" && typeof value.toDate === "function") return dateKey(value.toDate());
-    return dateKey(value);
-}
-
-function emptyTask(title, detail) {
-    return `<div class="task-item"><i class="task-dot blue-dot"></i><div><strong>${escapeHTML(title)}</strong><span>${escapeHTML(detail)}</span></div><b>—</b></div>`;
-}
-
-function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-}
+function showDashboardError(message) { const card = document.querySelector(".report-card .report-copy p:not(.eyebrow)"); if (card) card.textContent = message; }
+function progressForTask(task) { const stateProgress = { DONE: 100, REVIEW: 75, IN_PROGRESS: 50, TODO: 0, BACKLOG: 0 }[task.status]; return stateProgress !== undefined ? stateProgress : (Number(task.progress) || 0); }
+function dateKey(date) { const d = date instanceof Date ? date : new Date(date); if (Number.isNaN(d.getTime())) return ""; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function toDateKey(value) { if (!value) return ""; if (typeof value === "object" && typeof value.toDate === "function") return dateKey(value.toDate()); return dateKey(value); }
+function emptyTask(title, detail) { return `<div class="task-item"><i class="task-dot blue-dot"></i><div><strong>${escapeHTML(title)}</strong><span>${escapeHTML(detail)}</span></div><b>—</b></div>`; }
+function escapeHTML(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
 
 if (logoutButton) logoutButton.addEventListener("click", () => signOut(auth).catch(error => console.error("Lỗi khi đăng xuất:", error)));
 if (currentDate) currentDate.textContent = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date());
