@@ -16,14 +16,41 @@ const roleFromMembership = data => {
   return 'MEMBER';
 };
 
+// Core navigation policy.
+// ADMIN -> Dashboard + Work + Members + Administration
+// MANAGER -> Dashboard + Work
+// MEMBER -> Dashboard + Work
+// UI visibility is not the security boundary; Firestore Rules remain authoritative.
 const matrix = {
   ADMIN: { dashboard: 'read', work: 'manage', members: 'manage', projects: 'manage', roles: 'manage', system: 'manage' },
-  MANAGER: { dashboard: 'read', work: 'manage', members: 'read', projects: 'manage', roles: 'none', system: 'none' },
+  MANAGER: { dashboard: 'read', work: 'manage', members: 'none', projects: 'manage', roles: 'none', system: 'none' },
   MEMBER: { dashboard: 'read', work: 'contribute', members: 'none', projects: 'assigned', roles: 'none', system: 'none' }
 };
 
 let state = { ready: false, uid: null, role: 'MEMBER', permissions: matrix.MEMBER };
 let readyPromise;
+
+function applyNavigation() {
+  const isAdmin = state.role === 'ADMIN';
+  const canMembers = can('members', 'read');
+
+  document.querySelectorAll('a[href="members.html"]').forEach(link => {
+    link.hidden = !canMembers;
+    link.setAttribute('aria-hidden', String(!canMembers));
+    if (!canMembers) link.setAttribute('tabindex', '-1');
+  });
+
+  document.querySelectorAll('.sidebar-section, .nav-group').forEach(group => {
+    const title = group.querySelector('.sidebar-title, .nav-title');
+    if (!title) return;
+    const label = title.textContent.trim().toUpperCase();
+    if (label.includes('QUẢN TRỊ') || label.includes('ADMIN')) group.hidden = !isAdmin;
+  });
+
+  if (location.pathname.toLowerCase().endsWith('/members.html') && !canMembers) {
+    window.location.replace('dashboard.html');
+  }
+}
 
 async function load() {
   if (!auth.currentUser) return state;
@@ -37,13 +64,18 @@ async function load() {
   }
   state.permissions = matrix[state.role] || matrix.MEMBER;
   state.ready = true;
+  applyNavigation();
   window.dispatchEvent(new CustomEvent('saovn:permissions-ready', { detail: state }));
   return state;
 }
 
 readyPromise = new Promise(resolve => {
   onAuthStateChanged(auth, async user => {
-    if (!user) { state = { ...state, ready: true, uid: null }; resolve(state); return; }
+    if (!user) {
+      state = { ...state, ready: true, uid: null };
+      resolve(state);
+      return;
+    }
     resolve(await load());
   });
 });
