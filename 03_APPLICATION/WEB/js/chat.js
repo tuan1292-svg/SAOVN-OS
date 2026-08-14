@@ -12,11 +12,16 @@ let directoryMembers = [];
 onAuthStateChanged(auth, async user => {
     if (!user) { window.location.href = "index.html"; return; }
     uid = user.uid;
-    const identity = await getDoc(doc(db, "identities", uid));
-    const data = identity.exists() ? identity.data() : {};
-    const displayName = data.fullName || data.displayName || data.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
-    [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = displayName; });
-    await loadConversations();
+    try {
+        const identity = await getDoc(doc(db, "identities", uid));
+        const data = identity.exists() ? identity.data() : {};
+        const displayName = data.fullName || data.displayName || data.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
+        [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = displayName; });
+        await loadConversations();
+    } catch (error) {
+        console.error("Chat bootstrap error:", error);
+        await loadConversations();
+    }
 });
 
 async function loadConversations() {
@@ -27,6 +32,7 @@ async function loadConversations() {
         renderConversations();
     } catch (error) {
         console.error("Lỗi tải cuộc trò chuyện:", error);
+        conversations = [];
         list.innerHTML = `<div class="chat-list-empty">Không thể tải cuộc trò chuyện.<br>${escapeHTML(error?.code || "Firestore error")}</div>`;
     }
 }
@@ -92,6 +98,55 @@ $("#memberSearch")?.addEventListener("input", e => renderMemberPicker(e.target.v
 $("#logoutButton")?.addEventListener("click", () => signOut(auth));
 document.querySelectorAll("[data-close-chat-modal]").forEach(el => el.addEventListener("click", closeNewChatModal));
 
+async function loadActiveMembershipDirectory() {
+    const snap = await getDocs(query(collection(db, "memberships"), where("status", "==", "ACTIVE"), limit(100)));
+    return snap.docs.map(d => {
+        const raw = d.data() || {};
+        const uidFromDoc = raw.identityId || raw.userId || raw.uid || d.id.match(/^mem_(.+)_org_/)?.[1] || "";
+        return { id: d.id, ...raw, uid: uidFromDoc };
+    }).filter(m => m.uid && m.uid !== uid);
+}
+
+async function loadIdentityDirectory() {
+    const snap = await getDocs(query(collection(db, "identities"), where("status", "==", "ACTIVE"), limit(100)));
+    return snap.docs.map(d => {
+        const data = d.data() || {};
+        return { uid: d.id, identity: data };
+    }).filter(m => m.uid !== uid);
+}
+
+async function resolveDirectoryFromMemberships() {
+    const memberships = await loadActiveMembershipDirectory();
+    const rows = await Promise.all(memberships.map(async m => {
+        let data = {};
+        try {
+            const identity = await getDoc(doc(db, "identities", m.uid));
+            data = identity.exists() ? identity.data() : {};
+        } catch (error) {
+            console.warn("Không đọc được identity của", m.uid, error?.code || error);
+        }
+        return {
+            uid: m.uid,
+            name: data.fullName || data.displayName || data.name || m.fullName || "Thành viên",
+            position: data.position || data.jobTitle || m.position || "Thành viên",
+            department: m.department || data.department || "",
+            team: m.team || data.team || ""
+        };
+    }));
+    return rows.filter(m => m.uid && m.name);
+}
+
+async function resolveDirectoryFromIdentities() {
+    const rows = await loadIdentityDirectory();
+    return rows.map(m => ({
+        uid: m.uid,
+        name: m.identity.fullName || m.identity.displayName || m.identity.name || "Thành viên",
+        position: m.identity.position || m.identity.jobTitle || "Thành viên",
+        department: m.identity.department || "",
+        team: m.identity.team || ""
+    })).filter(m => m.name);
+}
+
 async function openNewChatModal() {
     const modal = $("#newChatModal");
     modal.classList.remove("hidden");
@@ -99,32 +154,18 @@ async function openNewChatModal() {
     $("#memberSearch").value = "";
     $("#memberPicker").innerHTML = `<div class="chat-list-empty">Đang tải danh bạ…</div>`;
     try {
-        const snap = await getDocs(query(collection(db, "memberships"), where("status", "==", "ACTIVE"), limit(100)));
-        const memberships = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .map(m => ({ ...m, uid: m.identityId || m.userId || m.uid || m.id.match(/^mem_(.+)_org_/)?.[1] || "" }))
-            .filter(m => m.uid && m.uid !== uid);
-        directoryMembers = (await Promise.all(memberships.map(async m => {
-            const identity = await getDoc(doc(db, "identities", m.uid));
-            const data = identity.exists() ? identity.data() : {};
-            return {
-                uid: m.uid,
-                name: data.fullName || data.displayName || data.name || m.fullName || data.email || "Thành viên",
-                position: data.position || data.jobTitle || m.position || "Thành viên",
-                department: m.department || data.department || ""
-            };
-        }))).filter(m => m.name);
-
+        directoryMembers = [];
+        try { directoryMembers = await resolveDirectoryFromMemberships(); } catch (membershipError) {
+            console.warn("Danh bạ memberships không tải được, chuyển sang identities:", membershipError?.code || membershipError);
+        }
         if (!directoryMembers.length) {
-            const identitySnap = await getDocs(query(collection(db, "identities"), where("status", "==", "ACTIVE"), limit(100)));
-            directoryMembers = identitySnap.docs.map(d => {
-                const data = d.data();
-                return {
-                    uid: d.id,
-                    name: data.fullName || data.displayName || data.name || data.email || "Thành viên",
-                    position: data.position || data.jobTitle || "Thành viên",
-                    department: data.department || ""
-                };
-            }).filter(m => m.uid !== uid);
+            try { directoryMembers = await resolveDirectoryFromIdentities(); } catch (identityError) {
+                console.error("Danh bạ identities cũng không tải được:", identityError);
+            }
+        }
+        if (!directoryMembers.length) {
+            $("#memberPicker").innerHTML = `<div class="chat-list-empty">Chưa có thành viên ACTIVE để bắt đầu trò chuyện.</div>`;
+            return;
         }
         renderMemberPicker();
     } catch (error) {
@@ -136,9 +177,9 @@ async function openNewChatModal() {
 function renderMemberPicker(filter = "") {
     const list = $("#memberPicker");
     const needle = String(filter || "").toLowerCase();
-    const rows = directoryMembers.filter(m => !needle || `${m.name} ${m.position} ${m.department}`.toLowerCase().includes(needle));
+    const rows = directoryMembers.filter(m => !needle || `${m.name} ${m.position} ${m.department} ${m.team}`.toLowerCase().includes(needle));
     if (!rows.length) { list.innerHTML = `<div class="chat-list-empty">Không tìm thấy thành viên phù hợp.</div>`; return; }
-    list.innerHTML = rows.map(m => `<button type="button" class="member-picker-item" data-member-id="${escapeAttr(m.uid)}"><span class="member-picker-avatar">${initials(m.name)}</span><span class="member-picker-copy"><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.position)}${m.department ? ` · ${escapeHTML(m.department)}` : ""}</small></span><span class="member-picker-arrow">›</span></button>`).join("");
+    list.innerHTML = rows.map(m => `<button type="button" class="member-picker-item" data-member-id="${escapeAttr(m.uid)}"><span class="member-picker-avatar">${initials(m.name)}</span><span class="member-picker-copy"><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.position)}${m.department ? ` · ${escapeHTML(m.department)}` : ""}${m.team ? ` · ${escapeHTML(m.team)}` : ""}</small></span><span class="member-picker-arrow">›</span></button>`).join("");
     list.querySelectorAll("[data-member-id]").forEach(b => b.addEventListener("click", () => createDirectConversation(b.dataset.memberId)));
 }
 
