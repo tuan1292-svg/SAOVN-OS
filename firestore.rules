@@ -8,10 +8,23 @@ service cloud.firestore {
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
     function hasOrgRole(roleName) { return isMember() && membership().roles != null && membership().roles.organization != null && roleName in membership().roles.organization; }
     function hasSystemRole(roleName) { return isMember() && membership().roles != null && membership().roles.system != null && roleName in membership().roles.system; }
-    function isSystemAdmin() { return hasSystemRole("system_admin") || hasSystemRole("admin"); }
-    function isAdmin() { return isSystemAdmin() || hasOrgRole("org_admin") || hasOrgRole("organization_admin") || hasOrgRole("admin"); }
-    function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager"); }
-    function isTeamLead() { return hasOrgRole("team_lead") || hasOrgRole("team_leader"); }
+    // Accept the role spellings already present in legacy/current membership records.
+    function isSystemAdmin() {
+      return hasSystemRole("system_admin") || hasSystemRole("admin") || hasSystemRole("ADMIN") || hasSystemRole("SYSTEM_ADMIN");
+    }
+    function isAdmin() {
+      return isSystemAdmin()
+        || hasOrgRole("org_admin")
+        || hasOrgRole("organization_admin")
+        || hasOrgRole("admin")
+        || hasOrgRole("ADMIN")
+        || hasOrgRole("ORG_ADMIN")
+        || hasOrgRole("ORGANIZATION_ADMIN");
+    }
+    function isManager() {
+      return hasOrgRole("manager") || hasOrgRole("org_manager") || hasOrgRole("MANAGER") || hasOrgRole("ORG_MANAGER");
+    }
+    function isTeamLead() { return hasOrgRole("team_lead") || hasOrgRole("team_leader") || hasOrgRole("TEAM_LEAD") || hasOrgRole("TEAM_LEADER"); }
     function currentDepartmentId() { return isMember() ? membership().get("departmentId", "") : ""; }
     function currentDepartment() { return isMember() ? membership().get("department", "") : ""; }
     function currentTeamId() { return isMember() ? membership().get("teamId", "") : ""; }
@@ -41,8 +54,6 @@ service cloud.firestore {
     function taskOwnedByCurrentUser(data) { return data.get("createdBy", "") == request.auth.uid; }
     function taskAssignedToCurrentUser(data) { return request.auth.uid in data.get("assigneeIds", []) || data.get("assigneeId", "") == request.auth.uid; }
 
-    // Members directory is readable by signed-in members, but mutations remain Admin-only.
-    // Contact details such as phone/email are stored on identities and are not exposed here by a separate write path.
     function canReadMembers() { return isMember(); }
     function canCreateMembers() { return isAdmin(); }
     function canUpdateMembers() { return isAdmin(); }
@@ -91,7 +102,14 @@ service cloud.firestore {
     }
 
     match /memberships/{membershipDocId} {
-      allow read: if signedIn() && (membershipDocId == membershipId() || (isMember() && resource.data.status == "ACTIVE"));
+      // Admin/Manager may read the full directory; ordinary members may read only ACTIVE memberships.
+      // The explicit role variants above keep this compatible with legacy uppercase role values.
+      allow read: if signedIn() && (
+        membershipDocId == membershipId()
+        || isAdmin()
+        || isManager()
+        || (isMember() && resource.data.status == "ACTIVE")
+      );
       allow create: if canCreateMembers() || (signedIn() && membershipDocId == membershipId() && request.resource.data.status == "ACTIVE" && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01" && request.resource.data.invitationId is string && exists(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)) && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "PENDING" && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId == "org_saovn_01");
       allow update: if canUpdateMembers() || (signedIn() && membershipDocId == membershipId() && resource.data.status == "PENDING" && request.resource.data.status == "ACTIVE" && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
       allow delete: if canDeleteMembers();
