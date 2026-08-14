@@ -35,6 +35,13 @@
         </div>
     </main>
 </div>
+<div id="newChatModal" class="chat-modal hidden" aria-hidden="true">
+    <div class="chat-modal-backdrop" data-close-chat-modal></div>
+    <section class="chat-modal-card" role="dialog" aria-modal="true" aria-labelledby="newChatTitle">
+        <header class="chat-modal-head"><div><span class="eyebrow">NEW MESSAGE</span><h2 id="newChatTitle">Cuộc trò chuyện mới</h2><p>Chọn thành viên để bắt đầu trao đổi riêng.</p></div><button type="button" class="chat-modal-close" data-close-chat-modal aria-label="Đóng">×</button></header>
+        <div class="chat-modal-body"><input id="memberSearch" class="chat-search" placeholder="Tìm theo họ tên hoặc chức danh…"><div id="memberPicker" class="member-picker"><div class="chat-list-empty">Đang tải thành viên…</div></div></div>
+    </section>
+</div>
 <script type="module" src="js/chat.js"></script>
 </body>
 </html>
