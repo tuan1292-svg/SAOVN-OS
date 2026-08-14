@@ -4,6 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function membershipId() { return "mem_" + request.auth.uid + "_org_saovn_01"; }
+    function memberDocId(userId) { return "mem_" + userId + "_org_saovn_01"; }
     function isMember() { return signedIn() && exists(/databases/$(database)/documents/memberships/$(membershipId())); }
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
     function hasOrgRole(roleName) { return isMember() && membership().roles != null && membership().roles.organization != null && roleName in membership().roles.organization; }
@@ -46,10 +47,10 @@ service cloud.firestore {
         && data.get("memberIds", []).size() == 2
         && request.auth.uid in data.get("memberIds", [])
         && data.get("memberIds", [""])[0] != data.get("memberIds", ["", ""])[1]
-        && exists(/databases/$(database)/documents/identities/$(data.get("memberIds", ["", ""])[0]))
-        && exists(/databases/$(database)/documents/identities/$(data.get("memberIds", ["", ""])[1]))
-        && get(/databases/$(database)/documents/identities/$(data.get("memberIds", ["", ""])[0])).data.get("status", "") == "ACTIVE"
-        && get(/databases/$(database)/documents/identities/$(data.get("memberIds", ["", ""])[1])).data.get("status", "") == "ACTIVE";
+        && exists(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[0])))
+        && exists(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[1])))
+        && get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[0]))).data.get("status", "") == "ACTIVE"
+        && get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[1]))).data.get("status", "") == "ACTIVE";
     }
 
     match /identities/{userId} {
