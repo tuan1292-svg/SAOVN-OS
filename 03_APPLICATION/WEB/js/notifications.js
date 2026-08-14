@@ -1,25 +1,34 @@
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { collection, getDocs, query, orderBy, limit, updateDoc, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { collection, query, orderBy, limit, updateDoc, doc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
 
 const $ = (s) => document.querySelector(s);
 let notifications = [];
 let activeFilter = "all";
 let currentUid = "";
+let stopNotifications = null;
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     currentUid = user.uid;
     try {
-        const snap = await getDocs(query(collection(db, "notifications", user.uid, "items"), orderBy("createdAt", "desc"), limit(100)));
-        notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const name = user.displayName || user.email?.split("@")[0] || "Thành viên";
+        const nameIdentity = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js").then(({getDoc}) => getDoc(doc(db, "identities", user.uid)));
+        const identity = nameIdentity.exists() ? nameIdentity.data() : {};
+        const name = identity.fullName || identity.displayName || identity.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
         [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = name; });
-        render();
+        const ref = collection(db, "notifications", user.uid, "items");
+        stopNotifications?.();
+        stopNotifications = onSnapshot(query(ref, orderBy("createdAt", "desc"), limit(100)), snap => {
+            notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            render();
+        }, error => {
+            console.error("Lỗi realtime notifications:", error);
+            $("#notificationStatus").textContent = error?.code === "permission-denied" ? "Không đủ quyền truy cập thông báo" : "Không thể tải thông báo";
+            renderEmpty("Không thể tải thông báo", "Kiểm tra Firestore Rules và thử lại.");
+        });
     } catch (error) {
-        console.error("Lỗi tải notifications:", error);
-        $("#notificationStatus").textContent = error?.code === "permission-denied" ? "Không đủ quyền truy cập thông báo" : "Không thể tải thông báo";
-        renderEmpty("Không thể tải thông báo", "Kiểm tra Firestore Rules và thử lại.");
+        console.error("Lỗi khởi tạo notifications:", error);
+        renderEmpty("Không thể tải thông báo", "Thử tải lại trang.");
     }
 });
 
@@ -31,7 +40,8 @@ function render() {
     const list = $("#notificationList");
     if (!filtered.length) { renderEmpty(activeFilter === "unread" ? "Bạn đã xem hết" : "Chưa có thông báo", activeFilter === "unread" ? "Không còn thông báo chưa đọc." : "Thông báo mới sẽ xuất hiện tại đây."); return; }
     list.innerHTML = filtered.map(notificationCard).join("");
-    list.querySelectorAll("[data-read]").forEach(button => button.addEventListener("click", () => markRead(button.dataset.read)));
+    list.querySelectorAll("[data-read]").forEach(button => button.addEventListener("click", e => { e.stopPropagation(); markRead(button.dataset.read); }));
+    list.querySelectorAll("[data-target]").forEach(card => card.addEventListener("click", () => openTarget(card.dataset.target, card.dataset.read)));
 }
 
 function notificationCard(n) {
@@ -41,20 +51,32 @@ function notificationCard(n) {
     const type = String(n.type || "SYSTEM").toUpperCase();
     const icon = type.includes("CHAT") ? "▢" : type.includes("WORK") ? "▤" : type.includes("MENTION") ? "@" : "♧";
     const date = formatDate(n.createdAt);
-    return `<article class="notification-item ${unread ? "unread" : ""}"><div class="notification-icon">${icon}</div><div class="notification-copy"><strong>${title}</strong><p>${body}</p><time>${date}</time></div><div class="notification-actions">${unread ? `<button type="button" data-read="${escapeAttr(n.id)}">Đã đọc</button>` : `<span></span>`}</div></article>`;
+    const target = n.targetUrl || n.url || "";
+    return `<article class="notification-item ${unread ? "unread" : ""} ${target ? "clickable" : ""}" ${target ? `data-target="${escapeAttr(target)}"` : ""} data-read="${escapeAttr(n.id)}"><div class="notification-icon">${icon}</div><div class="notification-copy"><strong>${title}</strong><p>${body}</p><time>${date}</time></div><div class="notification-actions">${unread ? `<button type="button" data-read="${escapeAttr(n.id)}">Đã đọc</button>` : `<span></span>`}</div></article>`;
 }
 
 async function markRead(id) {
     if (!currentUid || !id) return;
-    try { await updateDoc(doc(db, "notifications", currentUid, "items", id), { read: true, readAt: new Date().toISOString() }); const item = notifications.find(n => n.id === id); if (item) item.read = true; render(); }
+    try { await updateDoc(doc(db, "notifications", currentUid, "items", id), { read: true, readAt: new Date().toISOString() }); }
     catch (error) { console.error("Lỗi đánh dấu notification:", error); }
+}
+
+async function openTarget(target, id) {
+    await markRead(id);
+    if (!target) return;
+    if (/^https?:\/\//i.test(target)) { window.location.href = target; return; }
+    const safe = target.startsWith("/") ? target : `./${target}`;
+    window.location.href = safe;
 }
 
 $("#markAllRead")?.addEventListener("click", async () => {
     const unread = notifications.filter(n => n.read !== true);
     if (!currentUid || !unread.length) return;
-    try { const batch = writeBatch(db); unread.forEach(n => batch.update(doc(db, "notifications", currentUid, "items", n.id), { read: true, readAt: new Date().toISOString() })); await batch.commit(); notifications.forEach(n => { n.read = true; }); render(); }
-    catch (error) { console.error("Lỗi đánh dấu tất cả:", error); }
+    try {
+        const batch = writeBatch(db);
+        unread.forEach(n => batch.update(doc(db, "notifications", currentUid, "items", n.id), { read: true, readAt: new Date().toISOString() }));
+        await batch.commit();
+    } catch (error) { console.error("Lỗi đánh dấu tất cả:", error); }
 });
 
 document.querySelectorAll(".filter-tab").forEach(button => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter-tab").forEach(b => b.classList.toggle("active", b === button)); render(); }));
