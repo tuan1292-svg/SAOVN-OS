@@ -24,7 +24,7 @@ onAuthStateChanged(auth,async user=>{
 
   $('userName').textContent=name;
   $('userAvatar').textContent=initials(name);
-  $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':role()==='MANAGER'?'Manager':'Workspace member';
+  $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':orgScope?.scope==='DEPARTMENT'?'Department Head':orgScope?.scope==='TEAM'?'Team Lead':orgScope?.role==='MANAGER'?'Manager':'Workspace member';
   $('logoutBtn').onclick=()=>signOut(auth);
   $('teamTaskFilter')?.addEventListener('change',renderTasks);
   renderScope();
@@ -37,7 +37,8 @@ function renderScope(){
   title.textContent=scopeLabel(orgScope);
   if(orgScope.role==='ADMIN')description.textContent='Bạn có quyền quản trị toàn bộ tổ chức và các không gian được cấp quyền.';
   else if(orgScope.scope==='DEPARTMENT')description.textContent='Bạn là Trưởng phòng. Phạm vi quản lý tập trung vào thành viên, Team và công việc của phòng ban.';
-  else if(orgScope.directReportIds.length)description.textContent='Bạn đang quản lý trực tiếp các thành viên được giao cho mình và các công việc liên quan.';
+  else if(orgScope.scope==='TEAM')description.textContent='Bạn là Trưởng nhóm. Phạm vi quản lý tập trung vào Team và công việc của nhóm.';
+  else if(orgScope.scope==='MANAGEMENT')description.textContent='Bạn đang quản lý trực tiếp các thành viên được giao cho mình và các công việc liên quan.';
   else description.textContent='Bạn đang làm việc trong phạm vi cá nhân và các công việc được giao cho mình.';
 }
 
@@ -116,8 +117,17 @@ function renderTeams(){
 }
 
 async function loadTasks(){
-  const ids=members.map(m=>m.id).filter(Boolean);
-  if(!ids.length){renderTasks();return;}
+  let visibleMembers=members;
+  if(orgScope?.role==='ADMIN'||orgScope?.scope==='DEPARTMENT'||orgScope?.role==='MANAGER'){
+    visibleMembers=members;
+  }else if(orgScope?.scope==='TEAM'){
+    visibleMembers=members.filter(m=>(orgScope.teamId&&String(m.teamId||'')===String(orgScope.teamId))||(!orgScope.teamId&&String(m.team||'').trim()===String(orgScope.team||'').trim()));
+  }else{
+    visibleMembers=members.filter(m=>m.id===orgScope?.uid);
+  }
+
+  const ids=visibleMembers.map(m=>m.id).filter(Boolean);
+  if(!ids.length){tasks=[];renderTasks();return;}
   const map=new Map();
   try{
     const snapshots=await Promise.all(ids.map(id=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',id)))));
