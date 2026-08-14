@@ -30,12 +30,13 @@
   </aside>
 
   <main class="main">
-    <header class="topbar"><div class="crumb"><span>Admin</span><b>/</b><strong>Phòng ban</strong></div><div class="top-actions"><span class="sync" id="syncState"><i></i> Firebase</span></div></header>
+    <header class="topbar"><div class="crumb"><span>Organization</span><b>/</b><strong>Phòng ban</strong></div><div class="top-actions"><span class="sync" id="syncState"><i></i> Firebase</span></div></header>
     <section class="page">
       <div class="page-head">
-        <div><span class="eyebrow">ORGANIZATION STRUCTURE</span><h1>Phòng ban</h1><p>Quản lý cơ cấu phòng ban và chia thành viên vào đúng không gian làm việc.</p></div>
-        <div class="page-actions"><button class="secondary-btn" id="refreshBtn">↻ Làm mới</button><button class="primary-btn" id="addDepartmentBtn">＋ Thêm phòng ban</button></div>
+        <div><span class="eyebrow">ORGANIZATION STRUCTURE</span><h1>Phòng ban</h1><p>Không gian làm việc theo cơ cấu tổ chức của SAOVN.</p></div>
+        <div class="page-actions" id="adminPageActions"><button class="secondary-btn" id="refreshBtn">↻ Làm mới</button><button class="primary-btn" id="addDepartmentBtn">＋ Thêm phòng ban</button></div>
       </div>
+      <p id="adminOnlyNote" class="admin-only-note" hidden>Chọn một phòng ban để vào không gian làm việc. Các thao tác quản trị chỉ dành cho Admin.</p>
 
       <div class="department-stats">
         <article><span>PHÒNG BAN</span><strong id="departmentCount">0</strong><small>Đang hoạt động</small></article>
