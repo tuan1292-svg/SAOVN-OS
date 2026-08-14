@@ -9,16 +9,25 @@ let user=null,departments=[],members=[];
 
 function initials(name){return String(name||'S').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase()}
 function setStatus(text,type=''){$('departmentStatus').textContent=text;$('departmentStatus').className=`form-status ${type}`.trim()}
-function canManage(){return hasPermission('system.manage')}
+function canView(){return hasPermission('departments.view')}
+function canManage(){return hasPermission('departments.manage')}
 
 onAuthStateChanged(auth,async u=>{
   if(!u){location.replace('index.html');return}
   user=u;
   await getPermissions();
-  if(!canManage()){location.replace('dashboard.html');return}
+  if(!canView()){location.replace('dashboard.html');return}
+
   $('userName').textContent=u.displayName||'Admin';
   $('userAvatar').textContent=initials(u.displayName||'Admin');
-  $('userRole').textContent='Founder · Chairman · CEO';
+  $('userRole').textContent=canManage()?'Founder · Chairman · CEO':'Workspace member';
+
+  if(!canManage()){
+    $('adminPageActions')?.remove();
+    $('departmentOverlay')?.remove();
+    $('adminOnlyNote')?.removeAttribute('hidden');
+  }
+
   await loadAll();
 });
 
@@ -36,7 +45,7 @@ async function loadAll(){
   }catch(error){
     console.error('Department load error:',error);
     $('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';
-    setStatus(error?.code==='permission-denied'?'Firestore Rules chưa cho phép truy cập departments.':'Không thể tải dữ liệu phòng ban.','error');
+    setStatus(error?.code==='permission-denied'?'Firestore Rules chưa cho phép đọc departments.':'Không thể tải dữ liệu phòng ban.','error');
   }
 }
 
@@ -74,18 +83,19 @@ function card(d){
       <p class="department-description">${esc(d.description||'Chưa có mô tả phòng ban.')}</p>
       <div class="department-meta"><div><small>THÀNH VIÊN</small><strong>${memberCount(d)} người</strong></div><div><small>TRƯỞNG PHÒNG</small><strong>${esc(headName(d.headId))}</strong></div></div>
     </div>
-    <div class="department-card-actions"><button type="button" class="workspace-open" data-open="${esc(d.id)}">Mở phòng làm việc</button><button type="button" data-edit="${esc(d.id)}">Chỉnh sửa</button></div>
+    <div class="department-card-actions"><button type="button" class="workspace-open" data-open="${esc(d.id)}">Mở phòng làm việc</button>${canManage()?`<button type="button" data-edit="${esc(d.id)}">Chỉnh sửa</button>`:''}</div>
   </article>`;
 }
 
 function openDialog(){
+  if(!canManage())return;
   $('departmentOverlay').hidden=false;
   requestAnimationFrame(()=>$('departmentOverlay').classList.add('open'));
   setTimeout(()=>$('departmentName').focus(),60);
 }
 function closeDialog(){
-  $('departmentOverlay').classList.remove('open');
-  setTimeout(()=>$('departmentOverlay').hidden=true,120);
+  $('departmentOverlay')?.classList.remove('open');
+  setTimeout(()=>{if($('departmentOverlay'))$('departmentOverlay').hidden=true},120);
 }
 
 function populateHeads(selected=''){
@@ -95,6 +105,7 @@ function populateHeads(selected=''){
 }
 
 function openCreate(){
+  if(!canManage())return;
   $('departmentDialogTitle').textContent='Thêm phòng ban';
   $('departmentForm').reset();
   $('departmentId').value='';
@@ -105,6 +116,7 @@ function openCreate(){
 }
 
 function openEdit(id){
+  if(!canManage())return;
   const d=departments.find(x=>x.id===id);
   if(!d)return;
   $('departmentDialogTitle').textContent='Chỉnh sửa phòng ban';
@@ -118,17 +130,17 @@ function openEdit(id){
   openDialog();
 }
 
-$('addDepartmentBtn').onclick=openCreate;
-$('refreshBtn').onclick=loadAll;
-$('dialogClose').onclick=closeDialog;
-$('dialogCancel').onclick=closeDialog;
-$('departmentOverlay').onclick=e=>{if(e.target.id==='departmentOverlay')closeDialog()};
+if($('addDepartmentBtn'))$('addDepartmentBtn').onclick=openCreate;
+if($('refreshBtn'))$('refreshBtn').onclick=loadAll;
+if($('dialogClose'))$('dialogClose').onclick=closeDialog;
+if($('dialogCancel'))$('dialogCancel').onclick=closeDialog;
+if($('departmentOverlay'))$('departmentOverlay').onclick=e=>{if(e.target.id==='departmentOverlay')closeDialog()};
 $('searchInput').oninput=render;
 $('statusFilter').onchange=render;
 $('logoutBtn').onclick=()=>signOut(auth);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDialog()});
 
-$('departmentForm').onsubmit=async e=>{
+if($('departmentForm'))$('departmentForm').onsubmit=async e=>{
   e.preventDefault();
   if(!canManage())return;
   const id=$('departmentId').value.trim();
