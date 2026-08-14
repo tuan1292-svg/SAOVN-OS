@@ -17,8 +17,9 @@ async function loadDepartments(){try{const snap=await getDocs(query(collection(d
 function renderDepartmentOptions(selected=''){
   const select=$('departmentInput'),invite=$('inviteDepartment');
   const options=departments.map(d=>`<option value="${esc(d.id)}">${esc(d.name||'')}</option>`).join('');
+  const inviteOptions=departments.map(d=>`<option value="${esc(d.name||'')}">${esc(d.name||'')}</option>`).join('');
   if(select){select.innerHTML='<option value="">Chưa phân phòng ban</option>'+options;select.value=selected||''}
-  if(invite){const current=invite.value;invite.innerHTML='<option value="">Chưa phân phòng ban</option>'+options;invite.value=current||''}
+  if(invite){const current=invite.value;invite.innerHTML='<option value="">Chưa phân phòng ban</option>'+inviteOptions;invite.value=current||''}
 }
 
 async function loadCurrentAdmin(){
@@ -70,7 +71,6 @@ async function saveOrganizationFields(){
     if($('detailPosition'))$('detailPosition').textContent=positionLabel;
     if($('detailDepartment'))$('detailDepartment').textContent=department||'Chưa phân phòng ban';
     if($('detailPhone'))$('detailPhone').textContent=phone||'Chưa cập nhật';
-    if($('detailEmailContact'))$('detailEmailContact').textContent=$('detailEmailContact').textContent||'Chưa cập nhật';
     if($('detailRole'))$('detailRole').textContent=role==='ADMIN'?'Admin':role==='MANAGER'?'Manager':'Member';
     status('Đã lưu vị trí, phòng ban và thông tin liên hệ.','success');
   }catch(error){console.error('Lỗi cập nhật thông tin tổ chức:',error);status(error?.code==='permission-denied'?'Không đủ quyền cập nhật thành viên.':(error?.message||'Không thể lưu thay đổi.'),'error')}
