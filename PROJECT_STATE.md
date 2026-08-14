@@ -32,21 +32,29 @@ Mục tiêu là xây dựng một môi trường làm việc online thống nh�
 
 # 3. Current Project Phase
 
-**Current Phase: Architecture Foundation → Core Foundation Definition**
+**Current Phase: Core Foundation → Organization / Department / Team → WORK Integration**
 
 Trạng thái:
 
 ```text
-Vision                 ✓
-Constitution           ✓
-Architecture Foundation ✓
-Technical Architecture ✓
-Architecture Decisions ✓
-Module Specification   ✓
+Vision                       ✓
+Constitution                 ✓
+Architecture Foundation     ✓
+Technical Architecture      ✓
+Architecture Decisions      ✓
+Module Specification        ✓
 
-Core Foundation        NEXT
-First Business Module  WORK
-Implementation         NOT STARTED
+Identity / Login Prototype  ✓
+Permission Prototype        ✓
+Members Management          ✓
+Department Management       ✓
+Department Workspace        ✓
+Team Structure               ✓
+Team Assignment              ✓
+Team → Work Filter           ✓
+Management Scope Prototype   ✓
+
+Scope → Work Security        NEXT
 ```
 
 ---
@@ -57,28 +65,12 @@ Implementation         NOT STARTED
 SAOVN-OS/
 │
 ├── .gitignore
-│
 ├── 00_CONSTITUTION/
-│   ├── AI_BUILD_RULES.md
-│   └── MASTER_BLUEPRINT.md
-│
 ├── 01_ARCHITECTURE/
-│   ├── DOMAIN_MODEL.md
-│   ├── MODULE_MAP.md
-│   ├── SYSTEM_ARCHITECTURE.md
-│   ├── PERMISSION_MODEL.md
-│   ├── DATA_MODEL.md
-│   ├── INTEGRATION_ARCHITECTURE.md
-│   ├── TECHNICAL_ARCHITECTURE.md
-│   ├── ARCHITECTURE_DECISIONS.md
-│   └── MODULE_SPECIFICATION.md
-│
 ├── DOCS/
-│   └── VISION/
-│       └── SAOVN-OS.md
-│
+├── 03_APPLICATION/
+│   └── WEB/
 ├── PROJECT_STATE.md
-│
 └── START_HERE.md
 ```
 
@@ -138,28 +130,7 @@ Chứa các nguyên tắc nền tảng và quy tắc xây dựng hệ thống.
 
 `01_ARCHITECTURE/TECHNICAL_ARCHITECTURE.md`
 
-Định nghĩa kiến trúc kỹ thuật tổng thể:
-
-```text
-Web Client
-API / Gateway
-Application Layer
-Core Services
-Domain Layer
-Data Layer
-Database
-Cache
-Storage
-Search
-Queue
-Workers
-Authentication
-Authorization
-Security
-Observability
-Infrastructure
-AI Layer
-```
+Định nghĩa kiến trúc kỹ thuật tổng thể.
 
 ## Architecture Decisions
 
@@ -204,25 +175,25 @@ Core không phải là một Business Application riêng.
 
 Core cung cấp các năng lực mà nhiều Module khác cần dùng chung.
 
-Mô hình:
-
 ```text
-                    SAOVN-OS
-                       │
-          ┌────────────┴────────────┐
-          │                         │
-      CORE PLATFORM            BUSINESS MODULES
-          │                         │
-    ┌─────┼─────┐             ┌─────┼─────┐
-    │     │     │             │     │     │
- Identity Org  Access        Work   HR   CRM
+SAOVN-OS
+│
+├── CORE PLATFORM
+│   ├── Identity
+│   ├── Organization
+│   └── Access Control
+│
+└── BUSINESS MODULES
+    ├── WORK
+    ├── HR
+    └── CRM
 ```
 
 ---
 
 # 7. Core Foundation
 
-Core Foundation dự kiến bao gồm các thành phần:
+Core Foundation bao gồm các năng lực nền tảng:
 
 ```text
 CORE
@@ -236,6 +207,7 @@ CORE
 ├── Organization
 │   ├── Company
 │   ├── Department
+│   ├── Team
 │   └── Membership
 │
 └── Access Control
@@ -245,7 +217,7 @@ CORE
     └── Policy
 ```
 
-Đây là nhóm nền tảng cần được làm rõ trước khi triển khai Business Module đầu tiên.
+Prototype hiện tại đã đưa Identity, Organization và Permission vào web application ở mức sử dụng thực tế.
 
 ---
 
@@ -253,7 +225,7 @@ CORE
 
 Login được xem là **cổng vào SAOVN-OS**.
 
-Luồng cơ bản:
+Luồng:
 
 ```text
 User
@@ -269,9 +241,7 @@ Session
 SAOVN-OS
 ```
 
-Login thuộc Core Foundation, không phải Business Module.
-
-Authentication và Authorization phải được tách biệt.
+Authentication và Authorization được tách biệt.
 
 ```text
 Authentication
@@ -281,57 +251,37 @@ Authorization
 = Người này được phép làm gì?
 ```
 
+Public Self-Registration mặc định OFF.
+
 ---
 
-# 9. Account Provisioning
+# 9. Identity Display Rule
 
-SAOVN-OS được định hướng là môi trường doanh nghiệp nội bộ.
-
-Do đó **Public Self-Registration mặc định OFF**.
-
-Không sử dụng mô hình:
+Identity hiển thị chính trong giao diện làm việc là:
 
 ```text
-User
- ↓
-Register
- ↓
-Tự tạo thành viên
+Họ và tên
+Chức danh
 ```
 
-Mô hình ưu tiên:
+Ví dụ:
 
 ```text
-Organization
- ↓
-Provision / Invite Account
- ↓
-Activation
- ↓
-Login
- ↓
-SAOVN-OS
+Nguyễn Anh Tuấn
+Founder · Chairman · CEO
 ```
 
-Các phương thức Provisioning có thể được hỗ trợ:
+Không dùng email hoặc username làm tên hiển thị nếu Identity đã có họ tên.
 
-```text
-Company Created Account
-Invitation
-Admin Provisioning
-SSO
-External Identity
-```
+Email và số điện thoại chỉ dùng như thông tin liên hệ/tra cứu, không chiếm chỗ của Identity trong Work UI.
 
-Cơ chế cụ thể sẽ được thiết kế trong Core Identity.
+Legacy identifiers được resolve về Identity hiện tại khi có thể.
 
 ---
 
 # 10. Organization Model
 
-Identity không tồn tại độc lập với Organization Context.
-
-Mô hình khái niệm:
+Identity tồn tại trong Organization Context thông qua Membership.
 
 ```text
 Identity
@@ -342,24 +292,194 @@ Organization
    ↓
 Department
    ↓
-Role / Permission
+Team
+   ↓
+Role / Permission / Scope
 ```
 
-Một User có thể có Membership trong một hoặc nhiều Organization nếu Architecture và Business Rules cho phép.
+Department hiện được lưu trong collection:
 
-Quyền truy cập phải được xác định theo Scope phù hợp.
+```text
+/departments
+```
+
+Các trường chính:
+
+```text
+name
+code
+description
+headId
+active
+createdAt
+createdBy
+updatedAt
+updatedBy
+```
+
+Identity có thể liên kết với Department bằng:
+
+```text
+departmentId
+```
+
+Dữ liệu `department` cũ vẫn được hỗ trợ trong giai đoạn chuyển đổi.
 
 ---
 
-# 11. First Business Module — WORK
+# 11. Members Management
+
+Members là khu vực quản trị.
+
+Đã hoàn thành:
+
+```text
+✓ Admin-only Members navigation
+✓ Identity-based display
+✓ Họ tên + chức danh
+✓ Phone/contact field
+✓ Email giữ cho liên hệ
+✓ Department assignment
+✓ Team assignment
+✓ Team Lead / Trưởng nhóm indicator
+✓ Legacy identity resolution
+```
+
+Tài khoản Admin hiện được hiển thị theo chức danh:
+
+```text
+Founder · Chairman · CEO
+```
+
+---
+
+# 12. Department Management
+
+Trang:
+
+```text
+03_APPLICATION/WEB/departments.html
+```
+
+Đã hoàn thành:
+
+```text
+✓ Department list
+✓ Search
+✓ Status filter
+✓ Statistics
+✓ Create department
+✓ Edit department
+✓ Department head
+✓ Active / Inactive
+✓ Member count
+✓ Unassigned member count
+✓ Department selector
+✓ UI polish
+✓ Admin-only management
+```
+
+Quyền quản lý Department hiện dùng permission quản trị phù hợp.
+
+---
+
+# 13. Department Workspace
+
+Department đã được chuyển từ danh mục quản trị thành **không gian làm việc**.
+
+Trang:
+
+```text
+03_APPLICATION/WEB/department-workspace.html
+```
+
+Nền tảng hiện có:
+
+```text
+✓ Department identity
+✓ Department status
+✓ Member roster
+✓ Họ tên + chức danh
+✓ Phone / email contact shortcuts
+✓ Work statistics
+✓ Department-related task list
+✓ Team structure
+✓ Team Lead display
+✓ Team-based Work filtering
+✓ Management scope display
+```
+
+Work được liên kết với thành viên thông qua `assigneeIds`, tránh phá cấu trúc Work hiện tại.
+
+---
+
+# 14. Team Structure
+
+Team hiện là tầng tổ chức bên trong Department.
+
+```text
+Department
+│
+├── Team A
+│   ├── Team Lead
+│   └── Members
+│
+├── Team B
+│   ├── Team Lead
+│   └── Members
+│
+└── Unassigned Team
+```
+
+Đã hoàn thành:
+
+```text
+✓ Team assignment trong Members
+✓ Persist team assignment
+✓ Team Lead identification
+✓ Team grouping trong Department Workspace
+✓ Team → Work filter
+```
+
+Team management CRUD độc lập chưa được coi là checkpoint hoàn thành; hiện Team được quản lý thông qua thông tin tổ chức của thành viên.
+
+---
+
+# 15. Management Scope Prototype
+
+Workspace hiện đã nhận diện phạm vi tổ chức của người đăng nhập:
+
+```text
+Founder · Chairman · CEO
+        ↓
+Toàn hệ thống
+
+Department Head
+        ↓
+Phạm vi phòng ban
+
+Team Lead
+        ↓
+Phạm vi Team
+
+Member
+        ↓
+Phạm vi cá nhân
+```
+
+Hiện tại đây là **scope recognition / UI prototype**.
+
+Scope chưa được coi là hoàn thành về mặt Work security cho đến khi Firestore query/rules thực sự giới hạn dữ liệu theo scope.
+
+---
+
+# 16. First Business Module — WORK
 
 Business Module đầu tiên được xác định là:
 
 > **WORK**
 
-WORK là môi trường làm việc trực tuyến cốt lõi của SAOVN-OS.
-
-Mục tiêu là giúp nhân sự:
+Mục tiêu:
 
 * Nhận việc.
 * Giao việc.
@@ -372,7 +492,7 @@ Mục tiêu là giúp nhân sự:
 * Theo dõi trạng thái.
 * Xem báo cáo công việc.
 
-Khái niệm ban đầu:
+Khái niệm:
 
 ```text
 WORK
@@ -390,240 +510,204 @@ WORK
 └── Reports
 ```
 
-WORK là **Business Module đầu tiên**, trong khi Identity/Login là Core Foundation.
+---
+
+# 17. Work Identity Rule
+
+Trong Work UI:
+
+```text
+Nguyễn Anh Tuấn
+Founder · Chairman · CEO
+```
+
+không được rơi về:
+
+```text
+email@example.com
+```
+
+nếu Identity đã có họ tên.
+
+Các lỗi legacy assignee identity đã được xử lý ở các checkpoint trước.
 
 ---
 
-# 12. First User Journey
+# 18. Permission / Access Status
 
-Luồng sống đầu tiên của SAOVN-OS được hình dung:
+Đã có prototype cho:
 
 ```text
-Organization
-      ↓
-Account Provisioning
-      ↓
-Login
-      ↓
-Identity
-      ↓
-Organization / Department
-      ↓
-Role / Permission
-      ↓
-WORK
-      ↓
-Receive / Create Work
-      ↓
-Execute
-      ↓
-Update Progress
-      ↓
-Complete
-      ↓
-Report / Audit
+✓ Permission-aware navigation
+✓ Admin-only Members
+✓ Admin-only Department management
+✓ Work visibility rules
+✓ Department workspace access
+✓ Organization scope recognition
 ```
 
-Đây là luồng nghiệp vụ đầu tiên cần được biến thành hệ thống thực tế.
+Mục còn lại cần hoàn thiện:
+
+```text
+Scope → Work security
+Department Head → Work scope
+Team Lead → Work scope
+Member → personal / assigned scope
+```
+
+Đây là checkpoint bảo mật kế tiếp, không chỉ là UI.
 
 ---
 
-# 13. Current Architectural Model
+# 19. Current Git Checkpoint
+
+Các checkpoint gần nhất của chuỗi phát triển Department / Team / Scope:
 
 ```text
-                         SAOVN-OS
-                            │
-                 ┌──────────┴──────────┐
-                 │                     │
-              CORE                  WORK
-                 │                     │
-       ┌─────────┼─────────┐     ┌────┼────┐
-       │         │         │     │    │    │
-    Identity Organization Access Task Project Progress
-       │         │         │
-     Login     Company   Permission
-     Session   Dept      Role
-     Account   Member
+8147b7b  fix: polish departments page controls and layout
+97b3790  fix: polish member contact field styling
+9a40c2c  fix: polish department layout and controls
+10978c4  feat: add department workspace page
+c8092f5  feat: style department workspace
+85e27f4  feat: load department workspace data
+16a90b5  feat: connect departments to workspaces
+b0050a5  fix: polish department workspace entry
+0fdb727  feat: add team assignment to member organization editor
+5d9440d  feat: persist member team assignment
+512c8c0  feat: show team leads in department workspace
+117239a  feat: add team filter to department work
+4ad3eb4  feat: filter department work by team
+249322a  fix: style team work filter
+1d48456  feat: connect department workspace to management scope
 ```
 
-Technical flow:
+Repository:
 
 ```text
-User
- ↓
-Web Client
- ↓
-API / Gateway
- ↓
-Core / Application
- ↓
-Domain
- ↓
-Data Access
- ↓
-Database / Cache / Storage
- ↓
-Event / Queue / Workers
- ↓
-External Systems
+https://github.com/tuan1292-svg/SAOVN-OS.git
 ```
 
----
-
-# 14. What Has NOT Been Built Yet
-
-Tại thời điểm này:
+Local directory:
 
 ```text
-Production Login          NOT BUILT
-Identity System           NOT BUILT
-Organization System       NOT BUILT
-Permission Engine         NOT BUILT
-WORK Module               NOT BUILT
-Production Backend        NOT BUILT
-Production Database       NOT BUILT
-Production API            NOT BUILT
-Production AI Agent       NOT BUILT
-Deployment Infrastructure NOT BUILT
-```
-
-Các phần trên mới đang ở mức Architecture / Planning.
-
----
-
-# 15. Next Development Sequence
-
-Thứ tự dự kiến:
-
-```text
-1. Core Identity
-       ↓
-2. Account / Login / Session
-       ↓
-3. Organization / Department / Membership
-       ↓
-4. Role / Permission / Policy
-       ↓
-5. WORK Module Specification
-       ↓
-6. WORK Data Design
-       ↓
-7. WORK API Design
-       ↓
-8. WORK Workflow Design
-       ↓
-9. WORK UI Design
-       ↓
-10. Technical Design
-       ↓
-11. Implementation
-       ↓
-12. Testing
-       ↓
-13. Deployment
-```
-
-Thứ tự này có thể thay đổi nếu phát hiện Dependency mới trong quá trình thiết kế.
-
----
-
-# 16. Important Architectural Distinction
-
-SAOVN-OS hiện được chia thành hai lớp khái niệm quan trọng:
-
-```text
-CORE
-= Nền tảng dùng chung
-
-WORK
-= Business Module đầu tiên
-```
-
-Không nhầm:
-
-```text
-Login ≠ Business Module
-
-Core ≠ Work
-
-Authentication ≠ Authorization
+C:\Users\Admin\Desktop\SAOVN-OS
 ```
 
 ---
 
-# 17. Working Protocol
+# 20. Current Checkpoint
+
+```text
+ARCHITECTURE FOUNDATION       COMPLETE
+IDENTITY DISPLAY              COMPLETE
+MEMBERS MANAGEMENT            COMPLETE
+MEMBER CONTACT                COMPLETE
+DEPARTMENT MASTER             COMPLETE
+DEPARTMENT MANAGEMENT         COMPLETE
+DEPARTMENT UI POLISH          COMPLETE
+DEPARTMENT WORKSPACE          COMPLETE
+TEAM STRUCTURE                COMPLETE
+TEAM ASSIGNMENT               COMPLETE
+TEAM → WORK FILTER            COMPLETE
+MANAGEMENT SCOPE RECOGNITION  COMPLETE
+
+SCOPE → WORK SECURITY         NEXT
+```
+
+---
+
+# 21. Next Development Sequence
+
+Tiếp tục từ Scope → Work, không quay lại sửa các phần đã chốt trừ khi phát hiện lỗi thực tế.
+
+```text
+1. Scope → Work security
+       ↓
+2. Department Head Work scope
+       ↓
+3. Team Lead Work scope
+       ↓
+4. Member personal / assigned scope
+       ↓
+5. Firestore Rules verification
+       ↓
+6. Department-level Work views
+       ↓
+7. Team management CRUD
+       ↓
+8. Notifications / activity
+       ↓
+9. Reports
+```
+
+---
+
+# 22. Product Direction
+
+Mô hình tổ chức mục tiêu:
+
+```text
+SAOVN Organization
+        │
+        ├── Department
+        │     ├── Department Head
+        │     ├── Teams
+        │     │    ├── Team Lead
+        │     │    └── Members
+        │     └── Workspace
+        │
+        └── Shared Core
+              ├── Identity
+              ├── Organization
+              └── Access Control
+```
+
+Department Workspace là cầu nối giữa **Organization Core** và **WORK**.
+
+---
+
+# 23. Working Protocol
 
 Quy trình làm việc:
 
 ```text
 1. Xác định thứ cần xây.
-2. Giới thiệu ngắn gọn mục đích.
-3. Đưa nguyên khối nội dung hoàn chỉnh.
-4. User copy vào đúng vị trí.
-5. Git commit + push.
-6. User báo "đã up".
+2. Tập trung hoàn thành một checkpoint.
+3. Ưu tiên sửa đúng HTML/CSS thay vì vá UI bằng JS.
+4. Identity hiển thị bằng họ tên + chức danh.
+5. Email/phone dành cho tra cứu liên hệ.
+6. Git commit + push.
 7. Kiểm tra trạng thái.
-8. Tiếp tục.
-9. Khi User nói "chốt sổ":
-   → cập nhật PROJECT_STATE.md một lần.
+8. Chuyển checkpoint kế tiếp.
+9. Khi User nói "chốt sổ": cập nhật PROJECT_STATE.md.
 ```
 
 Không cập nhật Project State sau từng bước nhỏ.
 
-Không lặp lại các giải thích đã được xác lập.
-
-Không tạo file Markdown chỉ để tạo tài liệu nếu nó không phục vụ một quyết định hoặc bước xây dựng thực tế.
-
 ---
 
-# 18. Current Stopping Point
+# 24. Next Session Rule
 
-Phiên hiện tại kết thúc tại:
+Khi tiếp tục:
 
-```text
-ARCHITECTURE FOUNDATION
-        ↓
-CORE FOUNDATION IDENTIFIED
-        ↓
-IDENTITY / LOGIN IDENTIFIED
-        ↓
-ORGANIZATION / MEMBERSHIP IDENTIFIED
-        ↓
-PERMISSION IDENTIFIED
-        ↓
-WORK SELECTED AS FIRST BUSINESS MODULE
-```
-
-Điểm tiếp tục của phiên sau:
-
-> **Thiết kế Core Foundation, bắt đầu từ Identity / Account / Login và Organization / Membership.**
-
-Sau khi Core Foundation đủ rõ, chuyển sang đặc tả WORK.
-
----
-
-# 19. Next Session Rule
-
-Khi bắt đầu lại, đọc:
-
-```text
-START_HERE.md
-PROJECT_STATE.md
+```powershell
+cd C:\Users\Admin\Desktop\SAOVN-OS
+git pull origin main
+git status
+git log -3 --oneline
 ```
 
 Sau đó tiếp tục trực tiếp từ:
 
 ```text
-CORE FOUNDATION
-        ↓
-IDENTITY / ACCOUNT / LOGIN
+SCOPE → WORK SECURITY
 ```
 
-Không xây lại Architecture Foundation đã hoàn thành trừ khi phát hiện mâu thuẫn hoặc cần một Architecture Decision mới.
+Không xây lại Members, Department Master, Team Assignment hoặc Department Workspace đã hoàn thành trừ khi kiểm tra thực tế phát hiện lỗi.
 
 ---
 
-# 20. Final State
+# 25. Final State
 
 ```text
 SAOVN-OS
@@ -640,31 +724,35 @@ TECHNICAL ARCHITECTURE    COMPLETE
 ARCHITECTURE DECISIONS    COMPLETE
 MODULE SPECIFICATION      COMPLETE
 
-CORE FOUNDATION           IDENTIFIED
-IDENTITY / LOGIN          NEXT
-ORGANIZATION              NEXT
-PERMISSION IMPLEMENTATION NEXT
+IDENTITY / LOGIN PROTOTYPE       COMPLETE
+MEMBERS MANAGEMENT               COMPLETE
+DEPARTMENT MANAGEMENT            COMPLETE
+DEPARTMENT WORKSPACE             COMPLETE
+TEAM STRUCTURE                   COMPLETE
+TEAM ASSIGNMENT                  COMPLETE
+TEAM → WORK FILTER               COMPLETE
+MANAGEMENT SCOPE RECOGNITION     COMPLETE
+
+SCOPE → WORK SECURITY            NEXT
 
 FIRST BUSINESS MODULE:
-WORK                      SELECTED
-
-IMPLEMENTATION            NOT STARTED
+WORK                              SELECTED / IN PROGRESS
 ```
 
 ---
 
-# 21. Final Project Statement
+# 26. Final Project Statement
 
 SAOVN-OS đang được xây dựng như một **môi trường làm việc online thống nhất cho tập đoàn SAOVN**.
 
-Nền tảng sẽ có một Core Foundation dùng chung cho Identity, Organization và Access Control.
+Core Foundation cung cấp Identity, Organization và Access Control.
 
-Cổng vào hệ thống là Login.
+Login là cổng vào hệ thống.
 
-Tài khoản không mặc định được tạo bằng Public Self-Registration; Organization sẽ là chủ thể cấp, mời hoặc Provision Account.
+Tài khoản không mặc định được tạo bằng Public Self-Registration; Organization là chủ thể cấp, mời hoặc Provision Account.
 
-Sau khi xác thực và xác định quyền, người dùng bước vào môi trường làm việc chính.
+Organization hiện đã được triển khai thành Department và Team trong web prototype.
 
-**WORK là Business Module đầu tiên được lựa chọn**, tập trung vào giao việc, nhận việc, quản lý Project, theo dõi tiến độ, Deadline, trao đổi và báo cáo công việc.
+WORK là Business Module đầu tiên, và Department Workspace đã bắt đầu trở thành không gian làm việc thực tế cho thành viên.
 
-Điểm tiếp theo của dự án là biến Core Foundation và WORK từ kiến trúc thành thiết kế kỹ thuật và sau đó là hệ thống chạy thật.
+Điểm tiếp theo là biến Management Scope thành **Work Security thực sự**, để Department Head, Team Lead và Member chỉ nhìn thấy/phối hợp với đúng phạm vi công việc của mình.
