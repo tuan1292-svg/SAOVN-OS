@@ -23,24 +23,64 @@ function normalizeAssignees(t){
     if(!ids.length)return[];
 
     return ids.map(id=>{
-        const m=members.find(x=>x.id===id);
-        const stored=Array.isArray(t.assignees)?t.assignees.find(a=>a.id===id):null;
+        const key=String(id||'').trim().toLowerCase();
+        const stored=Array.isArray(t.assignees)
+            ?t.assignees.find(a=>String(a?.id||'').trim().toLowerCase()===key)
+            :null;
 
-        return m
-            ? {
+        const m=members.find(x=>{
+            const aliases=[
+                x.id,
+                x.username,
+                x.userName,
+                x.login,
+                x.email
+            ]
+            .filter(Boolean)
+            .map(v=>String(v).trim().toLowerCase());
+
+            return aliases.includes(key);
+        });
+
+        if(m){
+            return{
                 id:m.id,
                 name:m.name,
                 position:positionLabel(m.position),
                 department:m.department||'',
                 team:m.team||''
-            }
-            : {
-                id,
-                name:stored?.name||'',
-                position:positionLabel(stored?.position||''),
-                department:stored?.department||'',
-                team:stored?.team||''
             };
+        }
+
+        const storedUsername=String(
+            stored?.username||
+            stored?.userName||
+            stored?.login||
+            stored?.name||
+            ''
+        ).trim().toLowerCase();
+
+        const byEmailLocal=storedUsername
+            ?members.find(x=>String(x.email||'').split('@')[0].trim().toLowerCase()===storedUsername)
+            :null;
+
+        if(byEmailLocal){
+            return{
+                id:byEmailLocal.id,
+                name:byEmailLocal.name,
+                position:positionLabel(byEmailLocal.position),
+                department:byEmailLocal.department||'',
+                team:byEmailLocal.team||''
+            };
+        }
+
+        return{
+            id,
+            name:'Chưa xác định',
+            position:'',
+            department:'',
+            team:''
+        };
     });
 }
 
@@ -120,8 +160,11 @@ async function loadDirectory(){
 
         return{
             id:d.id,
-            name:x.fullName||x.displayName||x.name||d.id,
+            name:x.fullName||x.displayName||x.name||'Thành viên',
             email:x.email||'',
+            username:x.username||x.userName||x.login||'',
+            userName:x.userName||x.username||'',
+            login:x.login||x.username||'',
             position:x.position||x.jobTitle||m?.position||'',
             department:x.department||m?.department||'',
             team:x.team||m?.team||'',
@@ -138,8 +181,11 @@ async function loadDirectory(){
 
             members.push({
                 id:user.uid,
-                name:x.fullName||x.displayName||x.name||user.uid,
+                name:x.fullName||x.displayName||x.name||'Thành viên',
                 email:x.email||'',
+                username:x.username||x.userName||x.login||'',
+                userName:x.userName||x.username||'',
+                login:x.login||x.username||'',
                 position:x.position||x.jobTitle||m?.position||'',
                 department:x.department||m?.department||'',
                 team:x.team||m?.team||'',
