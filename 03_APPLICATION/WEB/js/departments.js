@@ -1,6 +1,6 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { collection, addDoc, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { collection, addDoc, getDocs, doc, setDoc, serverTimestamp, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { getPermissions, hasPermission } from './permissions.js';
 
 const $=id=>document.getElementById(id);
@@ -48,8 +48,6 @@ function render(){
     (status==='ALL'||(status==='ACTIVE'?d.active!==false:d.active===false))
   );
 
-  const assigned=new Set();
-  members.forEach(m=>{if(m.departmentId)assigned.add(m.id)});
   $('departmentCount').textContent=departments.filter(d=>d.active!==false).length;
   $('assignedMemberCount').textContent=members.filter(m=>m.departmentId||m.department).length;
   $('unassignedMemberCount').textContent=members.filter(m=>!(m.departmentId||m.department)).length;
@@ -57,6 +55,7 @@ function render(){
   $('emptyState').hidden=filtered.length>0;
   $('departmentGrid').innerHTML=filtered.map(card).join('');
   $('departmentGrid').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
+  $('departmentGrid').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>location.href=`department-workspace.html?id=${encodeURIComponent(b.dataset.open)}`);
 }
 
 function headName(id){
@@ -75,7 +74,7 @@ function card(d){
       <p class="department-description">${esc(d.description||'Chưa có mô tả phòng ban.')}</p>
       <div class="department-meta"><div><small>THÀNH VIÊN</small><strong>${memberCount(d)} người</strong></div><div><small>TRƯỞNG PHÒNG</small><strong>${esc(headName(d.headId))}</strong></div></div>
     </div>
-    <div class="department-card-actions"><button type="button" data-edit="${esc(d.id)}">Chỉnh sửa</button></div>
+    <div class="department-card-actions"><button type="button" class="workspace-open" data-open="${esc(d.id)}">Mở phòng làm việc</button><button type="button" data-edit="${esc(d.id)}">Chỉnh sửa</button></div>
   </article>`;
 }
 
@@ -127,7 +126,6 @@ $('departmentOverlay').onclick=e=>{if(e.target.id==='departmentOverlay')closeDia
 $('searchInput').oninput=render;
 $('statusFilter').onchange=render;
 $('logoutBtn').onclick=()=>signOut(auth);
-
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDialog()});
 
 $('departmentForm').onsubmit=async e=>{
@@ -148,11 +146,8 @@ $('departmentForm').onsubmit=async e=>{
   button.disabled=true;button.textContent='Đang lưu...';setStatus('Đang cập nhật...','pending');
   try{
     const data={name,code,description,headId,active,updatedAt:serverTimestamp(),updatedBy:user.uid};
-    if(id){
-      await setDoc(doc(db,'departments',id),data,{merge:true});
-    }else{
-      await addDoc(collection(db,'departments'),{...data,createdAt:serverTimestamp(),createdBy:user.uid});
-    }
+    if(id)await setDoc(doc(db,'departments',id),data,{merge:true});
+    else await addDoc(collection(db,'departments'),{...data,createdAt:serverTimestamp(),createdBy:user.uid});
     setStatus('Đã lưu phòng ban.','success');
     await loadAll();
     setTimeout(closeDialog,350);
