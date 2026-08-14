@@ -24,6 +24,7 @@ onAuthStateChanged(auth,async user=>{
   $('userAvatar').textContent=initials(name);
   $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':role()==='MANAGER'?'Manager':'Workspace member';
   $('logoutBtn').onclick=()=>signOut(auth);
+  $('teamTaskFilter')?.addEventListener('change',renderTasks);
   await loadWorkspace();
 });
 
@@ -48,6 +49,7 @@ async function loadWorkspace(){
 
     renderDepartment();
     await loadTasks();
+    renderTeamFilter();
     renderTeams();
     $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
   }catch(error){
@@ -80,20 +82,31 @@ function memberCard(m){
   </div>`;
 }
 
-function renderTeams(){
+function getTeamEntries(){
   const groups=new Map();
   members.forEach(m=>{
     const team=String(m.team||'').trim()||'Chưa phân nhóm';
     if(!groups.has(team))groups.set(team,[]);
     groups.get(team).push(m);
   });
-
-  const entries=[...groups.entries()].sort((a,b)=>{
+  return [...groups.entries()].sort((a,b)=>{
     if(a[0]==='Chưa phân nhóm')return 1;
     if(b[0]==='Chưa phân nhóm')return -1;
     return a[0].localeCompare(b[0],'vi');
   });
+}
 
+function renderTeamFilter(){
+  const select=$('teamTaskFilter');
+  if(!select)return;
+  const current=select.value||'ALL';
+  const teams=getTeamEntries().map(([name])=>name).filter(name=>name!=='Chưa phân nhóm');
+  select.innerHTML='<option value="ALL">Tất cả Team</option>'+teams.map(team=>`<option value="${esc(team)}">${esc(team)}</option>`).join('');
+  select.value=teams.includes(current)?current:'ALL';
+}
+
+function renderTeams(){
+  const entries=getTeamEntries();
   $('teamSummary').textContent=`${entries.length} nhóm`;
   if(!entries.length){
     $('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';
@@ -101,7 +114,7 @@ function renderTeams(){
   }
 
   $('teamList').innerHTML=entries.map(([team,people])=>{
-    const leader=people.find(m=>['TEAM_LEAD','TRƯỞNG NHÓM'].includes(positionCode(m.position)))||people.find(m=>positionCode(m.position)==='TEAM_LEAD');
+    const leader=people.find(m=>positionCode(m.position)==='TEAM_LEAD');
     const teamLabel=team==='Chưa phân nhóm'?'Chưa phân nhóm':'TEAM';
     return `<article class="team-card">
       <div class="team-card-head"><div><span class="team-label">${teamLabel}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div>
@@ -138,9 +151,14 @@ async function loadTasks(){
 }
 
 function renderTasks(queryFailed=false){
-  const done=tasks.filter(t=>t.status==='DONE').length;
-  $('taskCount').textContent=tasks.length;
-  $('activeTaskCount').textContent=tasks.length-done;
+  const filter=$('teamTaskFilter')?.value||'ALL';
+  const filtered=filter==='ALL'?tasks:tasks.filter(t=>{
+    const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];
+    return members.some(m=>assigneeIds.includes(m.id)&&String(m.team||'').trim()===filter);
+  });
+  const done=filtered.filter(t=>t.status==='DONE').length;
+  $('taskCount').textContent=filter==='ALL'?tasks.length:filtered.length;
+  $('activeTaskCount').textContent=filtered.length-done;
   $('doneTaskCount').textContent=done;
 
   if(queryFailed){
@@ -148,12 +166,12 @@ function renderTasks(queryFailed=false){
     return;
   }
 
-  if(!tasks.length){
-    $('taskList').innerHTML='<div class="empty-workspace"><strong>Chưa có công việc</strong>Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.</div>';
+  if(!filtered.length){
+    $('taskList').innerHTML=`<div class="empty-workspace"><strong>${filter==='ALL'?'Chưa có công việc':'Team này chưa có công việc'}</strong>${filter==='ALL'?'Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.':'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`;
     return;
   }
 
-  $('taskList').innerHTML=tasks.slice(0,12).map(taskCard).join('');
+  $('taskList').innerHTML=filtered.slice(0,12).map(taskCard).join('');
 }
 
 function taskCard(t){
