@@ -30,21 +30,31 @@ function directoryMembers(){
 }
 
 async function loadDirectory(){
-  const [is,ms]=await Promise.all([
-    getDocs(query(collection(db,'identities'),where('status','==','ACTIVE'))),
-    getDocs(query(collection(db,'memberships'),where('status','==','ACTIVE')))
-  ]);
+  let identitySnap;
+  try{
+    identitySnap=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
+  }catch(error){
+    throw new Error(`Đọc danh bạ Work: ${error?.message||error}`);
+  }
+
+  let membershipSnap=null;
+  try{
+    membershipSnap=await getDocs(query(collection(db,'memberships'),where('status','==','ACTIVE')));
+  }catch(error){
+    console.warn('Không tải được memberships Active cho Work; dùng Identity fallback.',error);
+  }
+
   const map=new Map();
-  ms.forEach(s=>{const d=s.data(),uid=d.identityId||d.userId||d.uid||s.id.match(/^mem_(.+)_org_/)?.[1];if(uid)map.set(uid,{...d,id:s.id});});
-  members=is.docs.map(s=>{
+  membershipSnap?.forEach(s=>{const d=s.data(),uid=d.identityId||d.userId||d.uid||s.id.match(/^mem_(.+)_org_/)?.[1];if(uid)map.set(uid,{...d,id:s.id});});
+  members=identitySnap.docs.map(s=>{
     const x=s.data(),m=map.get(s.id)||{};
     return{id:s.id,name:x.fullName||x.displayName||x.name||x.email||s.id,email:x.email||'',position:m.position||x.position||'STAFF',departmentId:m.departmentId||x.departmentId||'',department:m.department||x.department||'',teamId:m.teamId||x.teamId||'',team:m.team||x.team||'',managerId:m.managerId||x.managerId||'',status:'ACTIVE'};
   });
   if(!members.some(m=>m.id===user.uid)){
     const own=await getDoc(doc(db,'identities',user.uid));
     if(own.exists()){
-      const x=own.data();
-      members.push({id:user.uid,name:x.fullName||x.displayName||user.displayName||'Bạn',email:x.email||user.email||'',position:x.position||'STAFF',departmentId:x.departmentId||'',department:x.department||'',teamId:x.teamId||'',team:x.team||'',managerId:x.managerId||'',status:'ACTIVE'});
+      const x=own.data(),m=map.get(user.uid)||{};
+      members.push({id:user.uid,name:x.fullName||x.displayName||user.displayName||'Bạn',email:x.email||user.email||'',position:m.position||x.position||'STAFF',departmentId:m.departmentId||x.departmentId||'',department:m.department||x.department||'',teamId:m.teamId||x.teamId||'',team:m.team||x.team||'',managerId:m.managerId||x.managerId||'',status:'ACTIVE'});
     }
   }
   renderAssigneeOptions();
@@ -89,12 +99,12 @@ async function loadTasks(){
   render();
 }
 async function loadPersonalTasks(map){
-  const [assigned,created,legacy]=await Promise.all([
-    getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid))),
-    getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid))),
-    getDocs(query(collection(db,'workTasks'),where('assigneeId','==',user.uid)))
-  ]);
-  [assigned,created,legacy].forEach(add=>add.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()})));
+  const results=[];
+  const safeQuery=async make=>{try{return await make();}catch(error){console.warn('Work personal query skipped:',error);return null;}};
+  results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid)))));
+  results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid)))));
+  results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('assigneeId','==',user.uid)))));
+  results.filter(Boolean).forEach(s=>s.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()})));
 }
 
 function visible(){const q=E.search.value.trim().toLowerCase();return tasks.filter(t=>(!q||`${t.title||''} ${t.description||''} ${assigneeText(t)}`.toLowerCase().includes(q))&&(E.sf.value==='ALL'||t.status===E.sf.value)&&(E.pf.value==='ALL'||t.priority===E.pf.value));}
