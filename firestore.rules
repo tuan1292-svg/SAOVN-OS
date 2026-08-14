@@ -26,8 +26,6 @@ service cloud.firestore {
     function canDeleteWork() { return isAdmin() || isManager(); }
     function canAssignWork() { return isAdmin() || isManager(); }
 
-    function taskAssigneeIds(data) { return data.get("assigneeIds", []); }
-    function taskAssigneeId(data) { return data.get("assigneeId", ""); }
     function taskOwnedByCurrentUser(data) { return data.get("createdBy", "") == request.auth.uid; }
     function taskAssignedToCurrentUser(data) { return request.auth.uid in data.get("assigneeIds", []) || data.get("assigneeId", "") == request.auth.uid; }
     function canReadTask(taskId) { return isPrivileged() || (isMember() && (taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data) || taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data))); }
@@ -53,9 +51,7 @@ service cloud.firestore {
     }
 
     match /workTasks/{taskId} {
-      // Queries must be scoped by the caller's ownership/assignment unless the caller is privileged.
       allow read: if canReadWork() && (isPrivileged() || taskOwnedByCurrentUser(resource.data) || taskAssignedToCurrentUser(resource.data));
-      // Members may create their own work or work assigned to themselves. Managers/Admins may assign work to others.
       allow create: if canCreateWork() && (
         canAssignWork()
         || (request.resource.data.get("createdBy", "") == request.auth.uid && (
@@ -65,7 +61,6 @@ service cloud.firestore {
           || request.resource.data.get("assigneeId", "") == request.auth.uid
         ))
       );
-      // A regular member may edit tasks they own/are assigned to, but cannot reassign them or change ownership.
       allow update: if canEditWork() && (
         canAssignWork()
         || (
@@ -94,7 +89,14 @@ service cloud.firestore {
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
     match /notifications/{userId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); match /items/{notificationId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); } }
-    match /departments/{departmentId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
+
+    // Department is visible to organization members; management remains Admin-only.
+    match /departments/{departmentId} {
+      allow read: if isMember();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /roles/{roleId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /documents/{documentId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /system/{documentId} { allow read, create, update, delete: if isSystemAdmin(); }
