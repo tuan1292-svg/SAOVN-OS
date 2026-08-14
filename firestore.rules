@@ -12,12 +12,18 @@ service cloud.firestore {
     function isAdmin() { return isSystemAdmin() || hasOrgRole("org_admin") || hasOrgRole("organization_admin") || hasOrgRole("admin"); }
     function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager"); }
     function isTeamLead() { return hasOrgRole("team_lead") || hasOrgRole("team_leader"); }
-    function isPrivileged() { return isAdmin() || isManager() || isTeamLead(); }
-
     function currentDepartmentId() { return isMember() ? membership().get("departmentId", "") : ""; }
     function currentDepartment() { return isMember() ? membership().get("department", "") : ""; }
     function currentTeamId() { return isMember() ? membership().get("teamId", "") : ""; }
     function currentTeam() { return isMember() ? membership().get("team", "") : ""; }
+    function isDepartmentHead() {
+      return isMember()
+        && currentDepartmentId() != ""
+        && exists(/databases/$(database)/documents/departments/$(currentDepartmentId()))
+        && get(/databases/$(database)/documents/departments/$(currentDepartmentId())).data.get("headId", "") == request.auth.uid;
+    }
+    function isPrivileged() { return isAdmin() || isManager() || isTeamLead() || isDepartmentHead(); }
+    function isWorkManager() { return isAdmin() || isManager() || isDepartmentHead() || isTeamLead(); }
 
     function taskInDepartment(data) {
       return (currentDepartmentId() != "" && data.get("departmentId", "") == currentDepartmentId())
@@ -28,12 +34,13 @@ service cloud.firestore {
         || (currentTeam() != "" && data.get("team", "") == currentTeam());
     }
     function taskInManagementScope(data) {
-      return isAdmin() || (isManager() && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data));
+      return isAdmin()
+        || ((isManager() || isDepartmentHead()) && taskInDepartment(data))
+        || (isTeamLead() && taskInTeam(data));
     }
     function taskOwnedByCurrentUser(data) { return data.get("createdBy", "") == request.auth.uid; }
     function taskAssignedToCurrentUser(data) { return request.auth.uid in data.get("assigneeIds", []) || data.get("assigneeId", "") == request.auth.uid; }
 
-    // Core permission equivalents at the Firestore security boundary.
     function canReadMembers() { return isAdmin(); }
     function canCreateMembers() { return isAdmin(); }
     function canUpdateMembers() { return isAdmin(); }
@@ -43,15 +50,15 @@ service cloud.firestore {
     function canReadWork() { return isMember(); }
     function canCreateWork() { return isMember(); }
     function canEditWork() { return isMember(); }
-    function canDeleteWork() { return isAdmin() || isManager() || isTeamLead(); }
-    function canAssignWork() { return isAdmin() || isManager() || isTeamLead(); }
+    function canDeleteWork() { return isWorkManager(); }
+    function canAssignWork() { return isWorkManager(); }
 
     function canReadTaskData(data) {
       return taskInManagementScope(data) || taskOwnedByCurrentUser(data) || taskAssignedToCurrentUser(data);
     }
     function canCreateTaskData(data) {
       return isAdmin()
-        || (isManager() && taskInDepartment(data))
+        || ((isManager() || isDepartmentHead()) && taskInDepartment(data))
         || (isTeamLead() && taskInTeam(data))
         || (isMember() && taskOwnedByCurrentUser(data) && (
           data.get("assigneeIds", []) == []
@@ -62,14 +69,18 @@ service cloud.firestore {
     }
     function canUpdateTaskData(oldData, newData) {
       return isAdmin()
-        || (isManager() && taskInDepartment(oldData) && taskInDepartment(newData))
+        || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData))
         || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData))
         || (isMember() && (taskOwnedByCurrentUser(oldData) || taskAssignedToCurrentUser(oldData))
           && newData.get("createdBy", "") == oldData.get("createdBy", "")
           && newData.get("assigneeIds", []) == oldData.get("assigneeIds", [])
           && newData.get("assigneeId", "") == oldData.get("assigneeId", ""));
     }
-    function canDeleteTaskData(data) { return isAdmin() || (isManager() && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)); }
+    function canDeleteTaskData(data) {
+      return isAdmin()
+        || ((isManager() || isDepartmentHead()) && taskInDepartment(data))
+        || (isTeamLead() && taskInTeam(data));
+    }
 
     match /identities/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin() || (isMember() && resource.data.status == "ACTIVE"));
@@ -115,7 +126,6 @@ service cloud.firestore {
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
     match /notifications/{userId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); match /items/{notificationId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); } }
 
-    // Department is visible to organization members; management remains Admin-only.
     match /departments/{departmentId} {
       allow read: if isMember();
       allow create, update: if isAdmin();
