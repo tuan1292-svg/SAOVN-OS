@@ -2,6 +2,7 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { doc, getDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { getPermissions, hasPermission, role } from './permissions.js';
+import { loadOrgScope, scopeLabel } from './org-scope.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -9,7 +10,7 @@ const initials=name=>String(name||'S').split(/\s+/).filter(Boolean).slice(-2).ma
 const position=v=>String(v||'').trim()||'Chưa xác định';
 const positionCode=v=>String(v||'').trim().toUpperCase();
 const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};
-let department=null,members=[],tasks=[];
+let department=null,members=[],tasks=[],orgScope=null;
 
 onAuthStateChanged(auth,async user=>{
   if(!user){location.replace('index.html');return;}
@@ -19,14 +20,26 @@ onAuthStateChanged(auth,async user=>{
   const identity=await getDoc(doc(db,'identities',user.uid));
   const data=identity.exists()?identity.data():{};
   const name=data.fullName||data.displayName||data.name||user.displayName||'Thành viên';
+  orgScope=await loadOrgScope(user.uid);
 
   $('userName').textContent=name;
   $('userAvatar').textContent=initials(name);
   $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':role()==='MANAGER'?'Manager':'Workspace member';
   $('logoutBtn').onclick=()=>signOut(auth);
   $('teamTaskFilter')?.addEventListener('change',renderTasks);
+  renderScope();
   await loadWorkspace();
 });
+
+function renderScope(){
+  const title=$('scopeTitle'),description=$('scopeDescription');
+  if(!title||!description||!orgScope)return;
+  title.textContent=scopeLabel(orgScope);
+  if(orgScope.role==='ADMIN')description.textContent='Bạn có quyền quản trị toàn bộ tổ chức và các không gian được cấp quyền.';
+  else if(orgScope.scope==='DEPARTMENT')description.textContent='Bạn là Trưởng phòng. Phạm vi quản lý tập trung vào thành viên, Team và công việc của phòng ban.';
+  else if(orgScope.directReportIds.length)description.textContent='Bạn đang quản lý trực tiếp các thành viên được giao cho mình và các công việc liên quan.';
+  else description.textContent='Bạn đang làm việc trong phạm vi cá nhân và các công việc được giao cho mình.';
+}
 
 async function loadWorkspace(){
   const id=new URLSearchParams(location.search).get('id');
@@ -70,35 +83,21 @@ function renderDepartment(){
   $('departmentStatus').classList.toggle('inactive',department.active===false);
   $('memberCount').textContent=members.length;
   $('memberSummary').textContent=`${members.length} người`;
-
-  $('memberList').innerHTML=members.length?members.map(memberCard).join(''):`<div class="empty-workspace"><strong>Chưa có thành viên</strong>Chưa có thành viên Active được phân vào phòng này.</div>`;
 }
 
 function memberCard(m){
   const name=m.fullName||m.displayName||m.name||'Thành viên';
-  return `<div class="member-item">
-    <div class="member-avatar">${esc(initials(name))}</div>
-    <div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${esc(m.team)}`:''}</small></div>
-  </div>`;
+  return `<div class="member-item"><div class="member-avatar">${esc(initials(name))}</div><div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${esc(m.team)}`:''}</small></div></div>`;
 }
 
 function getTeamEntries(){
   const groups=new Map();
-  members.forEach(m=>{
-    const team=String(m.team||'').trim()||'Chưa phân nhóm';
-    if(!groups.has(team))groups.set(team,[]);
-    groups.get(team).push(m);
-  });
-  return [...groups.entries()].sort((a,b)=>{
-    if(a[0]==='Chưa phân nhóm')return 1;
-    if(b[0]==='Chưa phân nhóm')return -1;
-    return a[0].localeCompare(b[0],'vi');
-  });
+  members.forEach(m=>{const team=String(m.team||'').trim()||'Chưa phân nhóm';if(!groups.has(team))groups.set(team,[]);groups.get(team).push(m)});
+  return [...groups.entries()].sort((a,b)=>{if(a[0]==='Chưa phân nhóm')return 1;if(b[0]==='Chưa phân nhóm')return -1;return a[0].localeCompare(b[0],'vi')});
 }
 
 function renderTeamFilter(){
-  const select=$('teamTaskFilter');
-  if(!select)return;
+  const select=$('teamTaskFilter');if(!select)return;
   const current=select.value||'ALL';
   const teams=getTeamEntries().map(([name])=>name).filter(name=>name!=='Chưa phân nhóm');
   select.innerHTML='<option value="ALL">Tất cả Team</option>'+teams.map(team=>`<option value="${esc(team)}">${esc(team)}</option>`).join('');
@@ -108,69 +107,35 @@ function renderTeamFilter(){
 function renderTeams(){
   const entries=getTeamEntries();
   $('teamSummary').textContent=`${entries.length} nhóm`;
-  if(!entries.length){
-    $('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';
-    return;
-  }
-
+  if(!entries.length){$('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';return;}
   $('teamList').innerHTML=entries.map(([team,people])=>{
     const leader=people.find(m=>positionCode(m.position)==='TEAM_LEAD');
     const teamLabel=team==='Chưa phân nhóm'?'Chưa phân nhóm':'TEAM';
-    return `<article class="team-card">
-      <div class="team-card-head"><div><span class="team-label">${teamLabel}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div>
-      <div class="team-members">${people.map(m=>{
-        const name=m.fullName||m.displayName||m.name||'Thành viên';
-        const isLeader=leader?.id===m.id;
-        return `<span class="${isLeader?'is-leader':''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`;
-      }).join('')}</div>
-    </article>`;
+    return `<article class="team-card"><div class="team-card-head"><div><span class="team-label">${teamLabel}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div><div class="team-members">${people.map(m=>{const name=m.fullName||m.displayName||m.name||'Thành viên';const isLeader=leader?.id===m.id;return `<span class="${isLeader?'is-leader':''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`}).join('')}</div></article>`;
   }).join('');
 }
 
 async function loadTasks(){
   const ids=members.map(m=>m.id).filter(Boolean);
   if(!ids.length){renderTasks();return;}
-
   const map=new Map();
   try{
     const snapshots=await Promise.all(ids.map(id=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',id)))));
     snapshots.forEach(s=>s.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()})));
-  }catch(error){
-    console.warn('Department task query failed:',error);
-    renderTasks(true);
-    return;
-  }
-
-  tasks=[...map.values()].sort((a,b)=>{
-    const av=a.updatedAt?.toMillis?a.updatedAt.toMillis():new Date(a.updatedAt||a.createdAt||0).getTime();
-    const bv=b.updatedAt?.toMillis?b.updatedAt.toMillis():new Date(b.updatedAt||b.createdAt||0).getTime();
-    return bv-av;
-  });
-
+  }catch(error){console.warn('Department task query failed:',error);renderTasks(true);return;}
+  tasks=[...map.values()].sort((a,b)=>{const av=a.updatedAt?.toMillis?a.updatedAt.toMillis():new Date(a.updatedAt||a.createdAt||0).getTime();const bv=b.updatedAt?.toMillis?b.updatedAt.toMillis():new Date(b.updatedAt||b.createdAt||0).getTime();return bv-av});
   renderTasks();
 }
 
 function renderTasks(queryFailed=false){
   const filter=$('teamTaskFilter')?.value||'ALL';
-  const filtered=filter==='ALL'?tasks:tasks.filter(t=>{
-    const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];
-    return members.some(m=>assigneeIds.includes(m.id)&&String(m.team||'').trim()===filter);
-  });
+  const filtered=filter==='ALL'?tasks:tasks.filter(t=>{const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];return members.some(m=>assigneeIds.includes(m.id)&&String(m.team||'').trim()===filter)});
   const done=filtered.filter(t=>t.status==='DONE').length;
   $('taskCount').textContent=filter==='ALL'?tasks.length:filtered.length;
   $('activeTaskCount').textContent=filtered.length-done;
   $('doneTaskCount').textContent=done;
-
-  if(queryFailed){
-    $('taskList').innerHTML='<div class="empty-workspace"><strong>Chưa tải được công việc</strong>Không thể truy vấn Work theo quyền dữ liệu hiện tại.</div>';
-    return;
-  }
-
-  if(!filtered.length){
-    $('taskList').innerHTML=`<div class="empty-workspace"><strong>${filter==='ALL'?'Chưa có công việc':'Team này chưa có công việc'}</strong>${filter==='ALL'?'Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.':'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`;
-    return;
-  }
-
+  if(queryFailed){$('taskList').innerHTML='<div class="empty-workspace"><strong>Chưa tải được công việc</strong>Không thể truy vấn Work theo quyền dữ liệu hiện tại.</div>';return;}
+  if(!filtered.length){$('taskList').innerHTML=`<div class="empty-workspace"><strong>${filter==='ALL'?'Chưa có công việc':'Team này chưa có công việc'}</strong>${filter==='ALL'?'Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.':'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`;return;}
   $('taskList').innerHTML=filtered.slice(0,12).map(taskCard).join('');
 }
 
@@ -178,17 +143,12 @@ function taskCard(t){
   const done=t.status==='DONE';
   const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];
   const names=members.filter(m=>assigneeIds.includes(m.id)).map(m=>m.fullName||m.displayName||m.name).filter(Boolean);
-  return `<a class="task-item" href="work.html">
-    <div class="task-top"><strong>${esc(t.title||'Không tên')}</strong><span class="task-status ${done?'done':''}">${esc(statusLabel[t.status]||'Todo')}</span></div>
-    <p class="task-description">${esc(t.description||'Chưa có mô tả')}</p>
-    <div class="task-meta"><span>${esc(names.join(', ')||'Chưa xác định')}</span>${t.dueDate?`<span>Deadline ${esc(t.dueDate)}</span>`:''}</div>
-  </a>`;
+  return `<a class="task-item" href="work.html"><div class="task-top"><strong>${esc(t.title||'Không tên')}</strong><span class="task-status ${done?'done':''}">${esc(statusLabel[t.status]||'Todo')}</span></div><p class="task-description">${esc(t.description||'Chưa có mô tả')}</p><div class="task-meta"><span>${esc(names.join(', ')||'Chưa xác định')}</span>${t.dueDate?`<span>Deadline ${esc(t.dueDate)}</span>`:''}</div></a>`;
 }
 
 function showError(message){
   $('departmentName').textContent='Không thể mở phòng làm việc';
   $('departmentDescription').textContent=message;
   $('memberList').innerHTML=`<div class="empty-workspace"><strong>Không thể tải dữ liệu</strong>${esc(message)}</div>`;
-  $('teamList').innerHTML='';
-  $('taskList').innerHTML='';
+  $('teamList').innerHTML='';$('taskList').innerHTML='';
 }
