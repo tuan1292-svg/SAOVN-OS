@@ -7,6 +7,7 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials=name=>String(name||'S').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase();
 const position=v=>String(v||'').trim()||'Chưa xác định';
+const positionCode=v=>String(v||'').trim().toUpperCase();
 const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};
 let department=null,members=[],tasks=[];
 
@@ -46,8 +47,8 @@ async function loadWorkspace(){
       .sort((a,b)=>String(a.fullName||a.displayName||a.name||'').localeCompare(String(b.fullName||b.displayName||b.name||''),'vi'));
 
     renderDepartment();
-    renderTeams();
     await loadTasks();
+    renderTeams();
     $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
   }catch(error){
     console.error('Department workspace error:',error);
@@ -99,13 +100,18 @@ function renderTeams(){
     return;
   }
 
-  $('teamList').innerHTML=entries.map(([team,people])=>`<article class="team-card">
-    <div class="team-card-head"><div><span class="team-label">TEAM</span><h3>${esc(team)}</h3></div><strong>${people.length}</strong></div>
-    <div class="team-members">${people.map(m=>{
-      const name=m.fullName||m.displayName||m.name||'Thành viên';
-      return `<span><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`;
-    }).join('')}</div>
-  </article>`).join('');
+  $('teamList').innerHTML=entries.map(([team,people])=>{
+    const leader=people.find(m=>['TEAM_LEAD','TRƯỞNG NHÓM'].includes(positionCode(m.position)))||people.find(m=>positionCode(m.position)==='TEAM_LEAD');
+    const teamLabel=team==='Chưa phân nhóm'?'Chưa phân nhóm':'TEAM';
+    return `<article class="team-card">
+      <div class="team-card-head"><div><span class="team-label">${teamLabel}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div>
+      <div class="team-members">${people.map(m=>{
+        const name=m.fullName||m.displayName||m.name||'Thành viên';
+        const isLeader=leader?.id===m.id;
+        return `<span class="${isLeader?'is-leader':''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`;
+      }).join('')}</div>
+    </article>`;
+  }).join('');
 }
 
 async function loadTasks(){
