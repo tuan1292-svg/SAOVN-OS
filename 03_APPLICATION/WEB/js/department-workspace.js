@@ -46,6 +46,7 @@ async function loadWorkspace(){
       .sort((a,b)=>String(a.fullName||a.displayName||a.name||'').localeCompare(String(b.fullName||b.displayName||b.name||''),'vi'));
 
     renderDepartment();
+    renderTeams();
     await loadTasks();
     $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
   }catch(error){
@@ -76,6 +77,35 @@ function memberCard(m){
     <div class="member-avatar">${esc(initials(name))}</div>
     <div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${esc(m.team)}`:''}</small></div>
   </div>`;
+}
+
+function renderTeams(){
+  const groups=new Map();
+  members.forEach(m=>{
+    const team=String(m.team||'').trim()||'Chưa phân nhóm';
+    if(!groups.has(team))groups.set(team,[]);
+    groups.get(team).push(m);
+  });
+
+  const entries=[...groups.entries()].sort((a,b)=>{
+    if(a[0]==='Chưa phân nhóm')return 1;
+    if(b[0]==='Chưa phân nhóm')return -1;
+    return a[0].localeCompare(b[0],'vi');
+  });
+
+  $('teamSummary').textContent=`${entries.length} nhóm`;
+  if(!entries.length){
+    $('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';
+    return;
+  }
+
+  $('teamList').innerHTML=entries.map(([team,people])=>`<article class="team-card">
+    <div class="team-card-head"><div><span class="team-label">TEAM</span><h3>${esc(team)}</h3></div><strong>${people.length}</strong></div>
+    <div class="team-members">${people.map(m=>{
+      const name=m.fullName||m.displayName||m.name||'Thành viên';
+      return `<span><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`;
+    }).join('')}</div>
+  </article>`).join('');
 }
 
 async function loadTasks(){
@@ -135,5 +165,6 @@ function showError(message){
   $('departmentName').textContent='Không thể mở phòng làm việc';
   $('departmentDescription').textContent=message;
   $('memberList').innerHTML=`<div class="empty-workspace"><strong>Không thể tải dữ liệu</strong>${esc(message)}</div>`;
+  $('teamList').innerHTML='';
   $('taskList').innerHTML='';
 }
