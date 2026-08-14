@@ -12,7 +12,9 @@ let directoryMembers = [];
 onAuthStateChanged(auth, async user => {
     if (!user) { window.location.href = "index.html"; return; }
     uid = user.uid;
-    const displayName = user.displayName || user.email?.split("@")[0] || "Thành viên";
+    const identity = await getDoc(doc(db, "identities", uid));
+    const data = identity.exists() ? identity.data() : {};
+    const displayName = data.fullName || data.displayName || data.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
     [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = displayName; });
     await loadConversations();
 });
@@ -71,7 +73,7 @@ $("#messageForm")?.addEventListener("submit", async e => {
     try {
         const identity = await getDoc(doc(db, "identities", uid));
         const identityData = identity.exists() ? identity.data() : {};
-        const senderName = identityData.fullName || "Thành viên";
+        const senderName = identityData.fullName || identityData.displayName || identityData.name || "Thành viên";
         const senderPosition = identityData.position || identityData.title || "Thành viên";
         await addDoc(collection(db, "conversations", activeConversation.id, "messages"), { text, senderId: uid, senderName, senderPosition, createdAt: serverTimestamp() });
         const unreadCount = { ...(activeConversation.unreadCount || {}) };
@@ -98,17 +100,32 @@ async function openNewChatModal() {
     $("#memberPicker").innerHTML = `<div class="chat-list-empty">Đang tải danh bạ…</div>`;
     try {
         const snap = await getDocs(query(collection(db, "memberships"), where("status", "==", "ACTIVE"), limit(100)));
-        const memberships = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.userId && m.userId !== uid);
+        const memberships = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .map(m => ({ ...m, uid: m.identityId || m.userId || m.uid || m.id.match(/^mem_(.+)_org_/)?.[1] || "" }))
+            .filter(m => m.uid && m.uid !== uid);
         directoryMembers = (await Promise.all(memberships.map(async m => {
-            const identity = await getDoc(doc(db, "identities", m.userId));
+            const identity = await getDoc(doc(db, "identities", m.uid));
             const data = identity.exists() ? identity.data() : {};
             return {
-                uid: m.userId,
-                name: data.fullName || m.fullName || "Thành viên",
-                position: data.position || data.title || m.position || "Thành viên",
+                uid: m.uid,
+                name: data.fullName || data.displayName || data.name || m.fullName || data.email || "Thành viên",
+                position: data.position || data.jobTitle || m.position || "Thành viên",
                 department: m.department || data.department || ""
             };
         }))).filter(m => m.name);
+
+        if (!directoryMembers.length) {
+            const identitySnap = await getDocs(query(collection(db, "identities"), where("status", "==", "ACTIVE"), limit(100)));
+            directoryMembers = identitySnap.docs.map(d => {
+                const data = d.data();
+                return {
+                    uid: d.id,
+                    name: data.fullName || data.displayName || data.name || data.email || "Thành viên",
+                    position: data.position || data.jobTitle || "Thành viên",
+                    department: data.department || ""
+                };
+            }).filter(m => m.uid !== uid);
+        }
         renderMemberPicker();
     } catch (error) {
         console.error("Lỗi tải danh bạ chat:", error);
@@ -136,20 +153,9 @@ async function createDirectConversation(otherUid) {
         if (!existing.exists()) {
             const meIdentity = await getDoc(doc(db, "identities", uid));
             const me = meIdentity.exists() ? meIdentity.data() : {};
-            const meName = me.fullName || "Thành viên";
+            const meName = me.fullName || me.displayName || me.name || "Thành viên";
             const mePosition = me.position || me.title || "Thành viên";
-            await setDoc(ref, {
-                type: "direct",
-                memberIds: ids,
-                memberNames: { [uid]: meName, [otherUid]: person.name },
-                memberPositions: { [uid]: mePosition, [otherUid]: person.position },
-                title: person.name,
-                subtitle: person.position,
-                lastMessage: "",
-                lastSenderId: "",
-                updatedAt: serverTimestamp(),
-                unreadCount: { [uid]: 0, [otherUid]: 0 }
-            });
+            await setDoc(ref, { type: "direct", memberIds: ids, memberNames: { [uid]: meName, [otherUid]: person.name }, memberPositions: { [uid]: mePosition, [otherUid]: person.position }, title: person.name, subtitle: person.position, lastMessage: "", lastSenderId: "", updatedAt: serverTimestamp(), unreadCount: { [uid]: 0, [otherUid]: 0 } });
         }
         closeNewChatModal();
         await loadConversations();
@@ -160,12 +166,7 @@ async function createDirectConversation(otherUid) {
     }
 }
 
-function closeNewChatModal() {
-    const modal = $("#newChatModal");
-    modal.classList.add("hidden");
-    modal.setAttribute("aria-hidden", "true");
-}
-
+function closeNewChatModal() { const modal = $("#newChatModal"); modal.classList.add("hidden"); modal.setAttribute("aria-hidden", "true"); }
 function initials(value) { return String(value).trim().split(/\s+/).slice(-2).map(x => x[0]).join("").toUpperCase().slice(0,2) || "C"; }
 function formatDate(value) { if (!value) return "Vừa gửi"; const d = typeof value?.toDate === "function" ? value.toDate() : new Date(value); return Number.isNaN(d.getTime()) ? "Vừa gửi" : new Intl.DateTimeFormat("vi-VN", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit" }).format(d); }
 function escapeHTML(value) { return String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
