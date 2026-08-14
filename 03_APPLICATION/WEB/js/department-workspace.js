@@ -1,6 +1,7 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { doc, getDoc, collection, getDocs, query, where, documentId } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { doc, getDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { getPermissions, hasPermission, role } from './permissions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -11,9 +12,16 @@ let department=null,members=[],tasks=[];
 
 onAuthStateChanged(auth,async user=>{
   if(!user){location.replace('index.html');return;}
-  $('userName').textContent=user.displayName||'Admin';
-  $('userAvatar').textContent=initials(user.displayName||'Admin');
-  $('userRole').textContent='Founder · Chairman · CEO';
+  await getPermissions();
+  if(!hasPermission('departments.view')){location.replace('dashboard.html');return;}
+
+  const identity=await getDoc(doc(db,'identities',user.uid));
+  const data=identity.exists()?identity.data():{};
+  const name=data.fullName||data.displayName||data.name||user.displayName||'Thành viên';
+
+  $('userName').textContent=name;
+  $('userAvatar').textContent=initials(name);
+  $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':role()==='MANAGER'?'Manager':'Workspace member';
   $('logoutBtn').onclick=()=>signOut(auth);
   await loadWorkspace();
 });
@@ -64,15 +72,9 @@ function renderDepartment(){
 
 function memberCard(m){
   const name=m.fullName||m.displayName||m.name||'Thành viên';
-  const phone=String(m.phone||'').trim();
-  const email=String(m.email||'').trim();
   return `<div class="member-item">
     <div class="member-avatar">${esc(initials(name))}</div>
     <div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${esc(m.team)}`:''}</small></div>
-    <div class="member-contact">
-      ${phone?`<a href="tel:${esc(phone)}" title="Gọi điện">☎</a>`:''}
-      ${email?`<a href="mailto:${esc(email)}" title="Email">✉</a>`:''}
-    </div>
   </div>`;
 }
 
