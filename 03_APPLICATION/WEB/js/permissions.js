@@ -7,18 +7,17 @@ const MEMBERSHIP_ID = uid => `mem_${uid}_org_saovn_01`;
 // Single source of truth for application permissions.
 // Firestore Rules remain the authoritative security boundary.
 export const PERMISSIONS = Object.freeze({
-  DASHBOARD_VIEW: 'dashboard.view', WORK_VIEW: 'work.view', WORK_CREATE: 'work.create',
-  WORK_EDIT: 'work.edit', WORK_DELETE: 'work.delete', WORK_ASSIGN: 'work.assign',
-  WORK_COMMENT: 'work.comment', WORK_CHECKLIST: 'work.checklist',
-  MEMBERS_VIEW: 'members.view', MEMBERS_CREATE: 'members.create', MEMBERS_UPDATE: 'members.update',
-  MEMBERS_ROLE_MANAGE: 'members.role.manage', MEMBERS_DELETE: 'members.delete',
-  PROJECTS_VIEW: 'projects.view', PROJECTS_CREATE: 'projects.create', PROJECTS_EDIT: 'projects.edit',
-  PROJECTS_DELETE: 'projects.delete', ROLES_MANAGE: 'roles.manage', SYSTEM_MANAGE: 'system.manage'
+  DASHBOARD_VIEW: 'dashboard.view',
+  WORK_VIEW: 'work.view', WORK_CREATE: 'work.create', WORK_EDIT: 'work.edit', WORK_DELETE: 'work.delete', WORK_ASSIGN: 'work.assign', WORK_COMMENT: 'work.comment', WORK_CHECKLIST: 'work.checklist',
+  DEPARTMENTS_VIEW: 'departments.view', DEPARTMENTS_MANAGE: 'departments.manage',
+  MEMBERS_VIEW: 'members.view', MEMBERS_CREATE: 'members.create', MEMBERS_UPDATE: 'members.update', MEMBERS_ROLE_MANAGE: 'members.role.manage', MEMBERS_DELETE: 'members.delete',
+  PROJECTS_VIEW: 'projects.view', PROJECTS_CREATE: 'projects.create', PROJECTS_EDIT: 'projects.edit', PROJECTS_DELETE: 'projects.delete',
+  ROLES_MANAGE: 'roles.manage', SYSTEM_MANAGE: 'system.manage'
 });
 
 export const ROLE_PERMISSIONS = Object.freeze({
-  MEMBER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.PROJECTS_VIEW],
-  MANAGER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_DELETE, PERMISSIONS.WORK_ASSIGN, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.PROJECTS_VIEW, PERMISSIONS.PROJECTS_CREATE, PERMISSIONS.PROJECTS_EDIT],
+  MEMBER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.PROJECTS_VIEW],
+  MANAGER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_DELETE, PERMISSIONS.WORK_ASSIGN, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.PROJECTS_VIEW, PERMISSIONS.PROJECTS_CREATE, PERMISSIONS.PROJECTS_EDIT],
   ADMIN: Object.values(PERMISSIONS)
 });
 
@@ -39,6 +38,7 @@ export function can(area, action = 'read') {
     'members.read': PERMISSIONS.MEMBERS_VIEW, 'members.manage': PERMISSIONS.MEMBERS_UPDATE,
     'members.create': PERMISSIONS.MEMBERS_CREATE, 'members.update': PERMISSIONS.MEMBERS_UPDATE,
     'members.delete': PERMISSIONS.MEMBERS_DELETE, 'members.role.manage': PERMISSIONS.MEMBERS_ROLE_MANAGE,
+    'departments.read': PERMISSIONS.DEPARTMENTS_VIEW, 'departments.manage': PERMISSIONS.DEPARTMENTS_MANAGE,
     'dashboard.read': PERMISSIONS.DASHBOARD_VIEW
   };
   const key = `${area}.${action}`;
@@ -49,8 +49,12 @@ function applyNavigation() {
   const isAdmin = state.role === 'ADMIN';
   const canMembers = hasPermission(PERMISSIONS.MEMBERS_VIEW);
   document.querySelectorAll('a[href="members.html"]').forEach(link => {
-    link.hidden = !canMembers; link.setAttribute('aria-hidden', String(!canMembers));
-    if (!canMembers) link.setAttribute('tabindex', '-1');
+    const inAdmin = link.closest('.sidebar-section, .nav-group')?.querySelector('.sidebar-title, .nav-title')?.textContent?.toUpperCase().includes('ADMIN') || link.closest('.sidebar-section, .nav-group')?.querySelector('.sidebar-title, .nav-title')?.textContent?.toUpperCase().includes('QUẢN TRỊ');
+    if (inAdmin) {
+      link.hidden = !canMembers;
+      link.setAttribute('aria-hidden', String(!canMembers));
+      if (!canMembers) link.setAttribute('tabindex', '-1');
+    }
   });
   document.querySelectorAll('.sidebar-section, .nav-group').forEach(group => {
     const title = group.querySelector('.sidebar-title, .nav-title');
