@@ -1,179 +1,21 @@
 # SAOVN-OS — PROJECT STATE
 
-## 1. Project Identity
+> Chốt sổ: 14/08/2026
 
-**Project:** SAOVN-OS
+## 1. Project
 
-**Organization:** SAOVN
+**Project:** SAOVN-OS  
+**Organization:** SAOVN  
+**Repository:** https://github.com/tuan1292-svg/SAOVN-OS.git  
+**Local:** `C:\Users\Admin\Desktop\SAOVN-OS`
 
-**Definition:**
-
-SAOVN-OS là một **môi trường làm việc online cho tập đoàn SAOVN**, được xây dựng như một Organizational Operating System.
-
-SAOVN-OS không chỉ là một ứng dụng đơn lẻ.
-
-Nó là nền tảng thống nhất để tổ chức, con người, dữ liệu, công việc, ứng dụng nghiệp vụ, tích hợp và AI cùng hoạt động trong một hệ sinh thái chung.
+SAOVN-OS là môi trường làm việc online và Organizational Operating System cho SAOVN.
 
 ---
 
-# 2. Current Mission
+## 2. Core Architecture
 
-Mục tiêu là xây dựng một môi trường làm việc online thống nhất cho SAOVN, trong đó:
-
-* Nhân sự có Identity thống nhất.
-* Công ty và tổ chức được quản lý tập trung.
-* Quyền truy cập được kiểm soát.
-* Công việc được giao và theo dõi trong một hệ thống chung.
-* Các Business Module dùng chung Core Platform.
-* Dữ liệu có Ownership và Boundary rõ ràng.
-* AI có thể được tích hợp nhưng không làm mất tính độc lập của hệ thống cốt lõi.
-
----
-
-# 3. Current Project Phase
-
-**Current Phase: Core Foundation → Organization / Department / Team → WORK Integration**
-
-Trạng thái:
-
-```text
-Vision                       ✓
-Constitution                 ✓
-Architecture Foundation     ✓
-Technical Architecture      ✓
-Architecture Decisions      ✓
-Module Specification        ✓
-
-Identity / Login Prototype  ✓
-Permission Prototype        ✓
-Members Management          ✓
-Department Management       ✓
-Department Workspace        ✓
-Team Structure               ✓
-Team Assignment              ✓
-Team → Work Filter           ✓
-Management Scope Prototype   ✓
-
-Scope → Work Security        NEXT
-```
-
----
-
-# 4. Repository Structure
-
-```text
-SAOVN-OS/
-│
-├── .gitignore
-├── 00_CONSTITUTION/
-├── 01_ARCHITECTURE/
-├── DOCS/
-├── 03_APPLICATION/
-│   └── WEB/
-├── PROJECT_STATE.md
-└── START_HERE.md
-```
-
----
-
-# 5. Architecture Completed
-
-## Vision
-
-`DOCS/VISION/SAOVN-OS.md`
-
-SAOVN-OS được xác định là môi trường làm việc online và nền tảng vận hành thống nhất cho SAOVN.
-
-## Constitution
-
-`00_CONSTITUTION/`
-
-Chứa các nguyên tắc nền tảng và quy tắc xây dựng hệ thống.
-
-## Domain Model
-
-`01_ARCHITECTURE/DOMAIN_MODEL.md`
-
-Định nghĩa các Domain nghiệp vụ và ranh giới nghiệp vụ.
-
-## Module Map
-
-`01_ARCHITECTURE/MODULE_MAP.md`
-
-Định nghĩa các nhóm Module và quan hệ giữa chúng.
-
-## System Architecture
-
-`01_ARCHITECTURE/SYSTEM_ARCHITECTURE.md`
-
-Định nghĩa kiến trúc hệ thống tổng thể.
-
-## Permission Model
-
-`01_ARCHITECTURE/PERMISSION_MODEL.md`
-
-Định nghĩa Identity, Organization, Role, Permission, Scope và Policy.
-
-## Data Model
-
-`01_ARCHITECTURE/DATA_MODEL.md`
-
-Định nghĩa cách dữ liệu được tổ chức, sở hữu và liên kết.
-
-## Integration Architecture
-
-`01_ARCHITECTURE/INTEGRATION_ARCHITECTURE.md`
-
-Định nghĩa API, Event, Webhook, Adapter và các Integration Boundary.
-
-## Technical Architecture
-
-`01_ARCHITECTURE/TECHNICAL_ARCHITECTURE.md`
-
-Định nghĩa kiến trúc kỹ thuật tổng thể.
-
-## Architecture Decisions
-
-`01_ARCHITECTURE/ARCHITECTURE_DECISIONS.md`
-
-Đã xác lập các nguyên tắc và quyết định kiến trúc quan trọng như:
-
-* SAOVN-OS là Organizational Operating System.
-* Core Platform + Applications.
-* Shared Identity.
-* Central Permission Model.
-* Domain Ownership.
-* API Integration Boundary.
-* Event Driven cho Async Work.
-* AI là Optional Layer.
-* Provider Independence.
-* Source of Truth.
-* Git Repository là Project Source of Truth.
-* Documentation trước Implementation.
-* Incremental Architecture.
-* Security by Default.
-* Organization Boundary.
-* Web First.
-* Architecture over Framework.
-* Decision Reversibility.
-* Không Microservices hóa quá sớm.
-* Architecture Documentation là Living System.
-
-## Module Specification
-
-`01_ARCHITECTURE/MODULE_SPECIFICATION.md`
-
-Định nghĩa tiêu chuẩn thiết kế Module trước khi triển khai.
-
----
-
-# 6. What Core Means in SAOVN-OS
-
-**Core Platform** là phần nền tảng dùng chung cho toàn bộ SAOVN-OS.
-
-Core không phải là một Business Application riêng.
-
-Core cung cấp các năng lực mà nhiều Module khác cần dùng chung.
+Kiến trúc nền tảng đã xác lập:
 
 ```text
 SAOVN-OS
@@ -181,129 +23,115 @@ SAOVN-OS
 ├── CORE PLATFORM
 │   ├── Identity
 │   ├── Organization
+│   │   ├── Company
+│   │   ├── Department
+│   │   ├── Team
+│   │   └── Membership
 │   └── Access Control
+│       ├── Role
+│       ├── Permission
+│       ├── Scope
+│       └── Policy
 │
 └── BUSINESS MODULES
-    ├── WORK
-    ├── HR
-    └── CRM
+    └── WORK
+```
+
+Architecture / Constitution / Domain Model / Module Map / System Architecture / Permission Model / Data Model / Integration Architecture / Technical Architecture / Architecture Decisions / Module Specification đã được xác lập trong `00_CONSTITUTION/`, `01_ARCHITECTURE/` và `DOCS/`.
+
+---
+
+## 3. Product Rules Already Agreed
+
+```text
+- Làm từng checkpoint cho xong rồi mới chuyển bước.
+- Không vá UI bằng JavaScript nếu có thể sửa HTML/CSS đúng chỗ.
+- Ưu tiên giao diện sạch, gọn, hiển thị thông tin hữu ích.
+- Identity chính = Họ tên + Chức danh.
+- Không dùng email/username thay cho tên nếu Identity đã có họ tên.
+- Email và số điện thoại là thông tin liên hệ/tra cứu.
+- Thông tin liên hệ chi tiết không chiếm chỗ trong Work UI.
+- Members và Department management là khu vực Admin.
+- Public self-registration mặc định OFF.
+- Tài khoản Founder/Admin hiển thị `Founder · Chairman · CEO`.
+- PROJECT_STATE được chốt theo checkpoint, không cập nhật vụn từng bước.
 ```
 
 ---
 
-# 7. Core Foundation
-
-Core Foundation bao gồm các năng lực nền tảng:
+## 4. Completed Foundation
 
 ```text
-CORE
-│
-├── Identity
-│   ├── User
-│   ├── Account
-│   ├── Login
-│   └── Session
-│
-├── Organization
-│   ├── Company
-│   ├── Department
-│   ├── Team
-│   └── Membership
-│
-└── Access Control
-    ├── Role
-    ├── Permission
-    ├── Scope
-    └── Policy
+ARCHITECTURE FOUNDATION       COMPLETE
+IDENTITY / LOGIN              COMPLETE FOR CURRENT PROTOTYPE
+PERMISSION NAVIGATION         COMPLETE FOR CURRENT PROTOTYPE
+MEMBERS MANAGEMENT            COMPLETE
+MEMBER IDENTITY DISPLAY       COMPLETE
+MEMBER CONTACT FIELD          COMPLETE
+DEPARTMENT MASTER             COMPLETE
+DEPARTMENT MANAGEMENT         COMPLETE
+DEPARTMENT UI POLISH          COMPLETE
+DEPARTMENT WORKSPACE          COMPLETE
+TEAM STRUCTURE                COMPLETE
+TEAM ASSIGNMENT               COMPLETE
+TEAM → WORK FILTER            COMPLETE
+MANAGEMENT SCOPE RECOGNITION  COMPLETE
 ```
-
-Prototype hiện tại đã đưa Identity, Organization và Permission vào web application ở mức sử dụng thực tế.
 
 ---
 
-# 8. Identity and Login
+## 5. Identity Display
 
-Login được xem là **cổng vào SAOVN-OS**.
-
-Luồng:
-
-```text
-User
- ↓
-Login
- ↓
-Authentication
- ↓
-Identity
- ↓
-Session
- ↓
-SAOVN-OS
-```
-
-Authentication và Authorization được tách biệt.
-
-```text
-Authentication
-= Người này là ai?
-
-Authorization
-= Người này được phép làm gì?
-```
-
-Public Self-Registration mặc định OFF.
-
----
-
-# 9. Identity Display Rule
-
-Identity hiển thị chính trong giao diện làm việc là:
-
-```text
-Họ và tên
-Chức danh
-```
-
-Ví dụ:
+Trong màn hình làm việc, Identity phải hiển thị dạng:
 
 ```text
 Nguyễn Anh Tuấn
 Founder · Chairman · CEO
 ```
 
-Không dùng email hoặc username làm tên hiển thị nếu Identity đã có họ tên.
+Legacy values như `tuan1292` phải được resolve về Identity khi có thể.
 
-Email và số điện thoại chỉ dùng như thông tin liên hệ/tra cứu, không chiếm chỗ của Identity trong Work UI.
-
-Legacy identifiers được resolve về Identity hiện tại khi có thể.
+Work comments, assignees, member roster và Department Workspace đều ưu tiên Identity hiện tại.
 
 ---
 
-# 10. Organization Model
+## 6. Members
 
-Identity tồn tại trong Organization Context thông qua Membership.
+Members là khu vực quản trị.
+
+Đã có:
 
 ```text
-Identity
-   ↓
-Membership
-   ↓
-Organization
-   ↓
-Department
-   ↓
-Team
-   ↓
-Role / Permission / Scope
+✓ Admin-only management
+✓ Họ tên + chức danh
+✓ Role
+✓ Status
+✓ Department assignment
+✓ Team assignment
+✓ Team Lead indicator
+✓ Direct manager field
+✓ Phone/contact field
+✓ Email contact field
+✓ Legacy identity resolution
 ```
 
-Department hiện được lưu trong collection:
+Email / phone vẫn tồn tại để phục vụ tra cứu liên hệ, nhưng không được dùng làm Identity chính.
+
+### Ghi chú bảo mật
+
+Cần tiếp tục hoàn thiện data visibility để thông tin liên hệ chi tiết chỉ xuất hiện trong khu vực phù hợp, thay vì đưa email/phone vào các màn hình làm việc chung.
+
+---
+
+## 7. Department
+
+Collection:
 
 ```text
 /departments
 ```
 
-Các trường chính:
+Trường chính:
 
 ```text
 name
@@ -317,75 +145,27 @@ updatedAt
 updatedBy
 ```
 
-Identity có thể liên kết với Department bằng:
+Department management đã có:
 
 ```text
-departmentId
-```
-
-Dữ liệu `department` cũ vẫn được hỗ trợ trong giai đoạn chuyển đổi.
-
----
-
-# 11. Members Management
-
-Members là khu vực quản trị.
-
-Đã hoàn thành:
-
-```text
-✓ Admin-only Members navigation
-✓ Identity-based display
-✓ Họ tên + chức danh
-✓ Phone/contact field
-✓ Email giữ cho liên hệ
-✓ Department assignment
-✓ Team assignment
-✓ Team Lead / Trưởng nhóm indicator
-✓ Legacy identity resolution
-```
-
-Tài khoản Admin hiện được hiển thị theo chức danh:
-
-```text
-Founder · Chairman · CEO
-```
-
----
-
-# 12. Department Management
-
-Trang:
-
-```text
-03_APPLICATION/WEB/departments.html
-```
-
-Đã hoàn thành:
-
-```text
-✓ Department list
+✓ List
 ✓ Search
 ✓ Status filter
 ✓ Statistics
-✓ Create department
-✓ Edit department
-✓ Department head
+✓ Create
+✓ Edit
+✓ Department Head
 ✓ Active / Inactive
 ✓ Member count
-✓ Unassigned member count
-✓ Department selector
+✓ Unassigned count
+✓ Member department selector
 ✓ UI polish
 ✓ Admin-only management
 ```
 
-Quyền quản lý Department hiện dùng permission quản trị phù hợp.
-
 ---
 
-# 13. Department Workspace
-
-Department đã được chuyển từ danh mục quản trị thành **không gian làm việc**.
+## 8. Department Workspace
 
 Trang:
 
@@ -393,29 +173,29 @@ Trang:
 03_APPLICATION/WEB/department-workspace.html
 ```
 
-Nền tảng hiện có:
+Workspace hiện có:
 
 ```text
 ✓ Department identity
 ✓ Department status
 ✓ Member roster
 ✓ Họ tên + chức danh
-✓ Phone / email contact shortcuts
 ✓ Work statistics
-✓ Department-related task list
+✓ Department task list
 ✓ Team structure
 ✓ Team Lead display
 ✓ Team-based Work filtering
 ✓ Management scope display
+✓ Task overflow / responsive panel fix
 ```
 
-Work được liên kết với thành viên thông qua `assigneeIds`, tránh phá cấu trúc Work hiện tại.
+Task dài không được phép tràn khỏi panel.
 
 ---
 
-# 14. Team Structure
+## 9. Team
 
-Team hiện là tầng tổ chức bên trong Department.
+Team là tầng tổ chức bên trong Department:
 
 ```text
 Department
@@ -428,267 +208,234 @@ Department
 │   ├── Team Lead
 │   └── Members
 │
-└── Unassigned Team
+└── Chưa phân nhóm
 ```
 
-Đã hoàn thành:
+Đã có:
 
 ```text
-✓ Team assignment trong Members
+✓ Team assignment
 ✓ Persist team assignment
+✓ Team grouping
 ✓ Team Lead identification
-✓ Team grouping trong Department Workspace
 ✓ Team → Work filter
+✓ Team field UI polish
 ```
 
-Team management CRUD độc lập chưa được coi là checkpoint hoàn thành; hiện Team được quản lý thông qua thông tin tổ chức của thành viên.
+Team CRUD độc lập chưa được coi là hoàn thành.
 
 ---
 
-# 15. Management Scope Prototype
+## 10. Management Scope
 
-Workspace hiện đã nhận diện phạm vi tổ chức của người đăng nhập:
+Scope model mục tiêu:
 
 ```text
 Founder · Chairman · CEO
         ↓
-Toàn hệ thống
+TOÀN HỆ THỐNG
 
 Department Head
         ↓
-Phạm vi phòng ban
+PHÒNG BAN
 
 Team Lead
         ↓
-Phạm vi Team
+TEAM
 
 Member
         ↓
-Phạm vi cá nhân
+CÁ NHÂN / CÔNG VIỆC ĐƯỢC GIAO
 ```
 
-Hiện tại đây là **scope recognition / UI prototype**.
-
-Scope chưa được coi là hoàn thành về mặt Work security cho đến khi Firestore query/rules thực sự giới hạn dữ liệu theo scope.
+Workspace đã nhận diện scope. Work security vẫn phải được xác nhận bằng Firestore Rules và test tài khoản thực tế.
 
 ---
 
-# 16. First Business Module — WORK
+## 11. WORK — First Business Module
 
-Business Module đầu tiên được xác định là:
-
-> **WORK**
+WORK là Business Module đầu tiên.
 
 Mục tiêu:
 
-* Nhận việc.
-* Giao việc.
-* Theo dõi công việc.
-* Theo dõi tiến độ.
-* Quản lý Deadline.
-* Quản lý Project.
-* Trao đổi trong công việc.
-* Đính kèm tài liệu.
-* Theo dõi trạng thái.
-* Xem báo cáo công việc.
-
-Khái niệm:
-
 ```text
-WORK
-│
-├── My Work
-├── Tasks
-├── Projects
-├── Assignments
-├── Deadlines
-├── Progress
-├── Status
-├── Comments
-├── Attachments
-├── Notifications
-└── Reports
+My Work
+Tasks
+Projects
+Assignments
+Deadlines
+Progress
+Status
+Comments
+Attachments
+Notifications
+Reports
 ```
+
+Work Identity luôn dùng Họ tên + Chức danh.
+
+Legacy assignee identity đã được xử lý.
+
+Department / Team scope đã được nối vào Work ở mức prototype và Rules, nhưng cần test/deploy thực tế trước khi coi security checkpoint hoàn thành.
 
 ---
 
-# 17. Work Identity Rule
-
-Trong Work UI:
+## 12. Known Recent Fixes
 
 ```text
-Nguyễn Anh Tuấn
-Founder · Chairman · CEO
+c9b8b11  fix: prevent department workspace task overflow
+941ca84  feat: enforce department head work scope
+fab358b  fix: resolve department head and team lead scope
+43c12b9  fix: align department workspace tasks with scope
+1442162  fix: allow members directory reads without admin permission
+52c3b31  fix: polish member team field and detail inputs
 ```
 
-không được rơi về:
-
-```text
-email@example.com
-```
-
-nếu Identity đã có họ tên.
-
-Các lỗi legacy assignee identity đã được xử lý ở các checkpoint trước.
+Các commit trên repo là Source of Truth; nếu local khác repo thì pull `main` trước khi làm tiếp.
 
 ---
 
-# 18. Permission / Access Status
+## 13. Current Checkpoint
 
-Đã có prototype cho:
+### COMPLETE
 
 ```text
-✓ Permission-aware navigation
-✓ Admin-only Members
-✓ Admin-only Department management
-✓ Work visibility rules
-✓ Department workspace access
-✓ Organization scope recognition
+Identity
+Members
+Member identity display
+Member contact foundation
+Departments
+Department management
+Department UI
+Department Workspace
+Team structure
+Team assignment
+Team Work filtering
+Management scope recognition
+Member access fix for directory reads
+Team field UI polish
+Department Workspace task overflow fix
 ```
 
-Mục còn lại cần hoàn thiện:
+### NOT YET CLOSED AS PRODUCTION SECURITY
 
 ```text
-Scope → Work security
+Scope → Work Security
 Department Head → Work scope
 Team Lead → Work scope
 Member → personal / assigned scope
+Firestore Rules verification
 ```
 
-Đây là checkpoint bảo mật kế tiếp, không chỉ là UI.
+Không đánh dấu các mục này COMPLETE chỉ vì code đã commit.
 
 ---
 
-# 19. Current Git Checkpoint
+## 14. NEXT DEVELOPMENT — Notifications + Chat
 
-Các checkpoint gần nhất của chuỗi phát triển Department / Team / Scope:
+Sau khi Scope → Work security được xác nhận, chuyển sang hai năng lực người dùng yêu cầu:
 
-```text
-8147b7b  fix: polish departments page controls and layout
-97b3790  fix: polish member contact field styling
-9a40c2c  fix: polish department layout and controls
-10978c4  feat: add department workspace page
-c8092f5  feat: style department workspace
-85e27f4  feat: load department workspace data
-16a90b5  feat: connect departments to workspaces
-b0050a5  fix: polish department workspace entry
-0fdb727  feat: add team assignment to member organization editor
-5d9440d  feat: persist member team assignment
-512c8c0  feat: show team leads in department workspace
-117239a  feat: add team filter to department work
-4ad3eb4  feat: filter department work by team
-249322a  fix: style team work filter
-1d48456  feat: connect department workspace to management scope
-```
+### A. Notifications
 
-Repository:
+Mục tiêu:
 
 ```text
-https://github.com/tuan1292-svg/SAOVN-OS.git
+Notification Center
+├── Việc mới được giao
+├── Thay đổi trạng thái công việc
+├── Bình luận / trao đổi mới
+├── Mention
+├── Deadline sắp tới
+└── Thông báo hệ thống
 ```
 
-Local directory:
+Nguyên tắc:
 
 ```text
-C:\Users\Admin\Desktop\SAOVN-OS
+- Không spam.
+- Notification phải gắn với Actor / Recipient / Entity.
+- Có trạng thái read/unread.
+- Có timestamp.
+- Click notification phải đưa tới đúng ngữ cảnh.
+- Identity hiển thị bằng Họ tên + Chức danh.
 ```
+
+### B. Chat / Trao đổi nội bộ
+
+Chat là năng lực Core/Communication dùng chung, không trộn với comment của một Task.
+
+Mục tiêu ban đầu:
+
+```text
+CHAT
+├── Conversations
+│   ├── Direct message
+│   └── Group conversation
+│
+├── Messages
+│   ├── Sender identity
+│   ├── Content
+│   ├── Timestamp
+│   └── Read state
+│
+└── Presence / Activity
+```
+
+Giai đoạn đầu ưu tiên:
+
+```text
+1. Danh sách cuộc trò chuyện
+2. Chat 1-1
+3. Chat nhóm
+4. Gửi / nhận message realtime
+5. Unread count
+6. Notification integration
+7. Identity = Họ tên + Chức danh
+```
+
+Không dùng email làm tên người gửi trong giao diện chat nếu Identity đã có họ tên.
 
 ---
 
-# 20. Current Checkpoint
+## 15. Development Sequence From Here
 
 ```text
-ARCHITECTURE FOUNDATION       COMPLETE
-IDENTITY DISPLAY              COMPLETE
-MEMBERS MANAGEMENT            COMPLETE
-MEMBER CONTACT                COMPLETE
-DEPARTMENT MASTER             COMPLETE
-DEPARTMENT MANAGEMENT         COMPLETE
-DEPARTMENT UI POLISH          COMPLETE
-DEPARTMENT WORKSPACE          COMPLETE
-TEAM STRUCTURE                COMPLETE
-TEAM ASSIGNMENT               COMPLETE
-TEAM → WORK FILTER            COMPLETE
-MANAGEMENT SCOPE RECOGNITION  COMPLETE
-
-SCOPE → WORK SECURITY         NEXT
-```
-
----
-
-# 21. Next Development Sequence
-
-Tiếp tục từ Scope → Work, không quay lại sửa các phần đã chốt trừ khi phát hiện lỗi thực tế.
-
-```text
-1. Scope → Work security
-       ↓
+CURRENT
+  ↓
+1. Verify / finish Scope → Work Security
+  ↓
 2. Department Head Work scope
-       ↓
+  ↓
 3. Team Lead Work scope
-       ↓
+  ↓
 4. Member personal / assigned scope
-       ↓
+  ↓
 5. Firestore Rules verification
-       ↓
-6. Department-level Work views
-       ↓
-7. Team management CRUD
-       ↓
-8. Notifications / activity
-       ↓
-9. Reports
+  ↓
+6. Notifications Core
+  ↓
+7. Notification Center UI
+  ↓
+8. Chat data model
+  ↓
+9. Chat 1-1
+  ↓
+10. Chat group
+  ↓
+11. Realtime message updates
+  ↓
+12. Unread + Notification integration
+  ↓
+13. Team management CRUD
+  ↓
+14. Reports / Activity
 ```
+
+Không quay lại sửa các phần đã chốt trừ khi phát hiện lỗi thực tế.
 
 ---
 
-# 22. Product Direction
-
-Mô hình tổ chức mục tiêu:
-
-```text
-SAOVN Organization
-        │
-        ├── Department
-        │     ├── Department Head
-        │     ├── Teams
-        │     │    ├── Team Lead
-        │     │    └── Members
-        │     └── Workspace
-        │
-        └── Shared Core
-              ├── Identity
-              ├── Organization
-              └── Access Control
-```
-
-Department Workspace là cầu nối giữa **Organization Core** và **WORK**.
-
----
-
-# 23. Working Protocol
-
-Quy trình làm việc:
-
-```text
-1. Xác định thứ cần xây.
-2. Tập trung hoàn thành một checkpoint.
-3. Ưu tiên sửa đúng HTML/CSS thay vì vá UI bằng JS.
-4. Identity hiển thị bằng họ tên + chức danh.
-5. Email/phone dành cho tra cứu liên hệ.
-6. Git commit + push.
-7. Kiểm tra trạng thái.
-8. Chuyển checkpoint kế tiếp.
-9. Khi User nói "chốt sổ": cập nhật PROJECT_STATE.md.
-```
-
-Không cập nhật Project State sau từng bước nhỏ.
-
----
-
-# 24. Next Session Rule
-
-Khi tiếp tục:
+## 16. Next Session Command
 
 ```powershell
 cd C:\Users\Admin\Desktop\SAOVN-OS
@@ -697,62 +444,12 @@ git status
 git log -3 --oneline
 ```
 
-Sau đó tiếp tục trực tiếp từ:
+Nếu Rules đã thay đổi nhưng chưa deploy:
 
-```text
-SCOPE → WORK SECURITY
-```
-
-Không xây lại Members, Department Master, Team Assignment hoặc Department Workspace đã hoàn thành trừ khi kiểm tra thực tế phát hiện lỗi.
-
----
-
-# 25. Final State
-
-```text
-SAOVN-OS
-
-VISION                    COMPLETE
-CONSTITUTION              COMPLETE
-DOMAIN MODEL              COMPLETE
-MODULE MAP                COMPLETE
-SYSTEM ARCHITECTURE       COMPLETE
-PERMISSION MODEL          COMPLETE
-DATA MODEL                COMPLETE
-INTEGRATION ARCHITECTURE  COMPLETE
-TECHNICAL ARCHITECTURE    COMPLETE
-ARCHITECTURE DECISIONS    COMPLETE
-MODULE SPECIFICATION      COMPLETE
-
-IDENTITY / LOGIN PROTOTYPE       COMPLETE
-MEMBERS MANAGEMENT               COMPLETE
-DEPARTMENT MANAGEMENT            COMPLETE
-DEPARTMENT WORKSPACE             COMPLETE
-TEAM STRUCTURE                   COMPLETE
-TEAM ASSIGNMENT                  COMPLETE
-TEAM → WORK FILTER               COMPLETE
-MANAGEMENT SCOPE RECOGNITION     COMPLETE
-
-SCOPE → WORK SECURITY            NEXT
-
-FIRST BUSINESS MODULE:
-WORK                              SELECTED / IN PROGRESS
+```powershell
+firebase deploy --only firestore:rules
 ```
 
 ---
 
-# 26. Final Project Statement
-
-SAOVN-OS đang được xây dựng như một **môi trường làm việc online thống nhất cho tập đoàn SAOVN**.
-
-Core Foundation cung cấp Identity, Organization và Access Control.
-
-Login là cổng vào hệ thống.
-
-Tài khoản không mặc định được tạo bằng Public Self-Registration; Organization là chủ thể cấp, mời hoặc Provision Account.
-
-Organization hiện đã được triển khai thành Department và Team trong web prototype.
-
-WORK là Business Module đầu tiên, và Department Workspace đã bắt đầu trở thành không gian làm việc thực tế cho thành viên.
-
-Điểm tiếp theo là biến Management Scope thành **Work Security thực sự**, để Department Head, Team Lead và Member chỉ nhìn thấy/phối hợp với đúng phạm vi công việc của mình.
+# END OF PROJECT STATE
