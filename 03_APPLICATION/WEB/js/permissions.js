@@ -48,20 +48,20 @@ export function can(area, action = 'read') {
 function applyNavigation() {
   const isAdmin = state.role === 'ADMIN';
   const canMembers = hasPermission(PERMISSIONS.MEMBERS_VIEW);
+
   document.querySelectorAll('a[href="members.html"]').forEach(link => {
-    const inAdmin = link.closest('.sidebar-section, .nav-group')?.querySelector('.sidebar-title, .nav-title')?.textContent?.toUpperCase().includes('ADMIN') || link.closest('.sidebar-section, .nav-group')?.querySelector('.sidebar-title, .nav-title')?.textContent?.toUpperCase().includes('QUẢN TRỊ');
-    if (inAdmin) {
-      link.hidden = !canMembers;
-      link.setAttribute('aria-hidden', String(!canMembers));
-      if (!canMembers) link.setAttribute('tabindex', '-1');
-    }
+    link.hidden = !canMembers;
+    link.setAttribute('aria-hidden', String(!canMembers));
+    if (!canMembers) link.setAttribute('tabindex', '-1');
   });
+
   document.querySelectorAll('.sidebar-section, .nav-group').forEach(group => {
     const title = group.querySelector('.sidebar-title, .nav-title');
     if (!title) return;
     const label = title.textContent.trim().toUpperCase();
     if (label.includes('QUẢN TRỊ') || label.includes('ADMIN')) group.hidden = !isAdmin;
   });
+
   if (location.pathname.toLowerCase().endsWith('/members.html') && !canMembers) window.location.replace('dashboard.html');
 }
 
