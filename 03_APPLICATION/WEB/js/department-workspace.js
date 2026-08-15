@@ -3,122 +3,23 @@ import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/
 import { doc, getDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { getPermissions, hasPermission, role } from './permissions.js';
 import { loadOrgScope, scopeLabel } from './org-scope.js';
+const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const initials=name=>String(name||'S').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase();const position=v=>String(v||'').trim()||'Chưa xác định';const positionCode=v=>String(v||'').trim().toUpperCase();const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};let department=null,members=[],tasks=[],orgScope=null;
 
-const $=id=>document.getElementById(id);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const initials=name=>String(name||'S').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase();
-const position=v=>String(v||'').trim()||'Chưa xác định';
-const positionCode=v=>String(v||'').trim().toUpperCase();
-const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};
-let department=null,members=[],tasks=[],orgScope=null;
-
-onAuthStateChanged(auth,async user=>{
-  if(!user){location.replace('index.html');return;}
-  await getPermissions();
-  if(!hasPermission('departments.view')){location.replace('dashboard.html');return;}
-  try{
-    const identity=await getDoc(doc(db,'identities',user.uid));
-    const data=identity.exists()?identity.data():{};
-    const name=data.fullName||data.displayName||data.name||user.displayName||'Thành viên';
-    orgScope=await loadOrgScope(user.uid);
-    $('userName').textContent=name;$('userAvatar').textContent=initials(name);
-    $('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':orgScope?.scope==='DEPARTMENT'?'Department Head':orgScope?.scope==='TEAM'?'Team Lead':orgScope?.role==='MANAGER'?'Manager':'Workspace member';
-    $('logoutBtn').onclick=()=>signOut(auth);
-    $('teamTaskFilter')?.addEventListener('change',renderTasks);
-    renderScope();
-    await loadWorkspace();
-  }catch(error){
-    console.error('Department workspace bootstrap error:',error);
-    $('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';
-    showError(error?.code==='permission-denied'?'Tài khoản chưa có quyền đọc phạm vi phòng làm việc.':'Không thể khởi tạo phòng làm việc.');
-  }
-});
-
-function renderScope(){
-  const title=$('scopeTitle'),description=$('scopeDescription');
-  if(!title||!description||!orgScope)return;
-  title.textContent=scopeLabel(orgScope);
-  if(orgScope.role==='ADMIN')description.textContent='Bạn có quyền quản trị toàn bộ tổ chức và các không gian được cấp quyền.';
-  else if(orgScope.scope==='DEPARTMENT')description.textContent='Bạn là Trưởng phòng. Phạm vi quản lý tập trung vào thành viên, Team và công việc của phòng ban.';
-  else if(orgScope.scope==='TEAM')description.textContent='Bạn là Trưởng nhóm. Phạm vi quản lý tập trung vào Team và công việc của nhóm.';
-  else if(orgScope.scope==='MANAGEMENT')description.textContent='Bạn đang quản lý trực tiếp các thành viên được giao cho mình và các công việc liên quan.';
-  else description.textContent='Bạn đang làm việc trong phạm vi cá nhân và các công việc được giao cho mình.';
-}
-
-async function loadWorkspace(){
-  const id=new URLSearchParams(location.search).get('id');
-  if(!id){location.replace('departments.html');return;}
-  try{
-    const departmentSnap=await getDoc(doc(db,'departments',id));
-    if(!departmentSnap.exists()){showError('Không tìm thấy phòng ban.');return;}
-    department={id:departmentSnap.id,...departmentSnap.data()};
-
-    // Never query the whole identities collection for a normal member.
-    // Firestore rules intentionally allow a member to read only their own identity.
-    const canSeeDepartmentMembers=orgScope?.role==='ADMIN'||orgScope?.scope==='DEPARTMENT'||orgScope?.scope==='TEAM'||orgScope?.scope==='MANAGEMENT';
-    let identityDocs=[];
-    if(canSeeDepartmentMembers){
-      const identitySnap=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
-      identityDocs=identitySnap.docs;
-    }else{
-      const own=await getDoc(doc(db,'identities',orgScope?.uid||auth.currentUser.uid));
-      if(own.exists())identityDocs=[own];
-    }
-    members=identityDocs.map(d=>({id:d.id,...d.data()}))
-      .filter(m=>m.status==='ACTIVE'&&(m.departmentId===department.id||(!m.departmentId&&String(m.department||'').trim().toLowerCase()===String(department.name||'').trim().toLowerCase())))
-      .sort((a,b)=>String(a.fullName||a.displayName||a.name||'').localeCompare(String(b.fullName||b.displayName||b.name||''),'vi'));
-
-    renderDepartment();
-    await loadTasks();
-    renderTeamFilter();
-    renderTeams();
-    $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
-  }catch(error){
-    console.error('Department workspace error:',error);
-    $('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';
-    showError(error?.code==='permission-denied'?'Không đủ quyền truy cập dữ liệu phòng làm việc.':'Không thể tải phòng làm việc.');
-  }
-}
-
-function renderDepartment(){
-  const name=department.name||'Phòng làm việc';
-  $('crumbName').textContent=name;$('departmentName').textContent=name;$('departmentCode').textContent=department.code||'DEPT';
-  $('departmentDescription').textContent=department.description||'Không gian làm việc của phòng ban.';$('deptMark').textContent=initials(name).slice(0,2)||'D';
-  $('departmentStatus').textContent=department.active===false?'Ngừng hoạt động':'Đang hoạt động';$('departmentStatus').classList.toggle('inactive',department.active===false);
-  $('memberCount').textContent=members.length;$('memberSummary').textContent=`${members.length} người`;
-}
-function memberCard(m){const name=m.fullName||m.displayName||m.name||'Thành viên';return `<div class="member-item"><div class="member-avatar">${esc(initials(name))}</div><div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${esc(m.team)}`:''}</small></div></div>`;}
+onAuthStateChanged(auth,async user=>{if(!user){location.replace('index.html');return;}try{await getPermissions();if(!hasPermission('departments.view')){location.replace('dashboard.html');return;}const identity=await getDoc(doc(db,'identities',user.uid));const data=identity.exists()?identity.data():{};const name=data.fullName||data.displayName||data.name||user.displayName||'Thành viên';orgScope=await loadOrgScope(user.uid);$('userName').textContent=name;$('userAvatar').textContent=initials(name);$('userRole').textContent=role()==='ADMIN'?'Founder · Chairman · CEO':orgScope?.scope==='DEPARTMENT'?'Department Head':orgScope?.scope==='TEAM'?'Team Lead':orgScope?.role==='MANAGER'?'Manager':'Workspace member';$('logoutBtn').onclick=()=>signOut(auth);$('teamTaskFilter')?.addEventListener('change',renderTasks);renderScope();await loadWorkspace();}catch(error){console.error('Department workspace bootstrap error:',error);$('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';showError(error?.code==='permission-denied'?'Tài khoản chưa có quyền đọc phạm vi phòng làm việc.':'Không thể khởi tạo phòng làm việc.');}});
+function renderScope(){const title=$('scopeTitle'),description=$('scopeDescription');if(!title||!description||!orgScope)return;title.textContent=scopeLabel(orgScope);if(orgScope.role==='ADMIN')description.textContent='Bạn có quyền quản trị toàn bộ tổ chức và các không gian được cấp quyền.';else if(orgScope.scope==='DEPARTMENT')description.textContent='Bạn là Trưởng phòng. Phạm vi quản lý tập trung vào thành viên, Team và công việc của phòng ban.';else if(orgScope.scope==='TEAM')description.textContent='Bạn là Trưởng nhóm. Phạm vi quản lý tập trung vào Team và công việc của nhóm.';else if(orgScope.scope==='MANAGEMENT')description.textContent='Bạn đang quản lý trực tiếp các thành viên được giao cho mình và các công việc liên quan.';else description.textContent='Bạn đang làm việc trong phạm vi cá nhân và các công việc được giao cho mình.';}
+async function loadWorkspace(){const id=new URLSearchParams(location.search).get('id');if(!id){location.replace('departments.html');return;}try{const departmentSnap=await getDoc(doc(db,'departments',id));if(!departmentSnap.exists()){showError('Không tìm thấy phòng ban.');return;}department={id:departmentSnap.id,...departmentSnap.data()};
+ const privileged=orgScope?.role==='ADMIN'||orgScope?.scope==='DEPARTMENT'||orgScope?.scope==='TEAM'||orgScope?.role==='MANAGER';
+ let identityDocs=[];
+ if(privileged){try{const snap=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));identityDocs=snap.docs;}catch(error){console.warn('Department directory query denied; using own identity.',error);const own=await getDoc(doc(db,'identities',orgScope?.uid||auth.currentUser.uid));if(own.exists())identityDocs=[own];}}
+ else {const own=await getDoc(doc(db,'identities',orgScope?.uid||auth.currentUser.uid));if(own.exists())identityDocs=[own];}
+ members=identityDocs.map(d=>({id:d.id,...d.data()})).filter(m=>m.status==='ACTIVE'&&(m.departmentId===department.id||(!m.departmentId&&String(m.department||'').trim().toLowerCase()===String(department.name||'').trim().toLowerCase()))).sort((a,b)=>String(a.fullName||a.displayName||a.name||'').localeCompare(String(b.fullName||b.displayName||b.name||''),'vi'));
+ renderDepartment();await loadTasks();renderTeamFilter();renderTeams();$('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';}catch(error){console.error('Department workspace error:',error);$('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';showError(error?.code==='permission-denied'?'Không đủ quyền truy cập dữ liệu phòng làm việc.':'Không thể tải phòng làm việc.');}}
+function renderDepartment(){const name=department.name||'Phòng làm việc';$('crumbName').textContent=name;$('departmentName').textContent=name;$('departmentCode').textContent=department.code||'DEPT';$('departmentDescription').textContent=department.description||'Không gian làm việc của phòng ban.';$('deptMark').textContent=initials(name).slice(0,2)||'D';$('departmentStatus').textContent=department.active===false?'Ngừng hoạt động':'Đang hoạt động';$('departmentStatus').classList.toggle('inactive',department.active===false);$('memberCount').textContent=members.length;$('memberSummary').textContent=`${members.length} người`;}
 function getTeamEntries(){const groups=new Map();members.forEach(m=>{const team=String(m.team||'').trim()||'Chưa phân nhóm';if(!groups.has(team))groups.set(team,[]);groups.get(team).push(m)});return [...groups.entries()].sort((a,b)=>{if(a[0]==='Chưa phân nhóm')return 1;if(b[0]==='Chưa phân nhóm')return -1;return a[0].localeCompare(b[0],'vi')});}
 function renderTeamFilter(){const select=$('teamTaskFilter');if(!select)return;const current=select.value||'ALL';const teams=getTeamEntries().map(([name])=>name).filter(name=>name!=='Chưa phân nhóm');select.innerHTML='<option value="ALL">Tất cả Team</option>'+teams.map(team=>`<option value="${esc(team)}">${esc(team)}</option>`).join('');select.value=teams.includes(current)?current:'ALL';}
-function renderTeams(){const entries=getTeamEntries();$('teamSummary').textContent=`${entries.length} nhóm`;if(!entries.length){$('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';return;}$('teamList').innerHTML=entries.map(([team,people])=>{const leader=people.find(m=>positionCode(m.position)==='TEAM_LEAD');const teamLabel=team==='Chưa phân nhóm'?'Chưa phân nhóm':'TEAM';return `<article class="team-card"><div class="team-card-head"><div><span class="team-label">${teamLabel}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div><div class="team-members">${people.map(m=>{const name=m.fullName||m.displayName||m.name||'Thành viên';const isLeader=leader?.id===m.id;return `<span class="${isLeader?'is-leader':''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`}).join('')}</div></article>`;}).join('');}
-
-async function loadTasks(){
-  const map=new Map();
-  const add=s=>s.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()}));
-  try{
-    if(orgScope?.role==='ADMIN'){
-      add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',department.id))));
-      if(!tasks.length){};
-    }else if(orgScope?.scope==='DEPARTMENT'&&orgScope.departmentId===department.id){
-      add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',department.id))));
-    }else if(orgScope?.scope==='TEAM'){
-      const qField=orgScope.teamId?'teamId':'team';const qValue=orgScope.teamId||orgScope.team;
-      if(qValue)add(await getDocs(query(collection(db,'workTasks'),where(qField,'==',qValue))));
-    }else{
-      // Normal members can only query tasks explicitly assigned to themselves.
-      add(await getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',orgScope?.uid||auth.currentUser.uid))));
-      add(await getDocs(query(collection(db,'workTasks'),where('assigneeId','==',orgScope?.uid||auth.currentUser.uid))));
-      add(await getDocs(query(collection(db,'workTasks'),where('createdBy','==',orgScope?.uid||auth.currentUser.uid))));
-    }
-    tasks=[...map.values()].filter(t=>{
-      if(orgScope?.role==='ADMIN')return true;
-      if(orgScope?.scope==='DEPARTMENT'&&orgScope.departmentId===department.id)return true;
-      if(orgScope?.scope==='TEAM')return (orgScope.teamId&&t.teamId===orgScope.teamId)||(orgScope.team&&!orgScope.teamId&&String(t.team||'').trim()===String(orgScope.team||'').trim());
-      const uid=orgScope?.uid||auth.currentUser.uid;return (Array.isArray(t.assigneeIds)&&t.assigneeIds.includes(uid))||t.assigneeId===uid||t.createdBy===uid;
-    }).sort((a,b)=>{const av=a.updatedAt?.toMillis?a.updatedAt.toMillis():new Date(a.updatedAt||a.createdAt||0).getTime();const bv=b.updatedAt?.toMillis?b.updatedAt.toMillis():new Date(b.updatedAt||b.createdAt||0).getTime();return bv-av});
-    renderTasks();
-  }catch(error){console.warn('Department task query failed:',error);tasks=[];renderTasks(true);}
-}
-function renderTasks(queryFailed=false){const filter=$('teamTaskFilter')?.value||'ALL';const filtered=filter==='ALL'?tasks:tasks.filter(t=>{const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];return members.some(m=>assigneeIds.includes(m.id)&&String(m.team||'').trim()===filter)});const done=filtered.filter(t=>t.status==='DONE').length;$('taskCount').textContent=filter==='ALL'?tasks.length:filtered.length;$('activeTaskCount').textContent=filtered.length-done;$('doneTaskCount').textContent=done;if(queryFailed){$('taskList').innerHTML='<div class="empty-workspace"><strong>Chưa tải được công việc</strong>Không thể truy vấn Work theo quyền dữ liệu hiện tại.</div>';return;}if(!filtered.length){$('taskList').innerHTML=`<div class="empty-workspace"><strong>${filter==='ALL'?'Chưa có công việc':'Team này chưa có công việc'}</strong>${filter==='ALL'?'Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.':'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`;return;}$('taskList').innerHTML=filtered.slice(0,12).map(taskCard).join('');}
-function taskCard(t){const done=t.status==='DONE';const assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];const names=members.filter(m=>assigneeIds.includes(m.id)).map(m=>m.fullName||m.displayName||m.name).filter(Boolean);return `<a class="task-item" href="work.html"><div class="task-top"><strong>${esc(t.title||'Không tên')}</strong><span class="task-status ${done?'done':''}">${esc(statusLabel[t.status]||'Todo')}</span></div><p class="task-description">${esc(t.description||'Chưa có mô tả')}</p><div class="task-meta"><span>${esc(names.join(', ')||'Chưa xác định')}</span>${t.dueDate?`<span>Deadline ${esc(t.dueDate)}</span>`:''}</div></a>`;}
+function renderTeams(){const entries=getTeamEntries();$('teamSummary').textContent=`${entries.length} nhóm`;if(!entries.length){$('teamList').innerHTML='<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>';return;}$('teamList').innerHTML=entries.map(([team,people])=>{const leader=people.find(m=>positionCode(m.position)==='TEAM_LEAD');return `<article class="team-card"><div class="team-card-head"><div><span class="team-label">${team==='Chưa phân nhóm'?'Chưa phân nhóm':'TEAM'}</span><h3>${esc(team)}</h3>${leader?`<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName||leader.displayName||leader.name||'')}</strong></div>`:''}</div><strong>${people.length}</strong></div><div class="team-members">${people.map(m=>{const name=m.fullName||m.displayName||m.name||'Thành viên';return `<span class="${leader?.id===m.id?'is-leader':''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(m.position))}</small></span>`}).join('')}</div></article>`;}).join('');}
+async function loadTasks(){const map=new Map();const add=s=>s?.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()}));const uid=orgScope?.uid||auth.currentUser.uid;try{if(orgScope?.role==='ADMIN'){add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',department.id))));}else if(orgScope?.scope==='DEPARTMENT'&&orgScope.departmentId===department.id){add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',department.id))));}else if(orgScope?.scope==='TEAM'&&orgScope.teamId){add(await getDocs(query(collection(db,'workTasks'),where('teamId','==',orgScope.teamId))));}else if(orgScope?.scope==='TEAM'&&orgScope.team){add(await getDocs(query(collection(db,'workTasks'),where('team','==',orgScope.team))));}else{for(const make of[()=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',uid))),()=>getDocs(query(collection(db,'workTasks'),where('assigneeId','==',uid))),()=>getDocs(query(collection(db,'workTasks'),where('createdBy','==',uid)))]){try{add(await make())}catch(e){console.warn('Department member task query skipped:',e?.code||e)}}}tasks=[...map.values()].filter(t=>{if(orgScope?.role==='ADMIN')return true;if(orgScope?.scope==='DEPARTMENT'&&orgScope.departmentId===department.id)return true;if(orgScope?.scope==='TEAM')return(orgScope.teamId&&t.teamId===orgScope.teamId)||(orgScope.team&&!orgScope.teamId&&String(t.team||'').trim()===String(orgScope.team||'').trim());return(Array.isArray(t.assigneeIds)&&t.assigneeIds.includes(uid))||t.assigneeId===uid||t.createdBy===uid;}).sort((a,b)=>{const av=a.updatedAt?.toMillis?a.updatedAt.toMillis():new Date(a.updatedAt||a.createdAt||0).getTime(),bv=b.updatedAt?.toMillis?b.updatedAt.toMillis():new Date(b.updatedAt||b.createdAt||0).getTime();return bv-av});renderTasks();}catch(error){console.warn('Department task query failed:',error);tasks=[];renderTasks(true);}}
+function renderTasks(queryFailed=false){const filter=$('teamTaskFilter')?.value||'ALL';const filtered=filter==='ALL'?tasks:tasks.filter(t=>{const ids=Array.isArray(t.assigneeIds)?t.assigneeIds:[];return members.some(m=>ids.includes(m.id)&&String(m.team||'').trim()===filter)});const done=filtered.filter(t=>t.status==='DONE').length;$('taskCount').textContent=filter==='ALL'?tasks.length:filtered.length;$('activeTaskCount').textContent=filtered.length-done;$('doneTaskCount').textContent=done;if(queryFailed){$('taskList').innerHTML='<div class="empty-workspace"><strong>Chưa tải được công việc</strong>Không thể truy vấn Work theo quyền dữ liệu hiện tại.</div>';return;}if(!filtered.length){$('taskList').innerHTML=`<div class="empty-workspace"><strong>${filter==='ALL'?'Chưa có công việc':'Team này chưa có công việc'}</strong>${filter==='ALL'?'Các công việc được giao cho thành viên phòng sẽ xuất hiện tại đây.':'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`;return;}$('taskList').innerHTML=filtered.slice(0,12).map(taskCard).join('');}
+function taskCard(t){const done=t.status==='DONE',ids=Array.isArray(t.assigneeIds)?t.assigneeIds:[],names=members.filter(m=>ids.includes(m.id)).map(m=>m.fullName||m.displayName||m.name).filter(Boolean);return `<a class="task-item" href="work.html"><div class="task-top"><strong>${esc(t.title||'Không tên')}</strong><span class="task-status ${done?'done':''}">${esc(statusLabel[t.status]||'Todo')}</span></div><p class="task-description">${esc(t.description||'Chưa có mô tả')}</p><div class="task-meta"><span>${esc(names.join(', ')||'Chưa xác định')}</span>${t.dueDate?`<span>Deadline ${esc(t.dueDate)}</span>`:''}</div></a>`;}
+function memberCard(m){const name=m.fullName||m.displayName||m.name||'Thành viên';return `<div class="member-item"><div class="member-avatar">${esc(initials(name))}</div><div class="member-info"><strong>${esc(name)}</strong><small>${esc(position(m.position))}${m.team?` · ${m.team}`:''}</small></div></div>`;}
 function showError(message){$('departmentName').textContent='Không thể mở phòng làm việc';$('departmentDescription').textContent=message;$('memberList').innerHTML=`<div class="empty-workspace"><strong>Không thể tải dữ liệu</strong>${esc(message)}</div>`;$('teamList').innerHTML='';$('taskList').innerHTML='';}
