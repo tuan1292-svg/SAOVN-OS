@@ -12,13 +12,10 @@ onAuthStateChanged(auth, async user => {
         const identity = identitySnap.exists() ? identitySnap.data() : {};
         const membership = membershipSnap.exists() ? membershipSnap.data() : {};
         const name = identity.fullName || identity.displayName || identity.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
-        const role = displayRole(membership);
         $("#userIdentity") && ($("#userIdentity").textContent = name);
         $("#topbarIdentity") && ($("#topbarIdentity").textContent = name);
-        document.querySelector(".user-info span") && (document.querySelector(".user-info span").textContent = role);
-
-        const tasks = await loadMemberTasks(user.uid);
-        renderDashboard(tasks);
+        document.querySelector(".user-info span") && (document.querySelector(".user-info span").textContent = displayRole(membership));
+        renderDashboard(await loadMemberTasks(user.uid));
     } catch (error) {
         console.error("Dashboard data fix error:", error);
         const note = $(".risk-note");
@@ -26,10 +23,7 @@ onAuthStateChanged(auth, async user => {
     }
 });
 
-async function safeQuery(factory) {
-    try { return await factory(); }
-    catch (error) { console.warn("Dashboard task query skipped:", error?.code || error); return null; }
-}
+async function safeQuery(factory) { try { return await factory(); } catch (error) { console.warn("Dashboard task query skipped:", error?.code || error); return null; } }
 
 async function loadMemberTasks(uid) {
     const map = new Map();
@@ -38,10 +32,7 @@ async function loadMemberTasks(uid) {
         () => getDocs(query(collection(db, "workTasks"), where("createdBy", "==", uid), limit(100))),
         () => getDocs(query(collection(db, "workTasks"), where("assigneeId", "==", uid), limit(100)))
     ];
-    for (const make of queries) {
-        const snap = await safeQuery(make);
-        snap?.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
-    }
+    for (const make of queries) { const snap = await safeQuery(make); snap?.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() })); }
     return [...map.values()];
 }
 
@@ -57,11 +48,7 @@ function renderDashboard(tasks) {
     const cards = document.querySelectorAll(".metric-card");
     if (cards[0]) cards[0].querySelector("strong").textContent = done;
     if (cards[1]) cards[1].querySelector("strong").textContent = overdue;
-    if (cards[2]) {
-        cards[2].querySelector("strong").textContent = `${score}%`;
-        cards[2].querySelector(".metric-head b").textContent = `${score}%`;
-        cards[2].querySelector(".progress-line i").style.width = `${score}%`;
-    }
+    if (cards[2]) { cards[2].querySelector("strong").textContent = `${score}%`; cards[2].querySelector(".metric-head b").textContent = `${score}%`; cards[2].querySelector(".progress-line i").style.width = `${score}%`; }
 
     const summary = document.querySelectorAll(".work-summary > div strong");
     if (summary[0]) summary[0].textContent = String(inProgress).padStart(2, "0");
@@ -90,22 +77,14 @@ function renderDashboard(tasks) {
         const todayTasks = tasks.filter(t => toDateKey(t.dueDate) === today).slice(0,5);
         todayList.innerHTML = todayTasks.length ? todayTasks.map(t => `<div><i class="check">${t.status === "DONE" ? "✓" : "•"}</i><span>${escapeHTML(t.title || "Không tên")}</span><time>${t.status === "DONE" ? "Xong" : "Hôm nay"}</time></div>`).join("") : `<div><i class="check">✓</i><span>Không có công việc đến hạn hôm nay</span><time>—</time></div>`;
     }
-
     const risk = document.querySelector(".risk-note");
     if (risk) risk.innerHTML = `<span>!</span> ${overdue} công việc quá hạn trong phạm vi hiện tại.`;
 }
 
-function displayRole(m) {
-    const roles = m?.roles || {};
-    const system = Array.isArray(roles.system) ? roles.system : [];
-    const org = Array.isArray(roles.organization) ? roles.organization : [];
-    if (system.includes("system_admin")) return "System Administrator";
-    const r = org[0] || "member";
-    return ({admin:"Administrator",org_admin:"Organization Administrator",organization_admin:"Organization Administrator",manager:"Manager",org_manager:"Organization Manager",member:"Thành viên"}[r] || String(r).replaceAll("_", " "));
-}
-function progress(t) { return ({DONE:100,REVIEW:75,IN_PROGRESS:50,TODO:0,BACKLOG:0}[t.status] ?? Number(t.progress) || 0); }
-function dateKey(v) { const d = v instanceof Date ? v : new Date(v); if (Number.isNaN(d.getTime())) return ""; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-function toDateKey(v) { if (!v) return ""; if (typeof v?.toDate === "function") return dateKey(v.toDate()); return dateKey(v); }
-function statusText(v) { return ({BACKLOG:"Backlog",TODO:"Chờ xử lý",IN_PROGRESS:"Đang thực hiện",REVIEW:"Đang review",DONE:"Hoàn thành"}[v] || "Chưa xác định"); }
+function displayRole(m) { const roles=m?.roles||{}; const system=Array.isArray(roles.system)?roles.system:[]; const org=Array.isArray(roles.organization)?roles.organization:[]; if(system.includes("system_admin"))return "System Administrator"; const r=org[0]||"member"; return ({admin:"Administrator",org_admin:"Organization Administrator",organization_admin:"Organization Administrator",manager:"Manager",org_manager:"Organization Manager",member:"Thành viên"}[r]||String(r).replaceAll("_"," ")); }
+function progress(t) { const value={DONE:100,REVIEW:75,IN_PROGRESS:50,TODO:0,BACKLOG:0}[t.status]; return value !== undefined ? value : (Number(t.progress) || 0); }
+function dateKey(v) { const d=v instanceof Date?v:new Date(v); if(Number.isNaN(d.getTime()))return ""; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function toDateKey(v) { if(!v)return ""; if(typeof v?.toDate === "function")return dateKey(v.toDate()); return dateKey(v); }
+function statusText(v) { return ({BACKLOG:"Backlog",TODO:"Chờ xử lý",IN_PROGRESS:"Đang thực hiện",REVIEW:"Đang review",DONE:"Hoàn thành"}[v]||"Chưa xác định"); }
 function emptyTask() { return `<div class="task-item"><i class="task-dot blue-dot"></i><div><strong>Chưa có công việc</strong><span>Công việc được giao sẽ xuất hiện tại đây</span></div><b>—</b></div>`; }
-function escapeHTML(value) { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escapeHTML(value) { return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
