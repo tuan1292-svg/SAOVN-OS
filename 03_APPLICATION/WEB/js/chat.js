@@ -87,7 +87,10 @@ $("#messageForm")?.addEventListener("submit", async e => {
         recipients.forEach(id => { unreadCount[id] = Number(unreadCount[id] || 0) + 1; });
         unreadCount[uid] = 0;
         await setDoc(doc(db, "conversations", activeConversation.id), { lastMessage: text, lastSenderId: uid, lastSenderName: senderName, updatedAt: serverTimestamp(), unreadCount }, { merge: true });
-        await Promise.all(recipients.map(recipientId => addDoc(collection(db, "notifications", recipientId, "items"), {
+
+        // Notification is a secondary side-effect. A notification permission/index problem
+        // must never make a successfully written chat message look like a failed message.
+        const notificationResults = await Promise.allSettled(recipients.map(recipientId => addDoc(collection(db, "notifications", recipientId, "items"), {
             type: "CHAT",
             title: `Tin nhắn mới từ ${senderName}`,
             body: text,
@@ -99,6 +102,10 @@ $("#messageForm")?.addEventListener("submit", async e => {
             read: false,
             createdAt: serverTimestamp()
         })));
+        notificationResults.forEach((result, index) => {
+            if (result.status === "rejected") console.error("Lỗi tạo notification chat cho", recipients[index], result.reason);
+        });
+
         await loadConversations();
         activeConversation = conversations.find(c => c.id === activeConversation.id) || activeConversation;
         renderConversations($("#conversationSearch").value);
