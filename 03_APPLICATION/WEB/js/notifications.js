@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { collection, query, orderBy, limit, updateDoc, doc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { collection, query, orderBy, limit, updateDoc, doc, writeBatch, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
 
 const $ = (s) => document.querySelector(s);
@@ -7,23 +7,31 @@ let notifications = [];
 let activeFilter = "all";
 let currentUid = "";
 let stopNotifications = null;
+let autoMarkedThisVisit = false;
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     currentUid = user.uid;
     try {
-        const nameIdentity = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js").then(({getDoc}) => getDoc(doc(db, "identities", user.uid)));
-        const identity = nameIdentity.exists() ? nameIdentity.data() : {};
-        const name = identity.fullName || identity.displayName || identity.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
+        const identity = await getDoc(doc(db, "identities", user.uid));
+        const data = identity.exists() ? identity.data() : {};
+        const name = data.fullName || data.displayName || data.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
         [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = name; });
         const ref = collection(db, "notifications", user.uid, "items");
         stopNotifications?.();
-        stopNotifications = onSnapshot(query(ref, orderBy("createdAt", "desc"), limit(100)), snap => {
+        stopNotifications = onSnapshot(query(ref, orderBy("createdAt", "desc"), limit(100)), async snap => {
             notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             render();
+            // Opening the notification center counts the currently displayed notifications as seen.
+            // Do this once per page visit; realtime snapshots then update the header badge immediately.
+            if (!autoMarkedThisVisit) {
+                autoMarkedThisVisit = true;
+                await markAllRead(false);
+            }
         }, error => {
             console.error("Lỗi realtime notifications:", error);
-            $("#notificationStatus").textContent = error?.code === "permission-denied" ? "Không đủ quyền truy cập thông báo" : "Không thể tải thông báo";
+            const status = $("#notificationStatus");
+            if (status) status.textContent = error?.code === "permission-denied" ? "Không đủ quyền truy cập thông báo" : "Không thể tải thông báo";
             renderEmpty("Không thể tải thông báo", "Kiểm tra Firestore Rules và thử lại.");
         });
     } catch (error) {
@@ -35,9 +43,10 @@ onAuthStateChanged(auth, async (user) => {
 function render() {
     const filtered = activeFilter === "unread" ? notifications.filter(n => n.read !== true) : notifications;
     const unread = notifications.filter(n => n.read !== true).length;
-    $("#unreadBadge").textContent = unread > 99 ? "99+" : String(unread);
-    $("#notificationStatus").textContent = `${notifications.length} thông báo · ${unread} chưa đọc`;
+    if ($("#unreadBadge")) $("#unreadBadge").textContent = unread > 99 ? "99+" : String(unread);
+    if ($("#notificationStatus")) $("#notificationStatus").textContent = `${notifications.length} thông báo · ${unread} chưa đọc`;
     const list = $("#notificationList");
+    if (!list) return;
     if (!filtered.length) { renderEmpty(activeFilter === "unread" ? "Bạn đã xem hết" : "Chưa có thông báo", activeFilter === "unread" ? "Không còn thông báo chưa đọc." : "Thông báo mới sẽ xuất hiện tại đây."); return; }
     list.innerHTML = filtered.map(notificationCard).join("");
     list.querySelectorAll("[data-read]").forEach(button => button.addEventListener("click", e => { e.stopPropagation(); markRead(button.dataset.read); }));
@@ -61,6 +70,19 @@ async function markRead(id) {
     catch (error) { console.error("Lỗi đánh dấu notification:", error); }
 }
 
+async function markAllRead(quiet = false) {
+    const unread = notifications.filter(n => n.read !== true);
+    if (!currentUid || !unread.length) return;
+    try {
+        const batch = writeBatch(db);
+        unread.forEach(n => batch.update(doc(db, "notifications", currentUid, "items", n.id), { read: true, readAt: new Date().toISOString() }));
+        await batch.commit();
+    } catch (error) {
+        autoMarkedThisVisit = false;
+        if (!quiet) console.error("Lỗi đánh dấu tất cả:", error);
+    }
+}
+
 async function openTarget(target, id) {
     await markRead(id);
     if (!target) return;
@@ -69,16 +91,7 @@ async function openTarget(target, id) {
     window.location.href = safe;
 }
 
-$("#markAllRead")?.addEventListener("click", async () => {
-    const unread = notifications.filter(n => n.read !== true);
-    if (!currentUid || !unread.length) return;
-    try {
-        const batch = writeBatch(db);
-        unread.forEach(n => batch.update(doc(db, "notifications", currentUid, "items", n.id), { read: true, readAt: new Date().toISOString() }));
-        await batch.commit();
-    } catch (error) { console.error("Lỗi đánh dấu tất cả:", error); }
-});
-
+$("#markAllRead")?.addEventListener("click", () => markAllRead(false));
 document.querySelectorAll(".filter-tab").forEach(button => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter-tab").forEach(b => b.classList.toggle("active", b === button)); render(); }));
 $("#logoutButton")?.addEventListener("click", () => signOut(auth));
 function renderEmpty(title, detail) { const list = $("#notificationList"); if (list) list.innerHTML = `<div class="notification-empty"><strong>${escapeHTML(title)}</strong><span>${escapeHTML(detail)}</span></div>`; }
