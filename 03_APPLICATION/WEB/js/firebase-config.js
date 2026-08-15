@@ -18,3 +18,6 @@ export const app = initializeApp(firebaseConfig);
 getAnalytics(app);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Load the global header counters after Firebase exports are initialized.
+if (typeof window !== 'undefined') import('./header-badges.js').catch(error => console.warn('Header badges unavailable:', error?.code || error));
