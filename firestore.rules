@@ -26,17 +26,13 @@ service cloud.firestore {
     function taskOwnedByCurrentUser(data) { return data.get("createdBy", "") == request.auth.uid; }
     function taskAssignedToCurrentUser(data) { return request.auth.uid in data.get("assigneeIds", []); }
     function taskLegacyAssignedToCurrentUser(data) { return data.get("assigneeId", "") == request.auth.uid; }
-    function canReadMembers() { return isMember(); }
+    function canReadTaskData(data) { return taskInManagementScope(data) || taskOwnedByCurrentUser(data) || taskAssignedToCurrentUser(data) || taskLegacyAssignedToCurrentUser(data); }
     function canCreateMembers() { return isAdmin(); }
     function canUpdateMembers() { return isAdmin(); }
-    function canManageMemberRoles() { return isAdmin(); }
     function canDeleteMembers() { return isAdmin(); }
-    function canReadWork() { return isMember(); }
     function canCreateWork() { return isMember(); }
     function canEditWork() { return isMember(); }
     function canDeleteWork() { return isWorkManager(); }
-    function canAssignWork() { return isWorkManager(); }
-    function canReadTaskData(data) { return taskInManagementScope(data) || taskOwnedByCurrentUser(data) || taskAssignedToCurrentUser(data) || taskLegacyAssignedToCurrentUser(data); }
     function canCreateTaskData(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)) || (isMember() && taskOwnedByCurrentUser(data) && (data.get("assigneeIds", []) == [] || (data.get("assigneeIds", []) is list && data.get("assigneeIds", []).size() == 1 && request.auth.uid in data.get("assigneeIds", [])) || data.get("assigneeId", "") == "" || data.get("assigneeId", "") == request.auth.uid)); }
     function canUpdateTaskData(oldData, newData) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData)) || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData)) || (isMember() && (taskOwnedByCurrentUser(oldData) || taskAssignedToCurrentUser(oldData) || taskLegacyAssignedToCurrentUser(oldData)) && newData.get("createdBy", "") == oldData.get("createdBy", "") && newData.get("assigneeIds", []) == oldData.get("assigneeIds", []) && newData.get("assigneeId", "") == oldData.get("assigneeId", "")); }
     function canDeleteTaskData(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)); }
@@ -49,7 +45,6 @@ service cloud.firestore {
     match /invitations/{invitationId} { allow read: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && resource.data.email == request.auth.token.email); allow create: if isAdmin() && request.resource.data.organizationId == "org_saovn_01" && request.resource.data.invitedBy == request.auth.uid && request.resource.data.status == "PENDING" && request.resource.data.email is string && request.resource.data.role in ["MEMBER", "MANAGER", "ADMIN"]; allow update: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && request.resource.data.status == "ACCEPTED" && request.resource.data.acceptedBy == request.auth.uid && request.resource.data.email == request.auth.token.email); allow delete: if isAdmin(); }
 
     match /workTasks/{taskId} {
-      // Dedicated read branches make the member queries provably safe to Firestore's query/rules analyzer.
       allow read: if isMember() && taskAssignedToCurrentUser(resource.data);
       allow read: if isMember() && taskLegacyAssignedToCurrentUser(resource.data);
       allow read: if isMember() && taskOwnedByCurrentUser(resource.data);
@@ -57,9 +52,29 @@ service cloud.firestore {
       allow create: if canCreateWork() && canCreateTaskData(request.resource.data);
       allow update: if canEditWork() && canUpdateTaskData(resource.data, request.resource.data);
       allow delete: if canDeleteWork() && canDeleteTaskData(resource.data);
-      match /comments/{commentId} { allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && (resource.data.authorId == request.auth.uid || isPrivileged()); }
-      match /checklist/{itemId} { allow read, create, update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); }
-      match /activity/{activityId} { allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged(); }
+
+      match /comments/{commentId} {
+        allow read: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && (resource.data.authorId == request.auth.uid || isPrivileged());
+      }
+      match /checklist/{itemId} {
+        allow read: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create, update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+      }
+      match /activity/{activityId} {
+        allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged();
+      }
     }
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
