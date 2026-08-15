@@ -52,6 +52,17 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[0]))).data.get("status", "") == "ACTIVE"
         && get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[1]))).data.get("status", "") == "ACTIVE";
     }
+    function canCreateChatNotification(recipientId) {
+      return signedIn()
+        && request.resource.data.type == "CHAT"
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.recipientId == recipientId
+        && request.resource.data.conversationId is string
+        && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+        && isConversationMember(get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data)
+        && recipientId != request.auth.uid
+        && recipientId in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.memberIds;
+    }
 
     match /identities/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin() || (isMember() && resource.data.status == "ACTIVE"));
@@ -77,7 +88,13 @@ service cloud.firestore {
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
-    match /notifications/{userId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); match /items/{notificationId} { allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged()); } }
+    match /notifications/{userId} {
+      allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      match /items/{notificationId} {
+        allow read, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+        allow create: if signedIn() && (request.auth.uid == userId || isPrivileged() || canCreateChatNotification(userId));
+      }
+    }
     match /conversations/{conversationId} {
       allow read: if isConversationMember(resource.data);
       allow create: if canCreateDirectConversation(request.resource.data);
