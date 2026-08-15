@@ -27,8 +27,7 @@ onAuthStateChanged(auth, async user => {
 async function loadConversations() {
     const list = $("#conversationList");
     try {
-        // Không dùng orderBy("updatedAt") ở query này vì Firestore yêu cầu composite index
-        // với memberIds + updatedAt. Dữ liệu tối đa 50 phòng được sắp xếp phía client.
+        // Sắp xếp ở client để không bắt buộc composite index memberIds + updatedAt.
         const snap = await getDocs(query(collection(db, "conversations"), where("memberIds", "array-contains", uid), limit(50)));
         conversations = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
@@ -194,14 +193,27 @@ async function createDirectConversation(otherUid) {
     const conversationId = `dm_${ids.join("_")}`;
     try {
         const ref = doc(db, "conversations", conversationId);
-        const existing = await getDoc(ref);
-        if (!existing.exists()) {
-            const meIdentity = await getDoc(doc(db, "identities", uid));
-            const me = meIdentity.exists() ? meIdentity.data() : {};
-            const meName = me.fullName || me.displayName || me.name || "Thành viên";
-            const mePosition = me.position || me.title || "Thành viên";
-            await setDoc(ref, { type: "direct", memberIds: ids, memberNames: { [uid]: meName, [otherUid]: person.name }, memberPositions: { [uid]: mePosition, [otherUid]: person.position }, title: person.name, subtitle: person.position, lastMessage: "", lastSenderId: "", updatedAt: serverTimestamp(), unreadCount: { [uid]: 0, [otherUid]: 0 } });
-        }
+        const meIdentity = await getDoc(doc(db, "identities", uid));
+        const me = meIdentity.exists() ? meIdentity.data() : {};
+        const meName = me.fullName || me.displayName || me.name || "Thành viên";
+        const mePosition = me.position || me.title || "Thành viên";
+
+        // Không getDoc() trước khi tạo: với một conversation mới, getDoc() sẽ bị
+        // rules từ chối vì allow read chỉ dành cho thành viên của conversation đã tồn tại.
+        // setDoc() trực tiếp sẽ đi qua allow create; nếu đã tồn tại thì đi qua allow update.
+        await setDoc(ref, {
+            type: "direct",
+            memberIds: ids,
+            memberNames: { [uid]: meName, [otherUid]: person.name },
+            memberPositions: { [uid]: mePosition, [otherUid]: person.position },
+            title: person.name,
+            subtitle: person.position,
+            lastMessage: "",
+            lastSenderId: "",
+            updatedAt: serverTimestamp(),
+            unreadCount: { [uid]: 0, [otherUid]: 0 }
+        }, { merge: true });
+
         closeNewChatModal();
         await loadConversations();
         await openConversation(conversationId);
