@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, doc, setDoc, updateDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
 
 const $ = s => document.querySelector(s);
@@ -50,6 +50,18 @@ async function openConversation(id) {
     const conversation = conversations.find(c => c.id === id);
     if (!conversation) return;
     activeConversation = conversation;
+    // Opening a conversation means its current unread messages have been seen.
+    // Persist this immediately so the header badge updates without F5.
+    if (Number(conversation.unreadCount?.[uid] || 0) > 0) {
+        const nextUnread = { ...(conversation.unreadCount || {}), [uid]: 0 };
+        try {
+            await updateDoc(doc(db, "conversations", id), { [`unreadCount.${uid}`]: 0 });
+            activeConversation = { ...conversation, unreadCount: nextUnread };
+            conversations = conversations.map(c => c.id === id ? activeConversation : c);
+        } catch (error) {
+            console.warn("Không thể đánh dấu tin nhắn đã đọc:", error?.code || error);
+        }
+    }
     $("#chatEmpty").classList.add("hidden");
     $("#chatActive").classList.remove("hidden");
     $("#activeName").textContent = conversation.title || "Cuộc trò chuyện";
@@ -87,25 +99,11 @@ $("#messageForm")?.addEventListener("submit", async e => {
         recipients.forEach(id => { unreadCount[id] = Number(unreadCount[id] || 0) + 1; });
         unreadCount[uid] = 0;
         await setDoc(doc(db, "conversations", activeConversation.id), { lastMessage: text, lastSenderId: uid, lastSenderName: senderName, updatedAt: serverTimestamp(), unreadCount }, { merge: true });
-
-        // Notification is a secondary side-effect. A notification permission/index problem
-        // must never make a successfully written chat message look like a failed message.
         const notificationResults = await Promise.allSettled(recipients.map(recipientId => addDoc(collection(db, "notifications", recipientId, "items"), {
-            type: "CHAT",
-            title: `Tin nhắn mới từ ${senderName}`,
-            body: text,
-            senderId: uid,
-            senderName,
-            recipientId,
-            conversationId: activeConversation.id,
-            targetUrl: "chat.html",
-            read: false,
-            createdAt: serverTimestamp()
+            type: "CHAT", title: `Tin nhắn mới từ ${senderName}`, body: text, senderId: uid, senderName, recipientId,
+            conversationId: activeConversation.id, targetUrl: "chat.html", read: false, createdAt: serverTimestamp()
         })));
-        notificationResults.forEach((result, index) => {
-            if (result.status === "rejected") console.error("Lỗi tạo notification chat cho", recipients[index], result.reason);
-        });
-
+        notificationResults.forEach((result, index) => { if (result.status === "rejected") console.error("Lỗi tạo notification chat cho", recipients[index], result.reason); });
         await loadConversations();
         activeConversation = conversations.find(c => c.id === activeConversation.id) || activeConversation;
         renderConversations($("#conversationSearch").value);
