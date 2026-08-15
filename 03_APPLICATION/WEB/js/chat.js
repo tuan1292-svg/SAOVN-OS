@@ -27,8 +27,12 @@ onAuthStateChanged(auth, async user => {
 async function loadConversations() {
     const list = $("#conversationList");
     try {
-        const snap = await getDocs(query(collection(db, "conversations"), where("memberIds", "array-contains", uid), orderBy("updatedAt", "desc"), limit(50)));
-        conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Không dùng orderBy("updatedAt") ở query này vì Firestore yêu cầu composite index
+        // với memberIds + updatedAt. Dữ liệu tối đa 50 phòng được sắp xếp phía client.
+        const snap = await getDocs(query(collection(db, "conversations"), where("memberIds", "array-contains", uid), limit(50)));
+        conversations = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt));
         renderConversations();
     } catch (error) {
         console.error("Lỗi tải cuộc trò chuyện:", error);
@@ -205,6 +209,14 @@ async function createDirectConversation(otherUid) {
         console.error("Lỗi tạo cuộc trò chuyện:", error);
         alert(`Không thể tạo cuộc trò chuyện: ${error?.code || "Firestore error"}`);
     }
+}
+
+function timestampMillis(value) {
+    if (!value) return 0;
+    if (typeof value?.toMillis === "function") return value.toMillis();
+    if (typeof value?.toDate === "function") return value.toDate().getTime();
+    const millis = new Date(value).getTime();
+    return Number.isNaN(millis) ? 0 : millis;
 }
 
 function closeNewChatModal() { const modal = $("#newChatModal"); modal.classList.add("hidden"); modal.setAttribute("aria-hidden", "true"); }
