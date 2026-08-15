@@ -27,11 +27,8 @@ onAuthStateChanged(auth, async user => {
 async function loadConversations() {
     const list = $("#conversationList");
     try {
-        // Sắp xếp ở client để không bắt buộc composite index memberIds + updatedAt.
         const snap = await getDocs(query(collection(db, "conversations"), where("memberIds", "array-contains", uid), limit(50)));
-        conversations = snap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt));
+        conversations = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt));
         renderConversations();
     } catch (error) {
         console.error("Lỗi tải cuộc trò chuyện:", error);
@@ -86,13 +83,30 @@ $("#messageForm")?.addEventListener("submit", async e => {
         const senderPosition = identityData.position || identityData.title || "Thành viên";
         await addDoc(collection(db, "conversations", activeConversation.id, "messages"), { text, senderId: uid, senderName, senderPosition, createdAt: serverTimestamp() });
         const unreadCount = { ...(activeConversation.unreadCount || {}) };
-        activeConversation.memberIds?.filter(id => id !== uid).forEach(id => { unreadCount[id] = Number(unreadCount[id] || 0) + 1; });
+        const recipients = (activeConversation.memberIds || []).filter(id => id !== uid);
+        recipients.forEach(id => { unreadCount[id] = Number(unreadCount[id] || 0) + 1; });
         unreadCount[uid] = 0;
         await setDoc(doc(db, "conversations", activeConversation.id), { lastMessage: text, lastSenderId: uid, lastSenderName: senderName, updatedAt: serverTimestamp(), unreadCount }, { merge: true });
+        await Promise.all(recipients.map(recipientId => addDoc(collection(db, "notifications", recipientId, "items"), {
+            type: "CHAT",
+            title: `Tin nhắn mới từ ${senderName}`,
+            body: text,
+            senderId: uid,
+            senderName,
+            recipientId,
+            conversationId: activeConversation.id,
+            targetUrl: "chat.html",
+            read: false,
+            createdAt: serverTimestamp()
+        })));
         await loadConversations();
         activeConversation = conversations.find(c => c.id === activeConversation.id) || activeConversation;
         renderConversations($("#conversationSearch").value);
-    } catch (error) { console.error("Lỗi gửi tin nhắn:", error); input.value = text; }
+    } catch (error) {
+        console.error("Lỗi gửi tin nhắn:", error);
+        input.value = text;
+        alert(`Không thể hoàn tất gửi tin nhắn: ${error?.code || "Firestore error"}`);
+    }
 });
 
 $("#conversationSearch")?.addEventListener("input", e => renderConversations(e.target.value));
@@ -103,134 +117,33 @@ document.querySelectorAll("[data-close-chat-modal]").forEach(el => el.addEventLi
 
 async function loadActiveMembershipDirectory() {
     const snap = await getDocs(query(collection(db, "memberships"), where("status", "==", "ACTIVE"), limit(100)));
-    return snap.docs.map(d => {
-        const raw = d.data() || {};
-        const uidFromDoc = raw.identityId || raw.userId || raw.uid || d.id.match(/^mem_(.+)_org_/)?.[1] || "";
-        return { id: d.id, ...raw, uid: uidFromDoc };
-    }).filter(m => m.uid && m.uid !== uid);
+    return snap.docs.map(d => { const raw = d.data() || {}; const uidFromDoc = raw.identityId || raw.userId || raw.uid || d.id.match(/^mem_(.+)_org_/)?.[1] || ""; return { id: d.id, ...raw, uid: uidFromDoc }; }).filter(m => m.uid && m.uid !== uid);
 }
-
 async function loadIdentityDirectory() {
     const snap = await getDocs(query(collection(db, "identities"), where("status", "==", "ACTIVE"), limit(100)));
-    return snap.docs.map(d => {
-        const data = d.data() || {};
-        return { uid: d.id, identity: data };
-    }).filter(m => m.uid !== uid);
+    return snap.docs.map(d => ({ uid: d.id, identity: d.data() || {} })).filter(m => m.uid !== uid);
 }
-
 async function resolveDirectoryFromMemberships() {
     const memberships = await loadActiveMembershipDirectory();
-    const rows = await Promise.all(memberships.map(async m => {
-        let data = {};
-        try {
-            const identity = await getDoc(doc(db, "identities", m.uid));
-            data = identity.exists() ? identity.data() : {};
-        } catch (error) {
-            console.warn("Không đọc được identity của", m.uid, error?.code || error);
-        }
-        return {
-            uid: m.uid,
-            name: data.fullName || data.displayName || data.name || m.fullName || "Thành viên",
-            position: data.position || data.jobTitle || m.position || "Thành viên",
-            department: m.department || data.department || "",
-            team: m.team || data.team || ""
-        };
-    }));
+    const rows = await Promise.all(memberships.map(async m => { let data = {}; try { const identity = await getDoc(doc(db, "identities", m.uid)); data = identity.exists() ? identity.data() : {}; } catch (error) { console.warn("Không đọc được identity của", m.uid, error?.code || error); } return { uid: m.uid, name: data.fullName || data.displayName || data.name || m.fullName || "Thành viên", position: data.position || data.jobTitle || m.position || "Thành viên", department: m.department || data.department || "", team: m.team || data.team || "" }; }));
     return rows.filter(m => m.uid && m.name);
 }
-
-async function resolveDirectoryFromIdentities() {
-    const rows = await loadIdentityDirectory();
-    return rows.map(m => ({
-        uid: m.uid,
-        name: m.identity.fullName || m.identity.displayName || m.identity.name || "Thành viên",
-        position: m.identity.position || m.identity.jobTitle || "Thành viên",
-        department: m.identity.department || "",
-        team: m.identity.team || ""
-    })).filter(m => m.name);
-}
-
+async function resolveDirectoryFromIdentities() { const rows = await loadIdentityDirectory(); return rows.map(m => ({ uid: m.uid, name: m.identity.fullName || m.identity.displayName || m.identity.name || "Thành viên", position: m.identity.position || m.identity.jobTitle || "Thành viên", department: m.identity.department || "", team: m.identity.team || "" })).filter(m => m.name); }
 async function openNewChatModal() {
-    const modal = $("#newChatModal");
-    modal.classList.remove("hidden");
-    modal.setAttribute("aria-hidden", "false");
-    $("#memberSearch").value = "";
-    $("#memberPicker").innerHTML = `<div class="chat-list-empty">Đang tải danh bạ…</div>`;
-    try {
-        directoryMembers = [];
-        try { directoryMembers = await resolveDirectoryFromMemberships(); } catch (membershipError) {
-            console.warn("Danh bạ memberships không tải được, chuyển sang identities:", membershipError?.code || membershipError);
-        }
-        if (!directoryMembers.length) {
-            try { directoryMembers = await resolveDirectoryFromIdentities(); } catch (identityError) {
-                console.error("Danh bạ identities cũng không tải được:", identityError);
-            }
-        }
-        if (!directoryMembers.length) {
-            $("#memberPicker").innerHTML = `<div class="chat-list-empty">Chưa có thành viên ACTIVE để bắt đầu trò chuyện.</div>`;
-            return;
-        }
-        renderMemberPicker();
-    } catch (error) {
-        console.error("Lỗi tải danh bạ chat:", error);
-        $("#memberPicker").innerHTML = `<div class="chat-list-empty">Không thể tải danh bạ.<br>${escapeHTML(error?.code || "Firestore error")}</div>`;
-    }
+    const modal = $("#newChatModal"); modal.classList.remove("hidden"); modal.setAttribute("aria-hidden", "false"); $("#memberSearch").value = ""; $("#memberPicker").innerHTML = `<div class="chat-list-empty">Đang tải danh bạ…</div>`;
+    try { directoryMembers = []; try { directoryMembers = await resolveDirectoryFromMemberships(); } catch (membershipError) { console.warn("Danh bạ memberships không tải được, chuyển sang identities:", membershipError?.code || membershipError); } if (!directoryMembers.length) { try { directoryMembers = await resolveDirectoryFromIdentities(); } catch (identityError) { console.error("Danh bạ identities cũng không tải được:", identityError); } } if (!directoryMembers.length) { $("#memberPicker").innerHTML = `<div class="chat-list-empty">Chưa có thành viên ACTIVE để bắt đầu trò chuyện.</div>`; return; } renderMemberPicker(); } catch (error) { console.error("Lỗi tải danh bạ chat:", error); $("#memberPicker").innerHTML = `<div class="chat-list-empty">Không thể tải danh bạ.<br>${escapeHTML(error?.code || "Firestore error")}</div>`; }
 }
-
-function renderMemberPicker(filter = "") {
-    const list = $("#memberPicker");
-    const needle = String(filter || "").toLowerCase();
-    const rows = directoryMembers.filter(m => !needle || `${m.name} ${m.position} ${m.department} ${m.team}`.toLowerCase().includes(needle));
-    if (!rows.length) { list.innerHTML = `<div class="chat-list-empty">Không tìm thấy thành viên phù hợp.</div>`; return; }
-    list.innerHTML = rows.map(m => `<button type="button" class="member-picker-item" data-member-id="${escapeAttr(m.uid)}"><span class="member-picker-avatar">${initials(m.name)}</span><span class="member-picker-copy"><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.position)}${m.department ? ` · ${escapeHTML(m.department)}` : ""}${m.team ? ` · ${escapeHTML(m.team)}` : ""}</small></span><span class="member-picker-arrow">›</span></button>`).join("");
-    list.querySelectorAll("[data-member-id]").forEach(b => b.addEventListener("click", () => createDirectConversation(b.dataset.memberId)));
-}
-
+function renderMemberPicker(filter = "") { const list = $("#memberPicker"); const needle = String(filter || "").toLowerCase(); const rows = directoryMembers.filter(m => !needle || `${m.name} ${m.position} ${m.department} ${m.team}`.toLowerCase().includes(needle)); if (!rows.length) { list.innerHTML = `<div class="chat-list-empty">Không tìm thấy thành viên phù hợp.</div>`; return; } list.innerHTML = rows.map(m => `<button type="button" class="member-picker-item" data-member-id="${escapeAttr(m.uid)}"><span class="member-picker-avatar">${initials(m.name)}</span><span class="member-picker-copy"><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.position)}${m.department ? ` · ${escapeHTML(m.department)}` : ""}${m.team ? ` · ${escapeHTML(m.team)}` : ""}</small></span><span class="member-picker-arrow">›</span></button>`).join(""); list.querySelectorAll("[data-member-id]").forEach(b => b.addEventListener("click", () => createDirectConversation(b.dataset.memberId))); }
 async function createDirectConversation(otherUid) {
-    const person = directoryMembers.find(m => m.uid === otherUid);
-    if (!person) return;
-    const ids = [uid, otherUid].sort();
-    const conversationId = `dm_${ids.join("_")}`;
+    const person = directoryMembers.find(m => m.uid === otherUid); if (!person) return; const ids = [uid, otherUid].sort(); const conversationId = `dm_${ids.join("_")}`;
     try {
         const ref = doc(db, "conversations", conversationId);
-        const meIdentity = await getDoc(doc(db, "identities", uid));
-        const me = meIdentity.exists() ? meIdentity.data() : {};
-        const meName = me.fullName || me.displayName || me.name || "Thành viên";
-        const mePosition = me.position || me.title || "Thành viên";
-
-        // Không getDoc() trước khi tạo: với một conversation mới, getDoc() sẽ bị
-        // rules từ chối vì allow read chỉ dành cho thành viên của conversation đã tồn tại.
-        // setDoc() trực tiếp sẽ đi qua allow create; nếu đã tồn tại thì đi qua allow update.
-        await setDoc(ref, {
-            type: "direct",
-            memberIds: ids,
-            memberNames: { [uid]: meName, [otherUid]: person.name },
-            memberPositions: { [uid]: mePosition, [otherUid]: person.position },
-            title: person.name,
-            subtitle: person.position,
-            lastMessage: "",
-            lastSenderId: "",
-            updatedAt: serverTimestamp(),
-            unreadCount: { [uid]: 0, [otherUid]: 0 }
-        }, { merge: true });
-
-        closeNewChatModal();
-        await loadConversations();
-        await openConversation(conversationId);
-    } catch (error) {
-        console.error("Lỗi tạo cuộc trò chuyện:", error);
-        alert(`Không thể tạo cuộc trò chuyện: ${error?.code || "Firestore error"}`);
-    }
+        const meIdentity = await getDoc(doc(db, "identities", uid)); const me = meIdentity.exists() ? meIdentity.data() : {}; const meName = me.fullName || me.displayName || me.name || "Thành viên"; const mePosition = me.position || me.title || "Thành viên";
+        await setDoc(ref, { type: "direct", memberIds: ids, memberNames: { [uid]: meName, [otherUid]: person.name }, memberPositions: { [uid]: mePosition, [otherUid]: person.position }, title: person.name, subtitle: person.position, lastMessage: "", lastSenderId: "", updatedAt: serverTimestamp(), unreadCount: { [uid]: 0, [otherUid]: 0 } }, { merge: true });
+        closeNewChatModal(); await loadConversations(); await openConversation(conversationId);
+    } catch (error) { console.error("Lỗi tạo cuộc trò chuyện:", error); alert(`Không thể tạo cuộc trò chuyện: ${error?.code || "Firestore error"}`); }
 }
-
-function timestampMillis(value) {
-    if (!value) return 0;
-    if (typeof value?.toMillis === "function") return value.toMillis();
-    if (typeof value?.toDate === "function") return value.toDate().getTime();
-    const millis = new Date(value).getTime();
-    return Number.isNaN(millis) ? 0 : millis;
-}
-
+function timestampMillis(value) { if (!value) return 0; if (typeof value?.toMillis === "function") return value.toMillis(); if (typeof value?.toDate === "function") return value.toDate().getTime(); const millis = new Date(value).getTime(); return Number.isNaN(millis) ? 0 : millis; }
 function closeNewChatModal() { const modal = $("#newChatModal"); modal.classList.add("hidden"); modal.setAttribute("aria-hidden", "true"); }
 function initials(value) { return String(value).trim().split(/\s+/).slice(-2).map(x => x[0]).join("").toUpperCase().slice(0,2) || "C"; }
 function formatDate(value) { if (!value) return "Vừa gửi"; const d = typeof value?.toDate === "function" ? value.toDate() : new Date(value); return Number.isNaN(d.getTime()) ? "Vừa gửi" : new Intl.DateTimeFormat("vi-VN", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit" }).format(d); }
