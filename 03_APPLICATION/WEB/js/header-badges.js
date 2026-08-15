@@ -31,3 +31,7 @@ function setBadge(type,count){
     badge.textContent=count>99?'99+':String(count);badge.style.display=count?'grid':'none';
   });
 }
+
+// Other modules can call this after marking items read. The realtime listeners above
+// will immediately recalculate the badge from Firestore without requiring F5.
+window.SAOVNHeaderBadges={refresh:()=>{}};
