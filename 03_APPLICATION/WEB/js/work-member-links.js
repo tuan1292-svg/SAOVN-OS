@@ -45,10 +45,7 @@ function buildPerson(uid, identity = {}, membership = {}) {
   const name = identity.fullName || identity.displayName || identity.name || membership.fullName || membership.displayName || membership.name || identity.email || membership.email || uid;
   const positionRaw = membership.position || identity.position || identity.jobTitle || (isAdminMembership(membership) ? 'FOUNDER_CHAIRMAN_CEO' : 'STAFF');
   const person = {
-    uid,
-    name,
-    identity,
-    membership,
+    uid, name, identity, membership,
     position: POSITION_LABELS[String(positionRaw).toUpperCase()] || positionRaw || 'Nhân viên',
     department: membership.department || identity.department || 'Chưa phân phòng ban',
     team: membership.team || identity.team || 'Chưa phân Team',
@@ -58,7 +55,6 @@ function buildPerson(uid, identity = {}, membership = {}) {
     role: isAdminMembership(membership) ? 'ADMIN' : (membership.role || 'MEMBER'),
     status: membership.status || identity.status || 'ACTIVE'
   };
-
   peopleByUid.set(uid, person);
   [name, identity.fullName, identity.displayName, identity.name, membership.fullName, membership.displayName, membership.name, identity.email, membership.email].filter(Boolean).forEach(alias => addAlias(alias, person));
   if (isAdminMembership(membership) || String(positionRaw).toUpperCase() === 'FOUNDER_CHAIRMAN_CEO') addAlias('Admin', person);
@@ -70,14 +66,15 @@ async function loadPeople() {
   try {
     identitySnap = await getDocs(query(collection(db, 'identities'), where('status', '==', 'ACTIVE')));
   } catch (error) {
-    identitySnap = await getDocs(collection(db, 'identities'));
+    try { identitySnap = await getDocs(collection(db, 'identities')); }
+    catch (fallbackError) { console.warn('Work member directory unavailable:', fallbackError?.code || fallbackError); return; }
   }
 
   let membershipSnap = null;
-  try {
-    membershipSnap = await getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE')));
-  } catch (error) {
-    try { membershipSnap = await getDocs(collection(db, 'memberships')); } catch (_) { membershipSnap = null; }
+  try { membershipSnap = await getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE'))); }
+  catch (error) {
+    try { membershipSnap = await getDocs(collection(db, 'memberships')); }
+    catch (_) { membershipSnap = null; }
   }
 
   const memberships = new Map();
@@ -88,8 +85,7 @@ async function loadPeople() {
     memberships.set(uid, { id: s.id, ...data });
     membershipToUid.set(s.id, uid);
   });
-
-  identitySnap.docs.forEach(s => buildPerson(s.id, s.data() || {}, memberships.get(s.id) || {}));
+  identitySnap?.docs?.forEach(s => buildPerson(s.id, s.data() || {}, memberships.get(s.id) || {}));
 }
 
 function resolveUid(value) {
@@ -184,20 +180,10 @@ async function openProfileModal(rawId) {
     try {
       const snap = await getDoc(doc(db, 'identities', uid));
       if (snap.exists()) person = buildPerson(uid, snap.data() || {}, {});
-    } catch (error) {
-      console.warn('Không tải được hồ sơ thành viên:', error?.code || error);
-    }
+    } catch (error) { console.warn('Không tải được hồ sơ thành viên:', error?.code || error); }
   }
-
-  if (!person && rawId) {
-    const fallbackName = String(rawId).trim();
-    person = peopleByName.get(normalize(fallbackName)) || null;
-  }
-
-  if (!person) {
-    content.innerHTML = '<div class="member-profile-error">Không tìm thấy hồ sơ thành viên.</div>';
-    return;
-  }
+  if (!person && rawId) person = peopleByName.get(normalize(String(rawId).trim())) || null;
+  if (!person) { content.innerHTML = '<div class="member-profile-error">Không tìm thấy hồ sơ thành viên.</div>'; return; }
 
   const roleLabel = POSITION_LABELS[String(person.role || '').toUpperCase()] || (person.role === 'ADMIN' ? 'Quản trị tổ chức' : 'Thành viên');
   content.innerHTML = `<div class="member-profile-hero"><div class="member-profile-avatar">${esc(initials(person.name))}</div><div class="member-profile-heading"><span class="member-profile-eyebrow">THÀNH VIÊN SAOVN</span><h2 id="memberProfileName">${esc(person.name)}</h2><p>${esc(person.position)}</p><span class="member-profile-status">${esc(person.status === 'ACTIVE' ? 'Đang hoạt động' : person.status)}</span></div></div><div class="member-profile-grid"><div><span>VAI TRÒ</span><strong>${esc(roleLabel)}</strong></div><div><span>PHÒNG BAN</span><strong>${esc(person.department)}</strong></div><div><span>TEAM</span><strong>${esc(person.team)}</strong></div><div><span>EMAIL</span><strong>${esc(person.email)}</strong></div><div><span>SỐ ĐIỆN THOẠI</span><strong>${esc(person.phone)}</strong></div><div><span>QUẢN LÝ TRỰC TIẾP</span><strong>${esc(person.managerName)}</strong></div></div><div class="member-profile-actions"><a class="member-profile-chat" href="chat.html?user=${encodeURIComponent(person.uid)}">💬 Nhắn tin</a><a class="member-profile-work" href="work.html">▣ Công việc</a></div>`;
@@ -218,17 +204,17 @@ document.addEventListener('click', event => {
   openProfileModal(target.dataset.memberProfile);
 });
 
-function observe() {
-  const observer = new MutationObserver(() => {
-    enhanceAssigneeText(document);
-    enhanceDetail(document.getElementById('detailBody'));
-    enhanceComments(document.getElementById('detailBody') || document);
-  });
-  observer.observe(document.body, { childList:true, subtree:true });
+function enhanceRenderedWork() {
   enhanceAssigneeText(document);
-  enhanceComments(document);
+  const detailBody = document.getElementById('detailBody');
+  enhanceDetail(detailBody);
+  enhanceComments(detailBody || document);
 }
 
+window.addEventListener('saovn:work-rendered', enhanceRenderedWork);
+window.addEventListener('saovn:work-detail-rendered', enhanceRenderedWork);
+
+afunction_placeholder;
 function injectProfileStyles() {
   if (document.getElementById('memberProfileModalStyles')) return;
   const style = document.createElement('style');
@@ -239,5 +225,5 @@ function injectProfileStyles() {
 
 loadPeople().then(() => {
   ensureProfileModal();
-  observe();
+  enhanceRenderedWork();
 });
