@@ -3,10 +3,28 @@ import { collection, getDocs, query, where, getDoc, doc } from 'https://www.gsta
 import { auth, db } from './firebase-config.js';
 
 const root=document.getElementById('memberAnalytics');
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const positionLabels={FOUNDER_CHAIRMAN_CEO:'Founder · Chairman · CEO',DIRECTOR:'Giám đốc',DEPARTMENT_HEAD:'Trưởng phòng',MANAGER:'Quản lý',TEAM_LEAD:'Trưởng nhóm',SENIOR_SPECIALIST:'Chuyên viên cao cấp',SPECIALIST:'Chuyên viên',STAFF:'Nhân viên',COLLABORATOR:'Cộng tác viên',INTERN:'Thực tập sinh',OTHER:'Khác'};
+const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
 const roleObject=(value={})=>Array.isArray(value)?Object.fromEntries(value.map(v=>[String(v),true])):value||{};
 const hasRole=(roles,names)=>names.some(name=>roles?.[name]===true);
+const uidOf=(id,d={})=>d.identityId||d.userId||d.uid||String(id||'').match(/^mem_(.+)_org_/)?.[1]||null;
+
+async function loadDirectory(fallbackUser,fallbackIdentity){
+  const map=new Map();
+  try{
+    const ids=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
+    ids.docs.forEach(s=>map.set(s.id,{id:s.id,...s.data()}));
+  }catch(error){if(error?.code!=='permission-denied')console.warn('Work analytics identities skipped:',error?.code||error);}
+  try{
+    const ms=await getDocs(query(collection(db,'memberships'),where('status','==','ACTIVE')));
+    ms.docs.forEach(s=>{
+      const d=s.data()||{},uid=uidOf(s.id,d);if(!uid)return;
+      const old=map.get(uid)||{id:uid};
+      map.set(uid,{...old,...d,id:uid,fullName:old.fullName||old.displayName||old.name||d.fullName||d.displayName||d.name,email:old.email||d.email});
+    });
+  }catch(error){if(error?.code!=='permission-denied')console.warn('Work analytics memberships skipped:',error?.code||error);}
+  if(!map.has(fallbackUser.uid))map.set(fallbackUser.uid,{id:fallbackUser.uid,...fallbackIdentity});
+  return [...map.values()];
+}
 
 onAuthStateChanged(auth,async user=>{
   if(!user||!root)return;
@@ -26,30 +44,21 @@ onAuthStateChanged(auth,async user=>{
     const team=membership.team||identity.team||'';
     const taskMap=new Map();
     const add=s=>s.docs.forEach(d=>taskMap.set(d.id,{id:d.id,...d.data()}));
-    if(isAdmin){
-      add(await getDocs(collection(db,'workTasks')));
-    }else if(isTeamLead && teamId){
-      add(await getDocs(query(collection(db,'workTasks'),where('teamId','==',teamId))));
-    }else if(isTeamLead && team){
-      add(await getDocs(query(collection(db,'workTasks'),where('team','==',team))));
-    }else if(isManager && deptId){
-      add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',deptId))));
-    }else if(isManager && dept){
-      add(await getDocs(query(collection(db,'workTasks'),where('department','==',dept))));
-    }else{
+    if(isAdmin){add(await getDocs(collection(db,'workTasks')));}
+    else if(isTeamLead&&teamId){add(await getDocs(query(collection(db,'workTasks'),where('teamId','==',teamId))));}
+    else if(isTeamLead&&team){add(await getDocs(query(collection(db,'workTasks'),where('team','==',team))));}
+    else if(isManager&&deptId){add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',deptId))));}
+    else if(isManager&&dept){add(await getDocs(query(collection(db,'workTasks'),where('department','==',dept))));}
+    else{
       const [a,b]=await Promise.allSettled([getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid))),getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid)))]);
       if(a.status==='fulfilled')add(a.value);if(b.status==='fulfilled')add(b.value);
     }
     const tasks=[...taskMap.values()];
-    let members=[];
-    try{
-      const ids=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
-      members=ids.docs.map(s=>({id:s.id,...s.data()}));
-    }catch(error){if(error?.code!=='permission-denied')console.warn('Work analytics member directory skipped:',error?.code||error);members=[{id:user.uid,...identity}];}
-    if(!isAdmin && isTeamLead && teamId) members=members.filter(m=>String(m.teamId||'')===String(teamId));
-    else if(!isAdmin && isTeamLead && team) members=members.filter(m=>String(m.team||'').trim().toLowerCase()===String(team).trim().toLowerCase());
-    else if(!isAdmin && isManager && deptId) members=members.filter(m=>String(m.departmentId||'')===String(deptId));
-    else if(!isAdmin && isManager && dept) members=members.filter(m=>String(m.department||'').trim().toLowerCase()===String(dept).trim().toLowerCase());
+    let members=await loadDirectory(user,identity);
+    if(!isAdmin&&isTeamLead&&teamId)members=members.filter(m=>String(m.teamId||'')===String(teamId));
+    else if(!isAdmin&&isTeamLead&&team)members=members.filter(m=>String(m.team||'').trim().toLowerCase()===String(team).trim().toLowerCase());
+    else if(!isAdmin&&isManager&&deptId)members=members.filter(m=>String(m.departmentId||'')===String(deptId));
+    else if(!isAdmin&&isManager&&dept)members=members.filter(m=>String(m.department||'').trim().toLowerCase()===String(dept).trim().toLowerCase());
     else members=members.filter(m=>m.id===user.uid);
     if(!members.some(m=>m.id===user.uid))members.push({id:user.uid,...identity});
     const rows=members.map(member=>{
@@ -65,4 +74,4 @@ onAuthStateChanged(auth,async user=>{
   }catch(error){if(error?.code!=='permission-denied')console.warn('Work analytics skipped:',error?.code||error);root.innerHTML='';}
 });
 function taskTime(task){const value=task.completedAt||task.updatedAt||task.createdAt;if(typeof value?.toMillis==='function')return value.toMillis();if(typeof value?.toDate==='function')return value.toDate().getTime();return new Date(value||0).getTime();}
-function render(rows,grouped){root.innerHTML=`<div class="analytics-head"><div><span class="eyebrow">WORK / ANALYTICS</span><h2>Hiệu suất công việc</h2><p>Tỷ lệ được tính từ công việc đã giao và trạng thái DONE trong phạm vi bạn có quyền xem.</p></div><span class="analytics-scope">${grouped?'Theo phạm vi':'Cá nhân'}</span></div>${rows.length?`<div class="analytics-list">${rows.map(r=>{const name=r.member.fullName||r.member.displayName||r.member.name||'Thành viên';const pos=positionLabels[r.member.position]||r.member.position||'Nhân viên';return `<article class="analytics-member"><a class="analytics-person" href="#" data-member-profile="${esc(r.member.id)}"><span>${esc(name)}</span><small>${esc(pos)}</small></a><div class="analytics-bar"><i style="width:${Math.max(0,Math.min(100,r.percent))}%"></i></div><strong>${r.percent}%</strong><span>${r.done}/${r.total} hoàn thành · ${r.overdue} quá hạn · ${r.onTime} đúng hạn</span></article>`}).join('')}</div>`:'<div class="analytics-empty">Chưa có dữ liệu công việc để thống kê.</div>'}`;}
+function render(rows,grouped){root.innerHTML=`<div class="analytics-head"><div><span class="eyebrow">WORK / ANALYTICS</span><h2>Hiệu suất công việc</h2><p>Tỷ lệ được tính từ công việc đã giao và trạng thái DONE trong phạm vi bạn có quyền xem.</p></div><span class="analytics-scope">${grouped?'Theo phạm vi':'Cá nhân'}</span></div>${rows.length?`<div class="analytics-list">${rows.map(r=>{const name=r.member.fullName||r.member.displayName||r.member.name||'Thành viên';return `<article class="analytics-member"><a class="analytics-person" href="#" data-member-profile="${esc(r.member.id)}"><span>${esc(name)}</span></a><div class="analytics-bar"><i style="width:${Math.max(0,Math.min(100,r.percent))}%"></i></div><strong>${r.percent}%</strong><span>${r.done}/${r.total} hoàn thành · ${r.overdue} quá hạn · ${r.onTime} đúng hạn</span></article>`}).join('')}</div>`:'<div class="analytics-empty">Chưa có dữ liệu công việc để thống kê.</div>'}`;}
