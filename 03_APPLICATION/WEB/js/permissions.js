@@ -16,8 +16,10 @@ export const PERMISSIONS = Object.freeze({
 });
 
 export const ROLE_PERMISSIONS = Object.freeze({
-  MEMBER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.PROJECTS_VIEW],
-  MANAGER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_DELETE, PERMISSIONS.WORK_ASSIGN, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.PROJECTS_VIEW, PERMISSIONS.PROJECTS_CREATE, PERMISSIONS.PROJECTS_EDIT],
+  // The member directory is a shared organizational directory, so normal
+  // members can view it without receiving member-management permissions.
+  MEMBER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.MEMBERS_VIEW, PERMISSIONS.PROJECTS_VIEW],
+  MANAGER: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.WORK_VIEW, PERMISSIONS.WORK_CREATE, PERMISSIONS.WORK_EDIT, PERMISSIONS.WORK_DELETE, PERMISSIONS.WORK_ASSIGN, PERMISSIONS.WORK_COMMENT, PERMISSIONS.WORK_CHECKLIST, PERMISSIONS.DEPARTMENTS_VIEW, PERMISSIONS.MEMBERS_VIEW, PERMISSIONS.PROJECTS_VIEW, PERMISSIONS.PROJECTS_CREATE, PERMISSIONS.PROJECTS_EDIT],
   ADMIN: Object.values(PERMISSIONS)
 });
 
@@ -50,9 +52,11 @@ function applyNavigation() {
   const canMembers = hasPermission(PERMISSIONS.MEMBERS_VIEW);
 
   document.querySelectorAll('a[href="members.html"]').forEach(link => {
-    link.hidden = !canMembers;
-    link.setAttribute('aria-hidden', String(!canMembers));
-    if (!canMembers) link.setAttribute('tabindex', '-1');
+    const isAdminManagement = link.dataset.navKey === 'admin-members';
+    link.hidden = isAdminManagement ? !isAdmin : !canMembers;
+    link.setAttribute('aria-hidden', String(link.hidden));
+    if (link.hidden) link.setAttribute('tabindex', '-1');
+    else link.removeAttribute('tabindex');
   });
 
   document.querySelectorAll('.sidebar-section, .nav-group').forEach(group => {
@@ -78,7 +82,7 @@ async function load() {
 }
 
 readyPromise = new Promise(resolve => onAuthStateChanged(auth, async user => {
-  if (!user) { state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(ROLE_PERMISSIONS.MEMBER) }; resolve(state); return; }
+  if (!user) { state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(ROLE_PERMISSIONS.MEMBER) }; applyNavigation(); resolve(state); return; }
   resolve(await load());
 }));
 
