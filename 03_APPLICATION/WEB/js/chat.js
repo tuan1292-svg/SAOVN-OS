@@ -18,6 +18,8 @@ onAuthStateChanged(auth, async user => {
         const displayName = data.fullName || data.displayName || data.name || user.displayName || user.email?.split("@")[0] || "Thành viên";
         [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = displayName; });
         await loadConversations();
+        const targetUser = new URLSearchParams(location.search).get("user");
+        if (targetUser && targetUser !== uid) await createDirectConversation(targetUser);
     } catch (error) {
         console.error("Chat bootstrap error:", error);
         await loadConversations();
@@ -50,17 +52,13 @@ async function openConversation(id) {
     const conversation = conversations.find(c => c.id === id);
     if (!conversation) return;
     activeConversation = conversation;
-    // Opening a conversation means its current unread messages have been seen.
-    // Persist this immediately so the header badge updates without F5.
     if (Number(conversation.unreadCount?.[uid] || 0) > 0) {
         const nextUnread = { ...(conversation.unreadCount || {}), [uid]: 0 };
         try {
             await updateDoc(doc(db, "conversations", id), { [`unreadCount.${uid}`]: 0 });
             activeConversation = { ...conversation, unreadCount: nextUnread };
             conversations = conversations.map(c => c.id === id ? activeConversation : c);
-        } catch (error) {
-            console.warn("Không thể đánh dấu tin nhắn đã đọc:", error?.code || error);
-        }
+        } catch (error) { console.warn("Không thể đánh dấu tin nhắn đã đọc:", error?.code || error); }
     }
     $("#chatEmpty").classList.add("hidden");
     $("#chatActive").classList.remove("hidden");
@@ -140,7 +138,13 @@ async function openNewChatModal() {
 }
 function renderMemberPicker(filter = "") { const list = $("#memberPicker"); const needle = String(filter || "").toLowerCase(); const rows = directoryMembers.filter(m => !needle || `${m.name} ${m.position} ${m.department} ${m.team}`.toLowerCase().includes(needle)); if (!rows.length) { list.innerHTML = `<div class="chat-list-empty">Không tìm thấy thành viên phù hợp.</div>`; return; } list.innerHTML = rows.map(m => `<button type="button" class="member-picker-item" data-member-id="${escapeAttr(m.uid)}"><span class="member-picker-avatar">${initials(m.name)}</span><span class="member-picker-copy"><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.position)}${m.department ? ` · ${escapeHTML(m.department)}` : ""}${m.team ? ` · ${escapeHTML(m.team)}` : ""}</small></span><span class="member-picker-arrow">›</span></button>`).join(""); list.querySelectorAll("[data-member-id]").forEach(b => b.addEventListener("click", () => createDirectConversation(b.dataset.memberId))); }
 async function createDirectConversation(otherUid) {
-    const person = directoryMembers.find(m => m.uid === otherUid); if (!person) return; const ids = [uid, otherUid].sort(); const conversationId = `dm_${ids.join("_")}`;
+    if (!otherUid || otherUid === uid) return;
+    let person = directoryMembers.find(m => m.uid === otherUid);
+    if (!person) {
+        try { const snap = await getDoc(doc(db, "identities", otherUid)); if (snap.exists()) { const d=snap.data(); person={uid:otherUid,name:d.fullName||d.displayName||d.name||"Thành viên",position:d.position||d.jobTitle||"Thành viên"}; } } catch(error){ console.warn("Không đọc được người nhận:",error?.code||error); }
+    }
+    if (!person) { alert("Không tìm thấy thành viên này."); return; }
+    const ids = [uid, otherUid].sort(); const conversationId = `dm_${ids.join("_")}`;
     try {
         const ref = doc(db, "conversations", conversationId);
         const meIdentity = await getDoc(doc(db, "identities", uid)); const me = meIdentity.exists() ? meIdentity.data() : {}; const meName = me.fullName || me.displayName || me.name || "Thành viên"; const mePosition = me.position || me.title || "Thành viên";
