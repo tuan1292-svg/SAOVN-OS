@@ -1,6 +1,4 @@
 // SAOVN-OS — Shared Navigation Controller
-// Keeps the core/communication/admin menu consistent across every WEB page.
-
 const NAV_ITEMS = [
   { section: 'CORE', items: [
     ['dashboard.html', '⌂', 'Tổng quan', 'dashboard'],
@@ -19,25 +17,19 @@ const NAV_ITEMS = [
 
 function currentKey() {
   const page = (location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
-  if (page === 'dashboard.html' || page === '') return 'dashboard';
-  if (page === 'work.html') return 'work';
-  if (page === 'departments.html') return 'departments';
-  if (page === 'members.html') return 'members';
-  if (page === 'chat.html') return 'chat';
-  if (page === 'notifications.html') return 'notifications';
-  return '';
+  return ({
+    'dashboard.html':'dashboard', 'work.html':'work', 'departments.html':'departments',
+    'members.html':'members', 'chat.html':'chat', 'notifications.html':'notifications'
+  })[page] || '';
 }
 
 function makeSection(section, items, active) {
   const wrap = document.createElement('div');
   wrap.className = 'sidebar-section saovn-nav-section';
-  wrap.dataset.navSection = section;
-
   const title = document.createElement('div');
   title.className = 'sidebar-title';
   title.innerHTML = `<span>${section}</span>`;
   wrap.appendChild(title);
-
   items.forEach(([href, icon, label, key]) => {
     const link = document.createElement('a');
     link.className = 'navigation-item';
@@ -50,24 +42,15 @@ function makeSection(section, items, active) {
   return wrap;
 }
 
-export function initNavigation(options = {}) {
+export function initNavigation() {
   const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) return;
-
-  // Only replace navigation blocks. Keep brand, workspace and user controls untouched.
-  sidebar.querySelectorAll('.saovn-nav-section, .sidebar-section').forEach(node => node.remove());
-
+  if (!sidebar || sidebar.dataset.navigationReady === 'true') return;
+  sidebar.dataset.navigationReady = 'true';
   const bottom = sidebar.querySelector('.sidebar-bottom');
-  const active = options.active || currentKey();
+  sidebar.querySelectorAll('.sidebar-section').forEach(node => node.remove());
+  const active = currentKey();
   NAV_ITEMS.forEach(group => sidebar.insertBefore(makeSection(group.section, group.items, active), bottom));
-
-  if (options.admin === true || document.body.dataset.admin === 'true') {
-    const admin = document.createElement('div');
-    admin.className = 'sidebar-section saovn-nav-section';
-    admin.innerHTML = `
-      <div class="sidebar-title"><span>QUẢN TRỊ</span></div>
-      <a class="navigation-item" href="members.html"><span class="nav-icon">♙</span><span>Quản lý thành viên</span></a>
-      <a class="navigation-item" href="departments.html"><span class="nav-icon">▤</span><span>Quản lý phòng ban</span></a>`;
-    sidebar.insertBefore(admin, bottom);
-  }
 }
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initNavigation, { once: true });
+else initNavigation();
