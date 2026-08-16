@@ -46,7 +46,11 @@ function showSuggestions(input){
   const mention = currentMention(input);
   if(!mention){ closeSuggestions(); return; }
   const needle = normalize(mention.query);
-  const rows = eligiblePeople.filter(p=>!needle || normalize(p.name).includes(needle)).slice(0,8);
+  const allOption = { uid:'__ALL__', name:'Tất cả thành viên', position:`${eligiblePeople.length} người tham gia` };
+  const rows = [allOption, ...eligiblePeople.filter(p=>!needle || normalize(p.name).includes(needle))].filter((row,index)=>{
+    if(index===0) return !needle || normalize(row.name).includes(needle) || ['all','tat ca','tất cả','tất ca'].some(v=>v.includes(needle) || needle.includes(v));
+    return true;
+  }).slice(0,9);
   closeSuggestions();
   if(!rows.length) return;
   suggestionBox = document.createElement('div');
@@ -54,15 +58,20 @@ function showSuggestions(input){
   suggestionBox.innerHTML = rows.map(p=>`<button type="button" data-mention-uid="${esc(p.uid)}"><strong>@${esc(p.name)}</strong><small>${esc(p.position)}</small></button>`).join('');
   input.parentElement?.appendChild(suggestionBox);
   suggestionBox.querySelectorAll('[data-mention-uid]').forEach(button=>button.addEventListener('click',()=>{
-    const person=eligiblePeople.find(p=>p.uid===button.dataset.mentionUid); if(!person)return;
+    const uid=button.dataset.mentionUid;
+    const person=uid==='__ALL__'?allOption:eligiblePeople.find(p=>p.uid===uid);
+    if(!person)return;
     const m=currentMention(input); if(!m)return;
     const value=input.value;
     input.value=value.slice(0,m.start)+`@${person.name} `+value.slice(m.end);
-    const pos=m.start+person.name.length+2; input.focus(); input.setSelectionRange(pos,pos); closeSuggestions();
+    const pos=m.start+person.name.length+2;
+    input.focus(); input.setSelectionRange(pos,pos); closeSuggestions();
   }));
 }
 
 function parseMentions(text){
+  const allPattern=/(?:^|\s)@(tất cả thành viên|tat ca thanh vien|tất cả|tat ca|all)(?=\s|$|[,.!?;:])/i;
+  if(allPattern.test(text)) return [...eligiblePeople];
   const found=[];
   eligiblePeople.forEach(person=>{
     const re = new RegExp(`@${escapeRegExp(person.name)}(?=\\s|$|[,.!?;:])`,'i');
@@ -84,7 +93,7 @@ async function sendMentionComment(){
     const d=identity.exists()?identity.data():{};
     const senderName=d.fullName||d.displayName||d.name||u.displayName||'Thành viên';
     const senderPosition=d.position||d.jobTitle||'Nhân viên';
-    await addDoc(subRef(activeTaskId),{text,authorId:u.uid,authorName:senderName,authorPosition:senderPosition,mentionIds:mentions.map(p=>p.uid),mentionNames:mentions.map(p=>p.name),createdAt:serverTimestamp()});
+    await addDoc(subRef(activeTaskId),{text,authorId:u.uid,authorName:senderName,authorPosition:senderPosition,mentionIds:mentions.map(p=>p.uid),mentionNames:mentions.map(p=>p.name),mentionAll:/@(?:tất cả thành viên|tat ca thanh vien|tất cả|tat ca|all)(?=\s|$|[,.!?;:])/i.test(text),createdAt:serverTimestamp()});
     input.value='';
     await notifyMentions(mentions,{senderName,senderPosition,taskTitle:await getTaskTitle(activeTaskId)});
     window.dispatchEvent(new CustomEvent('work-comment-created',{detail:{taskId:activeTaskId}}));
