@@ -5,7 +5,7 @@ import { getPermissions, hasPermission, role } from './permissions.js';
 import { loadOrgScope, scopeLabel } from './org-scope.js';
 
 const $ = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const esc = value => String(value ?? '').replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
 const initials = name => String(name || 'S').split(/\s+/).filter(Boolean).slice(-2).map(x => x[0]).join('').toUpperCase();
 const sameText = (a,b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
 const positionCode = value => String(value || '').trim().toUpperCase();
@@ -79,7 +79,9 @@ async function loadWorkspace() {
     renderDepartment();
     await loadTasks();
     renderTeamFilter();
-    renderTeams();
+    // The dedicated members module owns the People/Team UI for normal members.
+    // Do not overwrite its full directory with the current user's limited task scope.
+    if (privileged) renderTeams();
     const sync = $('syncState');
     if (sync) sync.innerHTML = '<i></i> Firebase · Đã đồng bộ';
   } catch (error) {
