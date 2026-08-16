@@ -44,3 +44,19 @@ onAuthStateChanged(auth,async user=>{
     if(sync)sync.innerHTML='<i></i> Firebase · Đã kết nối';
   }catch(error){console.warn('Member Work fallback error:',error?.code||error);}
 });
+
+// Work displays people by name only. Job titles remain available in profile data,
+// but are not appended to names in assignee lists, task rows, comments or mentions.
+function cleanMemberLabels(root=document){
+  root.querySelectorAll('.assignee-person small, .comment-position, .mention-suggestions small').forEach(el=>el.remove());
+  root.querySelectorAll('.assignee, .kanban-assignee').forEach(el=>{
+    const text=String(el.textContent||'').trim();
+    if(!text)return;
+    el.textContent=text.split(',').map(part=>part.split(' · ')[0].trim()).filter(Boolean).join(', ');
+  });
+}
+
+const memberLabelObserver=new MutationObserver(()=>cleanMemberLabels(document));
+if(document.body)memberLabelObserver.observe(document.body,{childList:true,subtree:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>cleanMemberLabels(document),{once:true});
+else cleanMemberLabels(document);
