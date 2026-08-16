@@ -4,12 +4,11 @@ import { collection, getDocs, getDoc, doc, query, where } from 'https://www.gsta
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};
+const statusLabel={BACKLOG:'Chờ xử lý',TODO:'Cần làm',IN_PROGRESS:'Đang thực hiện',REVIEW:'Chờ duyệt',DONE:'Hoàn thành'};
 const priorityLabel={LOW:'Thấp',MEDIUM:'Trung bình',HIGH:'Cao',URGENT:'Khẩn cấp'};
 
 onAuthStateChanged(auth,async user=>{
   if(!user)return;
-  // This is a member-only fallback. Admin Work is left to work-v3.js.
   try{
     const membership=await getDoc(doc(db,'memberships',`mem_${user.uid}_org_saovn_01`));
     const roles=membership.exists()?membership.data()?.roles||{}:{};
@@ -38,25 +37,48 @@ onAuthStateChanged(auth,async user=>{
     overdue&&(overdue.textContent=list.filter(t=>t.dueDate&&t.dueDate<today&&t.status!=='DONE').length);
     result&&(result.textContent=`${list.length} công việc`);
     if(taskList){
-      taskList.innerHTML=list.map(t=>`<div class="task-row" data-member-fallback-task="${esc(t.id)}"><div class="task-main"><i class="task-dot"></i><div><strong>${esc(t.title||'Không tên')}</strong><small>${esc(t.description||'Chưa có mô tả')}</small></div></div><span class="status ${esc(t.status||'TODO')}">${esc(statusLabel[t.status]||'Todo')}</span><span class="priority ${esc(t.priority||'MEDIUM')}">${esc(priorityLabel[t.priority]||'Trung bình')}</span><span class="assignee">${esc(t.assignee||'Bạn')}</span><span class="due">${esc(t.dueDate||'Không deadline')}</span></div>`).join('');
+      taskList.innerHTML=list.map(t=>`<div class="task-row" data-member-fallback-task="${esc(t.id)}"><div class="task-main"><i class="task-dot"></i><div><strong>${esc(t.title||'Không tên')}</strong><small>${esc(t.description||'Chưa có mô tả')}</small></div></div><span class="status ${esc(t.status||'TODO')}">${esc(statusLabel[t.status]||'Cần làm')}</span><span class="priority ${esc(t.priority||'MEDIUM')}">${esc(priorityLabel[t.priority]||'Trung bình')}</span><span class="assignee">${esc(t.assignee||'Bạn')}</span><span class="due">${esc(t.dueDate||'Không deadline')}</span></div>`).join('');
     }
     const sync=$('syncState');
     if(sync)sync.innerHTML='<i></i> Firebase · Đã kết nối';
   }catch(error){console.warn('Member Work fallback error:',error?.code||error);}
 });
 
-// Work displays people by name only. Job titles remain available in profile data,
-// but are not appended to names in assignee lists, task rows, comments or mentions.
+// Work displays people by name only. Job titles remain available in profile data.
+// IMPORTANT: do not observe the entire document continuously: Work renders dynamically,
+// and changing the DOM from inside a MutationObserver can create a self-triggering loop.
 function cleanMemberLabels(root=document){
   root.querySelectorAll('.assignee-person small, .comment-position, .mention-suggestions small').forEach(el=>el.remove());
   root.querySelectorAll('.assignee, .kanban-assignee').forEach(el=>{
     const text=String(el.textContent||'').trim();
     if(!text)return;
-    el.textContent=text.split(',').map(part=>part.split(' · ')[0].trim()).filter(Boolean).join(', ');
+    const cleaned=text.split(',').map(part=>part.split(' · ')[0].trim()).filter(Boolean).join(', ');
+    if(cleaned!==text)el.textContent=cleaned;
   });
 }
 
-const memberLabelObserver=new MutationObserver(()=>cleanMemberLabels(document));
-if(document.body)memberLabelObserver.observe(document.body,{childList:true,subtree:true});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>cleanMemberLabels(document),{once:true});
-else cleanMemberLabels(document);
+let cleanScheduled=false;
+function scheduleMemberLabelCleanup(){
+  if(cleanScheduled)return;
+  cleanScheduled=true;
+  requestAnimationFrame(()=>{
+    cleanScheduled=false;
+    cleanMemberLabels(document);
+  });
+}
+
+// Run after initial HTML is ready and on a few controlled render opportunities.
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>{
+    cleanMemberLabels(document);
+    setTimeout(cleanMemberLabels,500);
+    setTimeout(cleanMemberLabels,1500);
+  },{once:true});
+}else{
+  cleanMemberLabels(document);
+  setTimeout(cleanMemberLabels,500);
+  setTimeout(cleanMemberLabels,1500);
+}
+
+// Expose a lightweight hook for Work modules that render comments/assignees later.
+window.SAOVN_cleanMemberLabels=scheduleMemberLabelCleanup;
