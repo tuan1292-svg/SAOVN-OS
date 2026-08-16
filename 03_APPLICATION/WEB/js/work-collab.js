@@ -6,9 +6,18 @@ const identityCache=new Map();
 const POSITION_LABELS={INTERN:'Thực tập sinh',COLLABORATOR:'Cộng tác viên',STAFF:'Nhân viên',SPECIALIST:'Chuyên viên',SENIOR_SPECIALIST:'Chuyên viên cao cấp',TEAM_LEAD:'Trưởng nhóm',MANAGER:'Quản lý',DEPARTMENT_HEAD:'Trưởng phòng',DIRECTOR:'Giám đốc',FOUNDER_CHAIRMAN_CEO:'Founder · Chairman · CEO',OTHER:'Khác'};
 const normalizePosition=p=>String(p||'STAFF').toUpperCase();
 const positionLabel=p=>POSITION_LABELS[normalizePosition(p)]||String(p||'Nhân viên');
-const identityDisplay=(identity,fallback='Thành viên')=>{const name=identity?.displayName||identity?.name||identity?.fullName||fallback;const position=identity?.position||identity?.jobTitle||'STAFF';return{name,position:positionLabel(position)}};
-async function getIdentity(uid){if(!uid)return null;if(identityCache.has(uid))return identityCache.get(uid);try{const snap=await getDoc(doc(db,'identities',uid));const value=snap.exists()?snap.data():null;identityCache.set(uid,value);return value}catch(e){console.warn('Không tải được identity:',uid,e?.code||e);return null}}
-async function resolveAuthor(authorId,storedName){const identity=await getIdentity(authorId);if(identity)return identityDisplay(identity,storedName||'Thành viên');return{name:storedName||'Thành viên',position:'Nhân viên'}}
+const identityDisplay=(identity={},fallback='Thành viên')=>{const name=identity.fullName||identity.displayName||identity.name||identity.email||fallback;const position=identity.position||identity.jobTitle||'STAFF';return{name,position:positionLabel(position)}};
+const membershipRef=uid=>doc(db,'memberships',`mem_${uid}_org_saovn_01`);
+async function getIdentity(uid){
+  if(!uid)return null;
+  if(identityCache.has(uid))return identityCache.get(uid);
+  try{const snap=await getDoc(doc(db,'identities',uid));if(snap.exists()){const value=snap.data();identityCache.set(uid,value);return value;}}
+  catch(e){if(e?.code!=='permission-denied')console.warn('Không tải được identity:',uid,e?.code||e);}
+  try{const snap=await getDoc(membershipRef(uid));if(snap.exists()){const value=snap.data();identityCache.set(uid,value);return value;}}
+  catch(e){if(e?.code!=='permission-denied')console.warn('Không tải được membership hồ sơ:',uid,e?.code||e);}
+  identityCache.set(uid,null);return null;
+}
+async function resolveAuthor(authorId,storedName){const identity=await getIdentity(authorId);return identity?identityDisplay(identity,storedName||'Thành viên'):{name:storedName||'Thành viên',position:'Nhân viên'}}
 document.addEventListener('click',e=>{const target=e.target.closest('[data-detail]');if(!target||e.target.closest('[data-edit]'))return;activeTaskId=target.dataset.detail;setTimeout(()=>enhanceDetail(activeTaskId),80)});
 const taskSubcollection=(taskId,name)=>collection(db,'workTasks',taskId,name);
 async function enhanceDetail(taskId){const body=document.getElementById('detailBody');if(!body||!taskId||body.querySelector('.collab-section'))return;const wrap=document.createElement('div');wrap.className='collab-section';wrap.innerHTML=`<div class="collab-grid"><section class="collab-panel"><div class="collab-head"><div><span class="eyebrow">TASK / CHECKLIST</span><strong>Checklist</strong></div><span id="checkProgress">0 / 0</span></div><div class="check-add"><input id="checkInput" maxlength="160" placeholder="Thêm một việc cần làm..."><button id="addCheck">＋</button></div><div id="checkList"><span class="loading">Đang tải...</span></div></section><section class="collab-panel"><div class="collab-head"><div><span class="eyebrow">TASK / COMMENTS</span><strong>Trao đổi</strong></div><span id="commentCount">0</span></div><div id="commentList"><span class="loading">Đang tải...</span></div><div class="comment-add"><textarea id="commentInput" rows="2" maxlength="500" placeholder="Viết trao đổi về công việc..."></textarea><button id="addComment">Gửi</button></div></section></div>`;body.appendChild(wrap);injectStyles();document.getElementById('addCheck').onclick=addChecklist;document.getElementById('checkInput').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addChecklist()}};document.getElementById('addComment').onclick=addComment;await Promise.all([loadChecklist(taskId),loadComments(taskId)])}
