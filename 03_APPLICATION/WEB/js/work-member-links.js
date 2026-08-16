@@ -1,14 +1,13 @@
-import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
-import { auth, db } from './firebase-config.js';
+import { collection, getDocs, query, where, doc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { db } from './firebase-config.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let people = [];
 let peopleByName = new Map();
 
 async function loadPeople() {
   try {
     const identitySnap = await getDocs(query(collection(db, 'identities'), where('status', '==', 'ACTIVE')));
-    let memberships = new Map();
+    const memberships = new Map();
     try {
       const membershipSnap = await getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE')));
       membershipSnap.forEach(s => {
@@ -19,17 +18,11 @@ async function loadPeople() {
     } catch (error) {
       console.warn('Work member links: memberships unavailable, using identities.', error?.code || error);
     }
-    people = identitySnap.docs.map(s => {
+    identitySnap.docs.forEach(s => {
       const d = s.data() || {}, m = memberships.get(s.id) || {};
-      return {
-        uid: s.id,
-        name: d.fullName || d.displayName || d.name || d.email || s.id,
-        position: m.position || d.position || d.jobTitle || 'STAFF',
-        department: m.department || d.department || '',
-        team: m.team || d.team || ''
-      };
+      const name = d.fullName || d.displayName || d.name || d.email || s.id;
+      peopleByName.set(normalize(name), { uid:s.id, name });
     });
-    people.forEach(p => peopleByName.set(normalize(p.name), p));
   } catch (error) {
     console.warn('Work member links bootstrap skipped:', error?.code || error);
   }
@@ -46,14 +39,11 @@ function enhanceAssigneeText(root) {
     const raw = el.textContent || '';
     const parts = raw.split(',').map(x => x.trim()).filter(Boolean);
     if (!parts.length) return;
-    const html = parts.map(part => {
+    el.innerHTML = parts.map(part => {
       const name = part.split(' · ')[0].trim();
       const person = peopleByName.get(normalize(name));
-      if (!person) return esc(part);
-      const suffix = part.slice(name.length);
-      return `${linkFor(person)}${esc(suffix)}`;
+      return person ? linkFor(person) : esc(name);
     }).join(', ');
-    el.innerHTML = html;
     el.dataset.memberLinksReady = '1';
   });
 }
