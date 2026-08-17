@@ -58,16 +58,19 @@ service cloud.firestore {
       match /activity/{activityId} { allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged(); }
     }
 
+    // ATTENDANCE: members may read the organization-wide leaderboard, while writes remain self-only.
     match /attendanceSessions/{sessionId} {
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isMember() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isMember() && request.resource.data.userId == request.auth.uid;
       allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
     }
     match /attendanceDays/{attendanceId} {
-      allow read: if signedIn() && exists(/databases/$(database)/documents/identities/$(request.auth.uid)) && get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.get("status", "") == "ACTIVE";
-      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
-      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      // Leaderboard query: every active member may read attendance-day aggregates for the organization.
+      // This intentionally does not depend on fields inside the target attendance document, so a collection query is allowed.
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01";
+      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == resource.data.organizationId;
       allow delete: if isAdmin();
     }
 
