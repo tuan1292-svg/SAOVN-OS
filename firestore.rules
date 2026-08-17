@@ -53,30 +53,24 @@ service cloud.firestore {
       allow create: if canCreateWork() && canCreateTaskData(request.resource.data);
       allow update: if canEditWork() && canUpdateTaskData(resource.data, request.resource.data);
       allow delete: if canDeleteWork() && canDeleteTaskData(resource.data);
-
-      match /comments/{commentId} {
-        allow read: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && (resource.data.authorId == request.auth.uid || isPrivileged());
-      }
-      match /checklist/{itemId} {
-        allow read: if isMember() && taskAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskLegacyAssignedToCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskOwnedByCurrentUser(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow read: if isMember() && taskInManagementScope(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create, update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-      }
-      match /activity/{activityId} {
-        allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged();
-      }
+      match /comments/{commentId} { allow read: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && (resource.data.authorId == request.auth.uid || isPrivileged()); }
+      match /checklist/{itemId} { allow read: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow create, update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); }
+      match /activity/{activityId} { allow read, create: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data); allow update, delete: if canReadTaskData(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged(); }
     }
+
+    match /attendanceSessions/{sessionId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+    match /attendanceDays/{attendanceId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
