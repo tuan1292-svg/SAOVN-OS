@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Chốt sổ: 14/08/2026
+> Chốt sổ: 17/08/2026
 
 ## 1. Project
 
@@ -55,6 +55,7 @@ Architecture / Constitution / Domain Model / Module Map / System Architecture / 
 - Public self-registration mặc định OFF.
 - Tài khoản Founder/Admin hiển thị `Founder · Chairman · CEO`.
 - PROJECT_STATE được chốt theo checkpoint, không cập nhật vụn từng bước.
+- Mỗi thay đổi lớn nên có commit riêng để Admin và Member có thể test độc lập.
 ```
 
 ---
@@ -75,7 +76,7 @@ DEPARTMENT WORKSPACE          COMPLETE
 TEAM STRUCTURE                COMPLETE
 TEAM ASSIGNMENT               COMPLETE
 TEAM → WORK FILTER            COMPLETE
-MANAGEMENT SCOPE RECOGNITION  COMPLETE
+MANAGEMENT SCOPE RECOGNITION  COMPLETE FOR CURRENT PROTOTYPE
 ```
 
 ---
@@ -187,6 +188,7 @@ Workspace hiện có:
 ✓ Team-based Work filtering
 ✓ Management scope display
 ✓ Task overflow / responsive panel fix
+✓ Không hiển thị trạng thái “Chưa có phòng ban” khi đã có department
 ```
 
 Task dài không được phép tràn khỏi panel.
@@ -220,6 +222,7 @@ Department
 ✓ Team Lead identification
 ✓ Team → Work filter
 ✓ Team field UI polish
+✓ Hiển thị đồng nghiệp cùng phòng/team ở phía Member
 ```
 
 Team CRUD độc lập chưa được coi là hoàn thành.
@@ -256,31 +259,77 @@ Workspace đã nhận diện scope. Work security vẫn phải được xác nh�
 
 WORK là Business Module đầu tiên.
 
-Mục tiêu:
+Đã xây dựng:
 
 ```text
-My Work
-Tasks
-Projects
-Assignments
-Deadlines
-Progress
-Status
-Comments
-Attachments
-Notifications
-Reports
+✓ My Work
+✓ Tasks
+✓ Assignments
+✓ Deadlines
+✓ Progress
+✓ Status / Kanban tiếng Việt
+✓ Comments / Trao đổi
+✓ Checklist
+✓ Activity
+✓ Mentions, gồm @tất cả thành viên
+✓ Notifications integration foundation
+✓ Thành viên tham gia có thể click để mở profile popup
+✓ Danh sách người phụ trách nhiều thành viên
+✓ Department / Team scope filtering
+✓ Member personal / assigned Work loading
+✓ Admin Work management
+✓ Member Work view
 ```
 
 Work Identity luôn dùng Họ tên + Chức danh.
 
-Legacy assignee identity đã được xử lý.
+### Work permission checkpoint hiện tại
 
-Department / Team scope đã được nối vào Work ở mức prototype và Rules, nhưng cần test/deploy thực tế trước khi coi security checkpoint hoàn thành.
+```text
+Admin → Work: đang hoạt động.
+Member → Work được giao: Work hiển thị đúng phạm vi.
+Member → kéo Kanban: CHƯA ĐÓNG CHECKPOINT.
+```
+
+Hiện tại thành viên vẫn gặp:
+
+```text
+FirebaseError: Missing or insufficient permissions.
+```
+
+khi cập nhật trạng thái Kanban. Console cũng từng ghi nhận permission-denied ở Work memberships / analytics. Đây là **known issue chưa hoàn thành**, không đánh dấu Work security COMPLETE.
+
+Hai commit xử lý Work gần nhất trong checkpoint này:
+
+```text
+06e075bd  fix: chuẩn hóa quyền kéo thả Work theo người được giao
+1abfe4a9  fix: cho phép thành viên được giao cập nhật Work an toàn
+```
+
+Các commit trên đã được giữ lại để tiếp tục debug có kiểm soát, không rollback lan sang giao diện đã hoàn thiện.
 
 ---
 
-## 12. Known Recent Fixes
+## 12. Communication / Notifications Foundation
+
+Đã có nền tảng cho:
+
+```text
+✓ Chat / Conversations
+✓ Tin nhắn
+✓ Unread count
+✓ Notifications
+✓ Notification badge
+✓ Read / unread state
+✓ Mention notification
+✓ @tất cả thành viên
+```
+
+Các vấn đề trước đây về unread badge, permission và conversation indexing đã được xử lý ở các checkpoint trước. Khi tiếp tục phát triển cần giữ nguyên hành vi đã chốt, không làm mất số chưa đọc khi refresh hoặc khi mở nội dung.
+
+---
+
+## 13. Known Recent Fixes
 
 ```text
 c9b8b11  fix: prevent department workspace task overflow
@@ -289,13 +338,15 @@ fab358b  fix: resolve department head and team lead scope
 43c12b9  fix: align department workspace tasks with scope
 1442162  fix: allow members directory reads without admin permission
 52c3b31  fix: polish member team field and detail inputs
+06e075bd fix: chuẩn hóa quyền kéo thả Work theo người được giao
+1abfe4a9 fix: cho phép thành viên được giao cập nhật Work an toàn
 ```
 
 Các commit trên repo là Source of Truth; nếu local khác repo thì pull `main` trước khi làm tiếp.
 
 ---
 
-## 13. Current Checkpoint
+## 14. Current Checkpoint — 17/08/2026
 
 ### COMPLETE
 
@@ -312,136 +363,140 @@ Team structure
 Team assignment
 Team Work filtering
 Management scope recognition
-Member access fix for directory reads
+Member directory access
 Team field UI polish
 Department Workspace task overflow fix
+Work UI / Kanban UI
+Work assignment UI
+Work comments / checklist / mentions foundation
+Chat / notification foundation
 ```
 
-### NOT YET CLOSED AS PRODUCTION SECURITY
+### NOT YET CLOSED
 
 ```text
-Scope → Work Security
-Department Head → Work scope
-Team Lead → Work scope
-Member → personal / assigned scope
-Firestore Rules verification
+Member → assigned Work → Kanban status update
+Scope → Work security verification
+Firestore Rules verification against real Admin + Member accounts
 ```
 
-Không đánh dấu các mục này COMPLETE chỉ vì code đã commit.
+**Không rollback giao diện hoặc các module đã hoàn thiện chỉ vì lỗi permission của Work.**
 
 ---
 
-## 14. NEXT DEVELOPMENT — Notifications + Chat
+## 15. NEXT DEVELOPMENT — CHẤM CÔNG / ĐIỂM DANH TRUY CẬP HỆ THỐNG
 
-Sau khi Scope → Work security được xác nhận, chuyển sang hai năng lực người dùng yêu cầu:
-
-### A. Notifications
-
-Mục tiêu:
-
-```text
-Notification Center
-├── Việc mới được giao
-├── Thay đổi trạng thái công việc
-├── Bình luận / trao đổi mới
-├── Mention
-├── Deadline sắp tới
-└── Thông báo hệ thống
-```
-
-Nguyên tắc:
-
-```text
-- Không spam.
-- Notification phải gắn với Actor / Recipient / Entity.
-- Có trạng thái read/unread.
-- Có timestamp.
-- Click notification phải đưa tới đúng ngữ cảnh.
-- Identity hiển thị bằng Họ tên + Chức danh.
-```
-
-### B. Chat / Trao đổi nội bộ
-
-Chat là năng lực Core/Communication dùng chung, không trộn với comment của một Task.
+Đây là checkpoint phát triển tiếp theo sau khi chốt State hôm nay.
 
 Mục tiêu ban đầu:
 
 ```text
-CHAT
-├── Conversations
-│   ├── Direct message
-│   └── Group conversation
+SYSTEM ATTENDANCE / ACCESS PRESENCE
 │
-├── Messages
-│   ├── Sender identity
-│   ├── Content
-│   ├── Timestamp
-│   └── Read state
-│
-└── Presence / Activity
+├── Ghi nhận lần đăng nhập thành công
+├── Ghi nhận thời điểm truy cập
+├── Ghi nhận lần hoạt động cuối
+├── Xác định trạng thái đang hoạt động / đã rời
+├── Theo dõi lịch sử truy cập theo ngày
+└── Dashboard Admin xem tình hình truy cập của thành viên
 ```
 
-Giai đoạn đầu ưu tiên:
+### Phân biệt rõ
 
 ```text
-1. Danh sách cuộc trò chuyện
-2. Chat 1-1
-3. Chat nhóm
-4. Gửi / nhận message realtime
-5. Unread count
-6. Notification integration
-7. Identity = Họ tên + Chức danh
+ĐĂNG NHẬP
+= xác thực tài khoản thành công
+
+TRUY CẬP HỆ THỐNG
+= có phiên làm việc / có hoạt động trong hệ thống
+
+ĐIỂM DANH
+= trạng thái được ghi nhận theo quy tắc chấm công của tổ chức
 ```
 
-Không dùng email làm tên người gửi trong giao diện chat nếu Identity đã có họ tên.
+Không được mặc định rằng “đăng nhập một lần = làm việc cả ngày”.
+
+### Thiết kế dữ liệu mục tiêu
+
+Có thể dùng một lớp attendance/access riêng, không trộn trực tiếp vào Identity:
+
+```text
+/systemAccess/{recordId}
+
+userId
+identitySnapshot
+loginAt
+lastActiveAt
+logoutAt
+sessionId
+status
+createdAt
+updatedAt
+```
+
+Nếu sau khi thiết kế chi tiết thấy session nên tách riêng với daily attendance thì sẽ tách thành hai collection. **Chưa coi schema này là final trước khi rà lại Constitution / Data Model.**
+
+### Admin cần nhìn thấy
+
+```text
+Thành viên
+Trạng thái hôm nay
+Lần truy cập đầu
+Lần hoạt động cuối
+Tổng phiên / lịch sử
+```
+
+Mục tiêu giao diện có thể tiến tới:
+
+```text
+🟢 Đang hoạt động
+🟡 Đã truy cập hôm nay
+⚪ Chưa truy cập hôm nay
+```
+
+Không dùng dữ liệu presence để kết luận hiệu suất làm việc. Presence chỉ phản ánh truy cập / hoạt động hệ thống.
 
 ---
 
-## 15. Development Sequence From Here
+## 16. Development Sequence From Here
 
 ```text
-CURRENT
+CURRENT CHECKPOINT
   ↓
-1. Verify / finish Scope → Work Security
+1. Chốt PROJECT_STATE
   ↓
-2. Department Head Work scope
+2. Rà Constitution + Data Model cho Attendance
   ↓
-3. Team Lead Work scope
+3. Thiết kế System Access / Attendance data model
   ↓
-4. Member personal / assigned scope
+4. Firestore Rules cho access records
   ↓
-5. Firestore Rules verification
+5. Ghi nhận login / session
   ↓
-6. Notifications Core
+6. Cập nhật lastActiveAt
   ↓
-7. Notification Center UI
+7. Xử lý logout / session expiry
   ↓
-8. Chat data model
+8. Admin attendance dashboard
   ↓
-9. Chat 1-1
+9. Test Admin + Member
   ↓
-10. Chat group
+10. Chốt checkpoint Attendance
   ↓
-11. Realtime message updates
-  ↓
-12. Unread + Notification integration
-  ↓
-13. Team management CRUD
-  ↓
-14. Reports / Activity
+11. Quay lại đóng Work permission checkpoint
 ```
 
-Không quay lại sửa các phần đã chốt trừ khi phát hiện lỗi thực tế.
+Không làm Attendance bằng cách sửa trực tiếp các module Work hiện tại.
 
 ---
 
-## 16. Next Session Command
+## 17. Next Session Command
 
 ```powershell
 cd C:\Users\Admin\Desktop\SAOVN-OS
 git pull origin main
 git status
-git log -3 --oneline
+git log -5 --oneline
 ```
 
 Nếu Rules đã thay đổi nhưng chưa deploy:
