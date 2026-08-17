@@ -65,7 +65,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /attendanceDays/{attendanceId} {
-      allow read: if isMember();
+      allow read: if signedIn() && exists(/databases/$(database)/documents/identities/$(request.auth.uid)) && get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.get("status", "") == "ACTIVE";
       allow create: if isMember() && request.resource.data.userId == request.auth.uid;
       allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
