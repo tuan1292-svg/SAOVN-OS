@@ -67,7 +67,6 @@ service cloud.firestore {
     }
     match /attendanceDays/{attendanceId} {
       // Leaderboard query: every active member may read attendance-day aggregates for the organization.
-      // This intentionally does not depend on fields inside the target attendance document, so a collection query is allowed.
       allow read: if isMember();
       allow create: if isMember() && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01";
       allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == resource.data.organizationId;
