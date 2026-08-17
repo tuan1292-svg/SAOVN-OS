@@ -21,7 +21,7 @@ function prepareCompactCard() {
     panel.classList.add("attendance-compact");
     const style = document.createElement("style");
     style.textContent = `
-        .attendance-panel.attendance-compact{margin-top:0;padding:14px 15px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025);box-shadow:none}
+        .attendance-panel.attendance-compact{margin-top:0;padding:14px 15px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,#101d31c2,#070f1daa);backdrop-filter:blur(20px);box-shadow:inset 0 1px #ffffff09,0 18px 50px #00000022}
         .attendance-compact .attendance-head{display:block;margin-bottom:10px}
         .attendance-compact .attendance-head h2{font-size:14px;margin:3px 0}
         .attendance-compact .attendance-head p{font-size:10px}
