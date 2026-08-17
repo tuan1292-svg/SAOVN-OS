@@ -6,143 +6,70 @@
 > Module: PEOPLE / Attendance
 > Priority: P0 — Core operational capability
 
----
-
 # 01. PURPOSE — MỤC ĐÍCH
 
 Attendance Module ghi nhận việc thành viên có truy cập và hoạt động trên SAOVN-OS hay không.
 
-Giai đoạn đầu của module **không phải hệ thống tính lương** và không tự suy diễn số giờ làm việc thực tế chỉ từ việc mở website.
+Giai đoạn đầu không phải hệ thống tính lương và không tự suy diễn số giờ làm việc thực tế chỉ từ việc mở website.
 
-Mục tiêu trước mắt:
+Mục tiêu:
+- Ai đã truy cập hệ thống?
+- Khi nào truy cập?
+- Phiên truy cập còn hoạt động không?
+- Lần hoạt động cuối là khi nào?
+- Hôm nay thành viên đã vào hệ thống chưa?
+- Thành viên đang đứng ở đâu trong bảng điểm danh của tập thể?
 
-```text
-Ai đã truy cập hệ thống?
-Khi nào truy cập?
-Phiên truy cập còn hoạt động không?
-Lần hoạt động cuối là khi nào?
-Hôm nay thành viên đã vào hệ thống chưa?
-```
+# 02. ARCHITECTURAL POSITION
 
----
-
-# 02. ARCHITECTURAL POSITION — VỊ TRÍ TRONG KIẾN TRÚC
-
-Theo Module Map, Attendance thuộc:
-
-```text
-PEOPLE
-└── Attendance
-```
-
-Attendance phụ thuộc vào các Core Module:
-
-```text
-Identity
-Organization
-Access Control
-Audit
-```
+Attendance thuộc PEOPLE và phụ thuộc Identity, Organization, Access Control, Audit.
 
 Attendance không tạo Identity riêng và không tạo bản sao hồ sơ thành viên.
 
-Identity chính vẫn lấy từ Identity / Membership hiện có.
+# 03. DOMAIN CONCEPTS
 
----
-
-# 03. DOMAIN CONCEPTS — KHÁI NIỆM NGHIỆP VỤ
-
-## 03.1 System Access — Lần truy cập hệ thống
-
+## 03.1 System Access
 Một sự kiện cho biết User đã xác thực và bắt đầu sử dụng SAOVN-OS.
 
-Ví dụ:
+## 03.2 Access Session
+Một phiên làm việc sau khi đăng nhập, gồm startedAt, lastActiveAt, endedAt và status.
 
-```text
-User A
-→ Login thành công
-→ System Access
-→ 2026-08-17 08:03
-```
+## 03.3 Presence
+Trạng thái hoạt động gần đây: ACTIVE, IDLE, OFFLINE. Presence không đồng nghĩa với đủ giờ làm.
 
-## 03.2 Access Session — Phiên truy cập
+## 03.4 Attendance Day
+Bản tổng hợp theo ngày: hasAccess, firstAccessAt, lastAccessAt, sessionCount.
 
-Một phiên làm việc của User sau khi đăng nhập.
+## 03.5 Attendance Leaderboard
+Bảng thành tích điểm danh của toàn tập thể. Đây là một phần chính thức của Attendance, không phải màn hình phụ.
 
-Session dùng để xác định:
+Leaderboard phục vụ mục tiêu tạo động lực tích cực: thành viên nhìn thấy mức độ hiện diện của cả tập thể và tự nhận biết mình đang nghiêm túc đến đâu.
 
-- thời điểm bắt đầu;
-- hoạt động gần nhất;
-- trạng thái phiên;
-- thời điểm kết thúc nếu xác định được.
+Giai đoạn đầu xếp hạng theo **độ đều đặn truy cập hệ thống**, không xếp hạng theo số giờ online.
 
-## 03.3 Presence — Trạng thái hoạt động
+Các chỉ số chính:
+- Số ngày đã truy cập trong khoảng thời gian.
+- Tỷ lệ điểm danh.
+- Lần truy cập đầu gần nhất.
+- Trạng thái hiện tại.
 
-Presence chỉ phản ánh trạng thái hoạt động gần đây trên hệ thống.
+Không dùng leaderboard để kết luận năng suất hay chất lượng công việc.
 
-```text
-ACTIVE
-IDLE
-OFFLINE
-```
+# 04. DATA OWNERSHIP
 
-Presence **không đồng nghĩa** với chấm công đủ giờ.
+Attendance sở hữu Access Event, Access Session, Attendance Day và các aggregate phục vụ leaderboard.
 
-## 03.4 Attendance Day — Ngày điểm danh
+Attendance tham chiếu User / Identity, Membership, Organization, Department, Team.
 
-Một bản tổng hợp theo ngày cho biết User có truy cập hệ thống trong ngày đó hay không.
+Identity hiện tại vẫn là nguồn hiển thị chuẩn.
 
-Giai đoạn đầu chỉ cần:
+# 05. INITIAL DATA MODEL
 
-```text
-hasAccess
-firstAccessAt
-lastAccessAt
-```
+## 05.1 attendanceSessions
 
-Không tự tính `workingHours` nếu chưa có chính sách chấm công chính thức.
-
----
-
-# 04. DATA OWNERSHIP — SỞ HỮU DỮ LIỆU
-
-Attendance sở hữu các dữ liệu:
-
-```text
-Access Event
-Access Session
-Attendance Day
-```
-
-Attendance tham chiếu:
-
-```text
-User / Identity
-Membership
-Organization
-Department
-Team
-```
-
-Không copy toàn bộ Profile vào Attendance.
-
-Có thể lưu snapshot tối thiểu cho audit khi cần, nhưng Identity hiện tại vẫn là nguồn hiển thị chuẩn.
-
----
-
-# 05. INITIAL DATA MODEL — MÔ HÌNH DỮ LIỆU GIAI ĐOẠN 1
-
-## 05.1 `attendanceSessions`
-
-Đề xuất collection:
-
-```text
 /attendanceSessions/{sessionId}
-```
 
 Fields:
-
-```text
 userId
 organizationId
 membershipId
@@ -153,36 +80,15 @@ status
 source
 createdAt
 updatedAt
-```
 
-`status`:
+status: ACTIVE | ENDED | EXPIRED
+source: WEB | OTHER
 
-```text
-ACTIVE
-ENDED
-EXPIRED
-```
+## 05.2 attendanceDays
 
-`source` có thể dùng để phân biệt:
-
-```text
-WEB
-OTHER
-```
-
-nhưng không được hard-code logic phụ thuộc vào một client duy nhất.
-
-## 05.2 `attendanceDays`
-
-Đề xuất collection:
-
-```text
 /attendanceDays/{attendanceId}
-```
 
 Fields:
-
-```text
 userId
 organizationId
 membershipId
@@ -193,200 +99,126 @@ lastAccessAt
 sessionCount
 createdAt
 updatedAt
-```
 
-Document ID nên có tính xác định theo User + Organization + Date để tránh tạo nhiều bản ghi cho cùng một người trong cùng một ngày.
+Document ID có tính xác định theo Organization + User + Date để tránh trùng ngày.
 
-Ví dụ:
+## 05.3 Leaderboard aggregate
 
-```text
-{organizationId}_{userId}_{YYYY-MM-DD}
-```
+Leaderboard có thể tính từ attendanceDays thay vì tạo một nguồn dữ liệu nhân sự thứ hai.
 
-Nếu triển khai Firestore, cần chuẩn hóa cách tạo ID để client và server dùng cùng một quy tắc.
+Nếu cần cache aggregate để dashboard nhanh hơn, cache phải có thể tái tạo từ attendanceDays.
 
----
+Không lưu thứ hạng như một sự thật bất biến.
 
-# 06. EVENT FLOW — LUỒNG HOẠT ĐỘNG
+# 06. EVENT FLOW
 
-```text
 Authentication success
-        ↓
-Resolve Identity / Membership
-        ↓
-Create or resume Access Session
-        ↓
-Update Attendance Day
-        ↓
-Update lastActiveAt on controlled interval
-        ↓
-Session ends / expires
-```
+→ Resolve Identity / Membership
+→ Create or resume Access Session
+→ Update Attendance Day
+→ Heartbeat theo chu kỳ
+→ Session ends / expires
+→ Leaderboard aggregate được cập nhật/đọc từ Attendance Day
 
-Không ghi Firestore ở mỗi thao tác click.
+Không ghi Firestore ở mỗi click.
 
-`lastActiveAt` phải được cập nhật theo khoảng thời gian hợp lý để tránh tạo write quá lớn.
+# 07. LEADERBOARD UX
 
----
+## Member Dashboard
 
-# 07. FIRST VERSION BEHAVIOR — HÀNH VI PHIÊN BẢN ĐẦU
-
-Khi User đăng nhập thành công:
+Ngay trên Tổng quan của thành viên có module:
 
 ```text
-1. Xác định User UID.
-2. Resolve Membership active.
-3. Mở hoặc tạo Access Session.
-4. Tạo/cập nhật Attendance Day của ngày hiện tại.
-5. Ghi firstAccessAt nếu đây là lần đầu trong ngày.
-6. Cập nhật lastAccessAt.
+🏆 ĐIỂM DANH HỆ THỐNG
+
+Hôm nay | Tuần này | Tháng này
+
+🥇 Thành viên A   5/5 ngày   ● Đang hoạt động
+🥈 Thành viên B   5/5 ngày   ● Đang hoạt động
+🥉 Thành viên C   4/5 ngày   ○ Đã rời
+4  Thành viên D   4/5 ngày   ● Đang hoạt động
+...
 ```
 
-Trong phiên đang hoạt động:
+Bảng hiển thị toàn bộ thành viên trong phạm vi tổ chức mà người xem được phép thấy.
+
+Có thể lọc:
+- Toàn công ty
+- Phòng ban
+- Team
+
+Tên thành viên dùng Identity hiện tại và giữ khả năng mở profile theo chuẩn UI của hệ thống.
+
+Không hiển thị email làm tên chính.
+
+## Admin Dashboard
+
+Admin có bảng quản trị chi tiết hơn:
+
+- Tổng thành viên
+- Đã truy cập hôm nay
+- Chưa truy cập
+- Đang hoạt động
+- Đã rời hệ thống
+- Danh sách thành viên
+- Phòng ban
+- Team
+- Lần truy cập đầu
+- Lần hoạt động cuối
+- Trạng thái
+- Tỷ lệ điểm danh
+
+# 08. RANKING RULES
+
+Giai đoạn đầu:
 
 ```text
-Không ghi liên tục.
-Chỉ heartbeat theo chu kỳ.
+attendanceRate = accessedWorkingDays / expectedWorkingDays
 ```
 
-Khi logout:
+Nếu chưa có lịch làm việc chính thức, dùng số ngày trong khoảng được chọn làm mẫu thống kê, không tự gọi đó là số ngày làm việc bắt buộc.
 
-```text
-endedAt = current time
-status = ENDED
-```
+Thứ hạng chỉ là chỉ báo mức độ hiện diện hệ thống.
 
-Nếu browser đóng hoặc mất kết nối:
+Không xếp hạng theo:
+- số phút online;
+- số lần click;
+- số lượng thao tác giả tạo;
+- năng suất công việc.
 
-```text
-không giả định logout thành công.
-Session được coi là EXPIRED sau ngưỡng timeout.
-```
+# 09. PERMISSION MODEL
 
----
+Member:
+- tạo/cập nhật session của chính mình;
+- heartbeat của chính mình;
+- xem leaderboard trong scope được phép;
+- xem attendance của chính mình.
 
-# 08. PERMISSION MODEL — PHÂN QUYỀN
+Department Head / Team Lead:
+- xem báo cáo theo Scope khi được cấp quyền;
+- không tự động được quyền sửa attendance lịch sử.
 
-## Member
+Admin / Founder:
+- xem attendance theo phạm vi quản trị;
+- xem leaderboard toàn tổ chức;
+- xem session status, first/last access.
 
-Được phép:
+Sửa dữ liệu lịch sử phải đi qua Audit/Adjustment riêng.
 
-```text
-Tạo/cập nhật phiên của chính mình
-Cập nhật heartbeat của chính mình
-Xem trạng thái truy cập của chính mình
-```
+# 10. SECURITY PRINCIPLES
 
-Không được phép:
-
-```text
-Ghi attendance cho User khác
-Sửa firstAccessAt của User khác
-Sửa lastAccessAt của User khác
-Sửa session của User khác
-```
-
-## Department Head / Team Lead
-
-Giai đoạn đầu không tự động được quyền sửa attendance của thành viên.
-
-Có thể được cấp quyền **xem báo cáo theo Scope** ở checkpoint sau.
-
-## Admin / Founder
-
-Được phép:
-
-```text
-Xem attendance theo phạm vi quản trị
-Xem session status
-Xem first/last access
-```
-
-Việc sửa dữ liệu attendance lịch sử phải đi qua cơ chế Audit/Adjustment riêng, không cho Admin tùy tiện ghi đè dữ liệu gốc.
-
----
-
-# 09. SECURITY PRINCIPLES — NGUYÊN TẮC BẢO MẬT
-
-Attendance là dữ liệu hoạt động nhân sự nên phải tuân thủ:
-
-```text
 Least privilege
 Single source of truth
 Auditability
 Scope-based visibility
 No client-side trust
-```
 
-Không được coi:
+Không coi request.auth != null là đủ để ghi attendance của người khác.
 
-```text
-request.auth != null
-```
+Firestore Rules phải kiểm tra User hiện tại khớp với userId của session/day record.
 
-là đủ để cho phép User ghi attendance của người khác.
+# 11. FUTURE EXTENSIONS
 
-Firestore Rules phải kiểm tra User hiện tại khớp với `userId` của session/day record.
-
----
-
-# 10. ADMIN VIEW — GIAO DIỆN QUẢN TRỊ GIAI ĐOẠN 1
-
-Dashboard tối thiểu:
-
-```text
-ĐIỂM DANH HỆ THỐNG
-
-Tổng thành viên
-Đã truy cập hôm nay
-Chưa truy cập
-Đang hoạt động
-Đã rời hệ thống
-```
-
-Danh sách:
-
-```text
-Thành viên
-Phòng ban
-Team
-Lần truy cập đầu
-Lần hoạt động cuối
-Trạng thái
-```
-
-Identity hiển thị:
-
-```text
-Họ tên
-Chức danh
-```
-
-Không lấy email làm tên chính.
-
----
-
-# 11. MEMBER VIEW — GIAO DIỆN THÀNH VIÊN
-
-Thành viên chỉ cần thấy:
-
-```text
-Hôm nay
-Đã truy cập: Có / Chưa
-Lần vào hệ thống
-Hoạt động gần nhất
-Trạng thái phiên
-```
-
-Không cần biến Attendance thành màn hình chấm công phức tạp ở giai đoạn đầu.
-
----
-
-# 12. FUTURE EXTENSIONS — MỞ RỘNG SAU
-
-Attendance có thể mở rộng thành:
-
-```text
 Work Schedule
 Shift
 Check-in / Check-out
@@ -397,74 +229,40 @@ Attendance Adjustment
 Approval
 Attendance Report
 Payroll Integration
-```
-
-Các chức năng này **không nằm trong checkpoint đầu tiên**.
 
 Đặc biệt:
 
-```text
-Có truy cập hệ thống
-≠
-Đã làm đủ số giờ
-```
+Có truy cập hệ thống ≠ Đã làm đủ số giờ.
 
-SAOVN-OS chỉ được tính giờ làm khi có chính sách và cơ chế chấm công rõ ràng.
+# 12. IMPLEMENTATION CHECKPOINTS
 
----
-
-# 13. IMPLEMENTATION CHECKPOINTS — CHECKPOINT TRIỂN KHAI
-
-```text
-CHECKPOINT 1
-Data model + collection contract
-
-CHECKPOINT 2
-Firestore Rules
-
-CHECKPOINT 3
-Login → Attendance Session
-
-CHECKPOINT 4
-Heartbeat / lastActiveAt
-
-CHECKPOINT 5
-Attendance Day
-
-CHECKPOINT 6
-Admin attendance dashboard
-
-CHECKPOINT 7
-Member attendance view
-
-CHECKPOINT 8
-Admin + Member security test
-
-CHECKPOINT 9
-Commit / close checkpoint
-```
+CHECKPOINT 1 — Data model + collection contract
+CHECKPOINT 2 — Firestore Rules
+CHECKPOINT 3 — Login → Attendance Session
+CHECKPOINT 4 — Heartbeat / lastActiveAt
+CHECKPOINT 5 — Attendance Day
+CHECKPOINT 6 — Leaderboard aggregate/query
+CHECKPOINT 7 — Admin attendance dashboard
+CHECKPOINT 8 — Member leaderboard on Overview
+CHECKPOINT 9 — Admin + Member security test
+CHECKPOINT 10 — Commit / close checkpoint
 
 Không triển khai toàn bộ module trong một commit lớn.
 
----
+# 13. SUCCESS CRITERIA
 
-# 14. SUCCESS CRITERIA — TIÊU CHÍ HOÀN THÀNH GIAI ĐOẠN 1
-
-Module được coi là đạt checkpoint khi:
-
-```text
 ✓ Member login → được ghi nhận truy cập.
 ✓ Cùng một ngày không tạo attendance day trùng.
 ✓ Session được tạo/resume đúng.
 ✓ Heartbeat không tạo write liên tục.
 ✓ Member không ghi/sửa dữ liệu của Member khác.
 ✓ Admin xem được dữ liệu theo quyền.
+✓ Member nhìn thấy leaderboard trong scope được phép.
+✓ Leaderboard phản ánh toàn bộ thành viên trong scope.
+✓ Thứ hạng dựa trên độ đều đặn truy cập, không giả định năng suất.
 ✓ Identity hiển thị đúng Họ tên + Chức danh.
 ✓ Session timeout không bị coi là logout giả.
 ✓ Dữ liệu có timestamp rõ ràng.
 ✓ Có thể truy vết thay đổi quan trọng.
-```
-
----
 
 # END OF ATTENDANCE MODULE SPECIFICATION
