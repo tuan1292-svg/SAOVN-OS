@@ -30,7 +30,11 @@ export function createCommentsPanel(){return `<section class="collab-panel" data
 
 export async function mountComments(taskId,root){
   if(!taskId||!root)return;root.dataset.workPluginState='loading';
-  root.querySelector('[data-add-comment]')?.addEventListener('click',()=>addComment(taskId,root));
+  const button=root.querySelector('[data-add-comment]');
+  button?.addEventListener('click',()=>{
+    const request=new CustomEvent('work-comment-submit-request',{detail:{taskId,root},cancelable:true});
+    if(window.dispatchEvent(request)) addComment(taskId,root);
+  });
   await loadComments(taskId,root);
 }
 
@@ -45,12 +49,16 @@ async function loadComments(taskId,root){
   }catch(e){console.warn('Không tải được trao đổi:',e?.code||e);box.innerHTML='<span class="loading">Chưa có trao đổi hoặc tài khoản chưa được cấp quyền cộng tác.</span>';root.dataset.workPluginState='error';moduleHealth('WORK.COMMENTS','degraded',e?.code||String(e))}
 }
 
-async function addComment(taskId,root){
-  const input=root.querySelector('[data-comment-input]');if(!input?.value.trim()||!auth.currentUser)return;
-  const text=input.value.trim(),button=root.querySelector('[data-add-comment]');input.disabled=true;if(button)button.disabled=true;
-  try{const identity=await getIdentity(auth.currentUser.uid),author=identityDisplay(identity,auth.currentUser.displayName||'Thành viên');await addDoc(taskComments(taskId),{text,authorId:auth.currentUser.uid,authorName:author.name,authorPosition:author.position,createdAt:serverTimestamp()});input.value='';await loadComments(taskId,root)}
-  catch(e){console.warn('Không thể gửi trao đổi:',e?.code||e);alert('Không thể gửi trao đổi. Tài khoản chưa có quyền cộng tác với công việc này.')}
-  finally{input.disabled=false;if(button)button.disabled=false;input.focus()}
+export async function addComment(taskId,root,textOverride='',mentionData={}){
+  const input=root.querySelector('[data-comment-input]');if(!auth.currentUser)return false;
+  const text=(textOverride||input?.value||'').trim();if(!text)return false;
+  const button=root.querySelector('[data-add-comment]');if(input)input.disabled=true;if(button)button.disabled=true;
+  try{
+    const identity=await getIdentity(auth.currentUser.uid),author=identityDisplay(identity,auth.currentUser.displayName||'Thành viên');
+    await addDoc(taskComments(taskId),{text,authorId:auth.currentUser.uid,authorName:author.name,authorPosition:author.position,mentionIds:Array.isArray(mentionData.mentionIds)?mentionData.mentionIds:[],mentionNames:Array.isArray(mentionData.mentionNames)?mentionData.mentionNames:[],mentionAll:mentionData.mentionAll===true,createdAt:serverTimestamp()});
+    if(input)input.value='';await loadComments(taskId,root);window.dispatchEvent(new CustomEvent('work-comment-created',{detail:{taskId,mentionIds:mentionData.mentionIds||[]}}));return true;
+  }catch(e){console.warn('Không thể gửi trao đổi:',e?.code||e);alert('Không thể gửi trao đổi. Tài khoản chưa có quyền cộng tác với công việc này.');return false}
+  finally{if(input)input.disabled=false;if(button)button.disabled=false;if(input)input.focus()}
 }
 
 moduleHealth('WORK.COMMENTS','ready');
