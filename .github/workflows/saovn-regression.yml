@@ -1,0 +1,52 @@
+name: SAOVN Regression Gate
+
+on:
+  push:
+    branches: [main, chore/engineering-governance]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: JavaScript syntax + Work boundary checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find 03_APPLICATION/WEB -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+
+      - name: Check Work module boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f 03_APPLICATION/WEB/js/modules/work/work-module.js
+          test -f 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
+          test -f 03_APPLICATION/WEB/js/modules/work/work-module-contract.js
+          test -f 03_APPLICATION/WEB/js/modules/work/work-regression.js
+          test -f firestore.rules
+          grep -q "WORK.CHAT" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
+          grep -q 'match /chat/{messageId}' firestore.rules
+          grep -q 'canReadWorkChat' firestore.rules
+          grep -q 'canWriteWorkChat' firestore.rules
+
+      - name: Check Chat remains isolated and disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "id: 'WORK.CHAT'.*enabled: false" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
+          grep -q "dataOwner: 'workTasks/{taskId}/chat/{messageId}'" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
