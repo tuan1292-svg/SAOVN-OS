@@ -32,8 +32,9 @@ export async function mountComments(taskId,root){
   if(!taskId||!root)return;root.dataset.workPluginState='loading';
   const button=root.querySelector('[data-add-comment]');
   button?.addEventListener('click',()=>{
-    const request=new CustomEvent('work-comment-submit-request',{detail:{taskId,root},cancelable:true});
-    if(window.dispatchEvent(request)) addComment(taskId,root);
+    const detail={taskId,root,handled:false};
+    window.dispatchEvent(new CustomEvent('work-comment-submit-request',{detail}));
+    if(!detail.handled) void addComment(taskId,root);
   });
   await loadComments(taskId,root);
 }
