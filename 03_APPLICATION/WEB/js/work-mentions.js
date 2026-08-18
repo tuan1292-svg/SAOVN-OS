@@ -1,3 +1,4 @@
 // Compatibility entrypoint kept for existing work.html imports.
-// The implementation now lives in the isolated WORK.MENTIONS plugin.
+// It also boots the centralized Work registry so old pages can migrate safely.
+import './modules/work/work-module.js';
 import './modules/work/work-mentions.plugin.js';
