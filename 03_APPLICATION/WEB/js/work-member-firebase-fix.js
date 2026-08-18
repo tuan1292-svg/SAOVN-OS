@@ -1,6 +1,16 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { collection, getDocs, getDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { registerModule, moduleHealth } from './core/module-registry.js';
+
+registerModule({id:'WORK.TASK',parentId:'WORK',version:'1.0.0',capabilities:['WORK.TASK.READ','WORK.TASK.CREATE','WORK.TASK.UPDATE','WORK.TASK.DELETE'],owns:['workTasks']});
+registerModule({id:'WORK.CHECKLIST',parentId:'WORK',version:'1.0.0',dependencies:['WORK.TASK'],capabilities:['WORK.CHECKLIST.READ','WORK.CHECKLIST.CREATE','WORK.CHECKLIST.UPDATE','WORK.CHECKLIST.DELETE'],owns:['workTasks/{taskId}/checklist']});
+registerModule({id:'WORK.COMMENTS',parentId:'WORK',version:'1.0.0',dependencies:['WORK.TASK'],capabilities:['WORK.COMMENTS.READ','WORK.COMMENTS.CREATE','WORK.COMMENTS.UPDATE','WORK.COMMENTS.DELETE'],owns:['workTasks/{taskId}/comments']});
+registerModule({id:'WORK.MENTIONS',parentId:'WORK',version:'1.0.0',dependencies:['WORK.TASK','WORK.COMMENTS'],capabilities:['WORK.MENTIONS.RESOLVE','WORK.MENTIONS.CREATE'],owns:['workTasks/{taskId}/mentions']});
+registerModule({id:'WORK.ANALYTICS',parentId:'WORK',version:'1.0.0',dependencies:['WORK.TASK'],capabilities:['WORK.ANALYTICS.READ'],owns:['derived Work analytics'],optional:true});
+registerModule({id:'WORK.CHAT',parentId:'WORK',version:'1.0.0',dependencies:['WORK.TASK'],capabilities:['WORK.CHAT.READ','WORK.CHAT.CREATE','WORK.CHAT.UPDATE','WORK.CHAT.DELETE'],owns:['workTasks/{taskId}/chatThreads'],status:'PLANNED'});
+
+for(const id of ['WORK.TASK','WORK.CHECKLIST','WORK.COMMENTS','WORK.MENTIONS','WORK.ANALYTICS'])moduleHealth(id,'ready','legacy implementation registered behind plugin boundary');
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
