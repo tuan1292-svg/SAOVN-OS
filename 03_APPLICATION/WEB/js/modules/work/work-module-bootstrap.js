@@ -1,6 +1,7 @@
 import { startWorkPluginMountManager } from './work-plugin-mount-manager.js';
 import { getWorkPluginList, loadWorkPlugin } from './work-plugin-host.js';
 import { isWorkModulesEnabled, isWorkPluginEnabled } from './work-module-config.js';
+import { runWorkModuleHealthCheck } from './work-module-health.js';
 
 let booted = false;
 let stopMountManager = null;
@@ -12,8 +13,13 @@ export async function bootWorkModules() {
 
   if (booted) return { booted: true, plugins: getWorkPluginList() };
 
+  const healthBeforeBoot = runWorkModuleHealthCheck();
+  if (!healthBeforeBoot.ok) {
+    console.error('[WORK.MODULES] Health gate blocked bootstrap:', healthBeforeBoot.errors);
+    return { booted: false, blocked: true, health: healthBeforeBoot };
+  }
+
   stopMountManager = startWorkPluginMountManager();
-  booted = true;
 
   if (isWorkPluginEnabled('WORK.CHAT')) {
     try {
@@ -23,9 +29,11 @@ export async function bootWorkModules() {
     }
   }
 
+  booted = true;
   return {
     booted: true,
-    plugins: getWorkPluginList()
+    plugins: getWorkPluginList(),
+    health: runWorkModuleHealthCheck()
   };
 }
 
