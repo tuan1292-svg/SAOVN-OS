@@ -13,11 +13,12 @@ export const WORK_CHAT_CONTRACT = Object.freeze({
   id: MODULE_ID,
   parentId: 'WORK',
   version: '1.0.0',
-  status: 'PLANNED',
-  dependencies: ['WORK.TASK', 'CORE.IDENTITY', 'CORE.NOTIFICATION'],
+  status: 'ACTIVE',
+  dependencies: ['WORK.TASK'],
   capabilities: WORK_CHAT_CAPABILITIES,
   dataOwner: 'workTasks/{taskId}/chat',
-  permissionNamespace: 'WORK.CHAT.*'
+  permissionNamespace: 'WORK.CHAT.*',
+  load: async () => ({ id: MODULE_ID, status: 'READY' })
 });
 
 export function registerWorkChat() {
@@ -27,19 +28,24 @@ export function registerWorkChat() {
 
 export function assertWorkChatDependencies() {
   assertDependency(MODULE_ID, 'WORK.TASK');
-  assertDependency(MODULE_ID, 'CORE.IDENTITY');
-  assertDependency(MODULE_ID, 'CORE.NOTIFICATION');
+}
+
+export async function loadWorkChat() {
+  registerWorkChat();
+  try {
+    assertWorkChatDependencies();
+    const module = getModule(MODULE_ID);
+    const instance = await module.load();
+    moduleHealth(MODULE_ID, 'READY', 'WORK.CHAT loaded through module contract');
+    return { ...module, ...instance };
+  } catch (error) {
+    moduleHealth(MODULE_ID, 'FAILED', error?.message || String(error));
+    throw error;
+  }
 }
 
 export function mountWorkChat({ taskId, host } = {}) {
   registerWorkChat();
-  try {
-    assertWorkChatDependencies();
-    if (!taskId || !host) throw new Error('WORK.CHAT requires taskId and host');
-    moduleHealth(MODULE_ID, 'ready', 'contract registered; UI adapter not yet enabled');
-    return { id: MODULE_ID, taskId, host, status: 'READY_CONTRACT_ONLY' };
-  } catch (error) {
-    moduleHealth(MODULE_ID, 'failed', error?.message || String(error));
-    return { id: MODULE_ID, taskId, host, status: 'FAILED', error };
-  }
+  if (!taskId || !host) throw new Error('WORK.CHAT requires taskId and host');
+  return { id: MODULE_ID, taskId, host, status: 'READY_CONTRACT_ONLY' };
 }
