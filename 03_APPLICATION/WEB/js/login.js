@@ -1,10 +1,31 @@
 import { signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { auth, db } from './firebase-config.js';
-import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
 const loginForm=document.getElementById('loginForm'),identityInput=document.getElementById('identity'),passwordInput=document.getElementById('password'),identityError=document.getElementById('identityError'),passwordError=document.getElementById('passwordError'),formStatus=document.getElementById('formStatus'),loginButton=document.getElementById('loginButton'),passwordToggle=document.getElementById('passwordToggle');
 
-async function routeAfterLogin(user){try{const identitySnap=await getDoc(doc(db,'identities',user.uid)),membershipSnap=await getDoc(doc(db,'memberships',`mem_${user.uid}_org_saovn_01`));const identity=identitySnap.exists()?identitySnap.data():{},membership=membershipSnap.exists()?membershipSnap.data():{};const pending=String(membership.status||identity.status||'ACTIVE').toUpperCase()==='PENDING'||identity.mustChangePassword===true;if(pending){window.location.href='activate.html';return;}window.location.href='dashboard.html';}catch(error){console.error('Không thể kiểm tra trạng thái tài khoản:',error);window.location.href='dashboard.html';}}
+function getLocalDateKey(date=new Date()){
+    const year=date.getFullYear();
+    const month=String(date.getMonth()+1).padStart(2,'0');
+    const day=String(date.getDate()).padStart(2,'0');
+    return `${year}-${month}-${day}`;
+}
+
+async function recordAttendanceAccess(user){
+    const date=getLocalDateKey();
+    const attendanceId=`${user.uid}_${date}`;
+    const attendanceRef=doc(db,'attendanceDays',attendanceId);
+    await setDoc(attendanceRef,{
+        userId:user.uid,
+        organizationId:'org_saovn_01',
+        date,
+        hasAccess:true,
+        status:'ACTIVE',
+        lastAccessAt:serverTimestamp()
+    },{merge:true});
+}
+
+async function routeAfterLogin(user){try{const identitySnap=await getDoc(doc(db,'identities',user.uid)),membershipSnap=await getDoc(doc(db,'memberships',`mem_${user.uid}_org_saovn_01`));const identity=identitySnap.exists()?identitySnap.data():{},membership=membershipSnap.exists()?membershipSnap.data():{};const pending=String(membership.status||identity.status||'ACTIVE').toUpperCase()==='PENDING'||identity.mustChangePassword===true;if(pending){window.location.href='activate.html';return;}try{await recordAttendanceAccess(user);}catch(attendanceError){console.error('Không thể ghi nhận điểm danh hệ thống:',attendanceError);}window.location.href='dashboard.html';}catch(error){console.error('Không thể kiểm tra trạng thái tài khoản:',error);window.location.href='dashboard.html';}}
 
 onAuthStateChanged(auth,user=>{if(user)routeAfterLogin(user);});
 function clearErrors(){identityError.textContent='';passwordError.textContent='';document.querySelectorAll('.form-group').forEach(group=>group.classList.remove('has-error'));formStatus.textContent='';formStatus.className='form-status';}
