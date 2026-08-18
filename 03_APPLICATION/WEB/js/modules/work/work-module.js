@@ -1,5 +1,6 @@
 import { moduleHealth, listModules } from '../../core/module-registry.js';
 import { assertWorkBoundary } from './work-module-contract.js';
+import { runWorkRegressionChecks } from './work-regression.js';
 
 // Child plugins are bootstrapped in dependency order. Each plugin owns its
 // registration and runtime health; a failed optional child must not abort Work.
@@ -45,10 +46,17 @@ for (const entry of compatibility) {
 
 try {
   const boundary = assertWorkBoundary();
+  const regression = runWorkRegressionChecks();
   const modules = listModules('WORK');
-  console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => `${m.id}:${m.status || 'registered'}`));
-  moduleHealth('WORK', 'ready', `${modules.length} child plugins registered; boundary=${boundary.ok}`);
+
+  if (!regression.ok) {
+    moduleHealth('WORK', 'failed', regression.errors.join('; '));
+    console.error('[WORK] regression gate failed', regression.errors);
+  } else {
+    console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => `${m.id}:${m.status || 'registered'}`));
+    moduleHealth('WORK', 'ready', `${modules.length} child plugins registered; boundary=${boundary.ok}; regression=${regression.ok}`);
+  }
 } catch (error) {
   moduleHealth('WORK', 'failed', error?.message || String(error));
-  console.error('[WORK] boundary contract failed', error);
+  console.error('[WORK] boundary/regression gate failed', error);
 }
