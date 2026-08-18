@@ -1,58 +1,16 @@
 /**
  * WORK module manifest.
- * This is the single inventory for optional/required Work plugins.
- * It describes boundaries; it does not contain business logic.
+ * Single inventory for required/optional Work plugins.
+ * Business logic stays inside each plugin; this file only defines boundaries.
  */
 
 export const WORK_MODULE_MANIFEST = Object.freeze([
-  {
-    id: 'WORK.TASK',
-    version: '1.0.0',
-    required: true,
-    dependencies: [],
-    dataOwner: 'workTasks/{taskId}',
-    permissionNamespace: 'WORK.TASK.*'
-  },
-  {
-    id: 'WORK.CHECKLIST',
-    version: '1.0.0',
-    required: false,
-    dependencies: ['WORK.TASK'],
-    dataOwner: 'workTasks/{taskId}/checklist',
-    permissionNamespace: 'WORK.CHECKLIST.*'
-  },
-  {
-    id: 'WORK.COMMENTS',
-    version: '1.0.0',
-    required: false,
-    dependencies: ['WORK.TASK'],
-    dataOwner: 'workTasks/{taskId}/comments',
-    permissionNamespace: 'WORK.COMMENTS.*'
-  },
-  {
-    id: 'WORK.MENTIONS',
-    version: '1.0.0',
-    required: false,
-    dependencies: ['WORK.TASK'],
-    dataOwner: 'workTasks/{taskId}',
-    permissionNamespace: 'WORK.MENTIONS.*'
-  },
-  {
-    id: 'WORK.ANALYTICS',
-    version: '1.0.0',
-    required: false,
-    dependencies: ['WORK.TASK'],
-    dataOwner: 'workTasks/{taskId}',
-    permissionNamespace: 'WORK.ANALYTICS.*'
-  },
-  {
-    id: 'WORK.CHAT',
-    version: '1.0.0',
-    required: false,
-    dependencies: ['WORK.TASK'],
-    dataOwner: 'workTasks/{taskId}/chat',
-    permissionNamespace: 'WORK.CHAT.*'
-  }
+  { id: 'WORK.TASK', version: '1.0.0', required: true, dependencies: [], dataOwner: 'workTasks/{taskId}', permissionNamespace: 'WORK.TASK.*' },
+  { id: 'WORK.CHECKLIST', version: '1.0.0', required: false, dependencies: ['WORK.TASK'], dataOwner: 'workTasks/{taskId}/checklist/{itemId}', permissionNamespace: 'WORK.CHECKLIST.*' },
+  { id: 'WORK.COMMENTS', version: '1.0.0', required: false, dependencies: ['WORK.TASK'], dataOwner: 'workTasks/{taskId}/comments/{commentId}', permissionNamespace: 'WORK.COMMENTS.*' },
+  { id: 'WORK.MENTIONS', version: '1.0.0', required: false, dependencies: ['WORK.TASK', 'WORK.COMMENTS', 'CORE.IDENTITY', 'CORE.NOTIFICATION'], dataOwner: 'mentionIds/mentionNames on WORK.COMMENTS records', permissionNamespace: 'WORK.MENTIONS.*' },
+  { id: 'WORK.ANALYTICS', version: '1.0.0', required: false, dependencies: ['WORK.TASK', 'CORE.MEMBERSHIP'], dataOwner: 'derived Work analytics', permissionNamespace: 'WORK.ANALYTICS.*' },
+  { id: 'WORK.CHAT', version: '1.0.0', required: false, dependencies: ['WORK.TASK', 'CORE.IDENTITY', 'CORE.NOTIFICATION'], dataOwner: 'workTasks/{taskId}/chat/{messageId}', permissionNamespace: 'WORK.CHAT.*' }
 ]);
 
 export function getWorkModuleDefinition(id) {
@@ -60,15 +18,13 @@ export function getWorkModuleDefinition(id) {
 }
 
 export function validateWorkModuleManifest() {
-  const ids = new Set();
+  const ids = new Set(WORK_MODULE_MANIFEST.map(module => module.id));
   for (const module of WORK_MODULE_MANIFEST) {
     if (!module.id.startsWith('WORK.')) throw new Error(`Invalid Work module id: ${module.id}`);
-    if (ids.has(module.id)) throw new Error(`Duplicate Work module: ${module.id}`);
-    ids.add(module.id);
+    if (!module.version) throw new Error(`${module.id}: missing version`);
+    if (!Array.isArray(module.dependencies)) throw new Error(`${module.id}: dependencies must be an array`);
     for (const dependency of module.dependencies) {
-      if (!ids.has(dependency) && !WORK_MODULE_MANIFEST.some(item => item.id === dependency)) {
-        throw new Error(`${module.id}: missing manifest dependency ${dependency}`);
-      }
+      if (dependency.startsWith('WORK.') && !ids.has(dependency)) throw new Error(`${module.id}: missing manifest dependency ${dependency}`);
     }
   }
   return true;
