@@ -30,6 +30,29 @@ jobs:
             node --check "$file"
           done
 
+      - name: Validate Work manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { WORK_MODULE_MANIFEST, validateWorkModuleManifest } from './03_APPLICATION/WEB/js/modules/work/work-module-manifest.js';
+
+          validateWorkModuleManifest();
+
+          const ids = WORK_MODULE_MANIFEST.map(module => module.id);
+          if (new Set(ids).size !== ids.length) throw new Error('Duplicate Work module id');
+
+          const chat = WORK_MODULE_MANIFEST.find(module => module.id === 'WORK.CHAT');
+          if (!chat) throw new Error('WORK.CHAT missing from manifest');
+          if (chat.enabled !== false) throw new Error('WORK.CHAT must remain disabled until release approval');
+          if (chat.dataOwner !== 'workTasks/{taskId}/chat/{messageId}') throw new Error('WORK.CHAT ownership boundary changed unexpectedly');
+          if (chat.permissionNamespace !== 'WORK.CHAT.*') throw new Error('WORK.CHAT permission namespace changed unexpectedly');
+
+          const required = WORK_MODULE_MANIFEST.filter(module => module.required && module.enabled);
+          if (!required.some(module => module.id === 'WORK.TASK')) throw new Error('WORK.TASK must remain the required Work foundation');
+          console.log(`Validated ${WORK_MODULE_MANIFEST.length} Work modules.`);
+          NODE
+
       - name: Check Work module boundaries
         shell: bash
         run: |
@@ -50,3 +73,13 @@ jobs:
           set -euo pipefail
           grep -q "id: 'WORK.CHAT'.*enabled: false" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
           grep -q "dataOwner: 'workTasks/{taskId}/chat/{messageId}'" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
+          grep -q "permissionNamespace: 'WORK.CHAT.\*'" 03_APPLICATION/WEB/js/modules/work/work-module-manifest.js
+
+      - name: Check release blockers are documented
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f DOCS/QA/RELEASE_CHECKLIST.md
+          test -f DOCS/QA/REGRESSION_MATRIX.md
+          grep -q 'STOP THE LINE' DOCS/QA/RELEASE_CHECKLIST.md
+          grep -q 'WORK' DOCS/QA/REGRESSION_MATRIX.md
