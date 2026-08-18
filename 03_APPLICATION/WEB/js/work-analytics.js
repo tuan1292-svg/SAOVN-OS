@@ -1,6 +1,7 @@
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { collection, getDocs, query, where, getDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { auth, db } from './firebase-config.js';
+import { getTasksReadableByUser } from './modules/work/work-task-read.contract.js';
 
 const root=document.getElementById('memberAnalytics');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,27 +19,15 @@ onAuthStateChanged(auth,async user=>{
     const orgRoles=membership.roles?.organization||{};
     const isAdmin=hasRole(systemRoles,['system_admin','admin','ADMIN','SYSTEM_ADMIN'])||hasRole(orgRoles,['org_admin','organization_admin','admin','ADMIN','ORG_ADMIN','ORGANIZATION_ADMIN']);
     const isTeamLead=hasRole(orgRoles,['team_lead','team_leader','TEAM_LEAD','TEAM_LEADER']);
+    const isManager=hasRole(orgRoles,['manager','org_manager','MANAGER','ORG_MANAGER']);
+    const isDepartmentHead=orgRoles.department_head===true||orgRoles.DEPARTMENT_HEAD===true;
     const deptId=membership.departmentId||identity.departmentId||'';
     const dept=membership.department||identity.department||'';
     const teamId=membership.teamId||identity.teamId||'';
     const team=membership.team||identity.team||'';
-    const taskMap=new Map();
-    const add=s=>s.docs.forEach(d=>taskMap.set(d.id,{id:d.id,...d.data()}));
-    if(isAdmin){
-      add(await getDocs(collection(db,'workTasks')));
-    }else if(isTeamLead && teamId){
-      add(await getDocs(query(collection(db,'workTasks'),where('teamId','==',teamId))));
-    }else if(isTeamLead && team){
-      add(await getDocs(query(collection(db,'workTasks'),where('team','==',team))));
-    }else if(deptId){
-      add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',deptId))));
-    }else if(dept){
-      add(await getDocs(query(collection(db,'workTasks'),where('department','==',dept))));
-    }else{
-      const [a,b]=await Promise.allSettled([getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid))),getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid)))]);
-      if(a.status==='fulfilled')add(a.value);if(b.status==='fulfilled')add(b.value);
-    }
-    const tasks=[...taskMap.values()];
+
+    const tasks=await getTasksReadableByUser({userId:user.uid,isAdmin,isManager,isDepartmentHead,isTeamLead,departmentId:deptId,department:dept,teamId,team});
+
     let members=[];
     try{
       const ids=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
@@ -46,8 +35,8 @@ onAuthStateChanged(auth,async user=>{
     }catch(error){members=[{id:user.uid,...identity}];}
     if(!isAdmin && isTeamLead && teamId) members=members.filter(m=>String(m.teamId||'')===String(teamId));
     else if(!isAdmin && isTeamLead && team) members=members.filter(m=>String(m.team||'').trim().toLowerCase()===String(team).trim().toLowerCase());
-    else if(!isAdmin && deptId) members=members.filter(m=>String(m.departmentId||'')===String(deptId));
-    else if(!isAdmin && dept) members=members.filter(m=>String(m.department||'').trim().toLowerCase()===String(dept).trim().toLowerCase());
+    else if(!isAdmin && (isManager||isDepartmentHead) && deptId) members=members.filter(m=>String(m.departmentId||'')===String(deptId));
+    else if(!isAdmin && (isManager||isDepartmentHead) && dept) members=members.filter(m=>String(m.department||'').trim().toLowerCase()===String(dept).trim().toLowerCase());
     if(!members.some(m=>m.id===user.uid))members.push({id:user.uid,...identity});
     const rows=members.map(member=>{
       const assigned=tasks.filter(t=>Array.isArray(t.assigneeIds)?t.assigneeIds.includes(member.id):t.assigneeId===member.id);
@@ -58,7 +47,7 @@ onAuthStateChanged(auth,async user=>{
       const percent=assigned.length?Math.round(done.length/assigned.length*100):0;
       return {member,total:assigned.length,done:done.length,overdue,onTime,percent};
     }).filter(r=>r.total>0||r.member.id===user.uid).sort((a,b)=>b.percent-a.percent||b.total-a.total);
-    render(rows,isAdmin||isTeamLead||deptId||dept||teamId||team);
+    render(rows,isAdmin||isTeamLead||isManager||isDepartmentHead);
   }catch(error){console.warn('Work analytics skipped:',error?.code||error);root.innerHTML='';}
 });
 function taskTime(task){const value=task.completedAt||task.updatedAt||task.createdAt;if(typeof value?.toMillis==='function')return value.toMillis();if(typeof value?.toDate==='function')return value.toDate().getTime();return new Date(value||0).getTime();}
