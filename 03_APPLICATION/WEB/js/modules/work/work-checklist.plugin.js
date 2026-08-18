@@ -1,3 +1,5 @@
+import '../../core/module-registry.js';
+import '../work/work-task.plugin.js';
 import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { auth, db } from "../../firebase-config.js";
 import { registerModule, assertDependency, moduleHealth } from "../../core/module-registry.js";
@@ -77,7 +79,7 @@ async function addChecklist(taskId, root) {
     await loadChecklist(taskId, root);
   } catch (error) {
     console.warn('Không thể thêm checklist:', error?.code || error);
-    alert('Không thể thêm checklist. Tài khoản chưa có quyền cộng tác với công việc này.');
+    alert('Không thể thêm checklist. Tài khoản chưa có quyền với công việc này.');
     moduleHealth(MODULE_ID, 'degraded', error?.code || 'create-failed');
   } finally { input.disabled = false; input.focus(); }
 }
