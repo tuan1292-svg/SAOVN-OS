@@ -1,4 +1,5 @@
 import { loadModule, moduleSnapshot } from '../../core/module-loader.js';
+import { getWorkModuleDefinition, validateWorkModuleManifest } from './work-module-manifest.js';
 import { registerWorkChat } from './work-chat.plugin.js';
 
 const WORK_PLUGIN_HOST = 'WORK.PLUGINS';
@@ -13,17 +14,30 @@ export function registerWorkPlugin(definition) {
 }
 
 export function registerBuiltInWorkPlugins() {
-  registerWorkPlugin({ id: 'WORK.CHAT', load: loadWorkChatPlugin, optional: true });
+  validateWorkModuleManifest();
+  const definition = getWorkModuleDefinition('WORK.CHAT');
+  if (definition) {
+    registerWorkPlugin({
+      id: definition.id,
+      version: definition.version,
+      dependencies: definition.dependencies,
+      optional: !definition.required,
+      load: () => loadManifestModule(definition.id)
+    });
+  }
   return [...plugins.values()];
 }
 
-async function loadWorkChatPlugin() {
-  registerWorkChat();
-  return loadModule({
-    id: 'WORK.CHAT',
-    dependencies: ['WORK.TASK'],
-    load: async () => import('./work-chat.ui.js')
-  });
+async function loadManifestModule(id) {
+  if (id === 'WORK.CHAT') {
+    registerWorkChat();
+    return loadModule({
+      id,
+      dependencies: getWorkModuleDefinition(id)?.dependencies || [],
+      load: async () => import('./work-chat.ui.js')
+    });
+  }
+  throw new Error(`${WORK_PLUGIN_HOST}: no loader registered for ${id}`);
 }
 
 export async function loadWorkPlugin(id) {
@@ -38,7 +52,12 @@ export async function loadWorkPlugin(id) {
 }
 
 export function getWorkPluginList() {
-  return [...plugins.values()].map(({ id, optional }) => ({ id, optional: Boolean(optional) }));
+  return [...plugins.values()].map(({ id, version, dependencies, optional }) => ({
+    id,
+    version: version || getWorkModuleDefinition(id)?.version || '0.0.0',
+    dependencies: [...(dependencies || [])],
+    optional: Boolean(optional)
+  }));
 }
 
 export function getWorkPluginHealth() {
