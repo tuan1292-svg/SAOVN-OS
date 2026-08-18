@@ -1,5 +1,7 @@
 import { moduleHealth, listModules } from '../../core/module-registry.js';
 
+// Child plugins are bootstrapped in dependency order. Each plugin owns its
+// registration and runtime health; a failed optional child must not abort Work.
 const plugins = [
   './work-task.plugin.js',
   './work-checklist.plugin.js',
@@ -16,8 +18,14 @@ for (const plugin of plugins) {
   }
 }
 
+// Composition adapter: this owns the Work detail mounting surface only.
+try {
+  await import('../../../work-collab.js');
+} catch (error) {
+  console.error('[WORK] detail composition failed', error);
+}
+
 // Compatibility adapters remain outside child plugin ownership during migration.
-// They are intentionally loaded only after the plugin boundary has been bootstrapped.
 const compatibility = [
   '../../../work-member-links.js',
   '../../../work-deep-link.js',
@@ -35,5 +43,5 @@ for (const entry of compatibility) {
 }
 
 const modules = listModules('WORK');
-console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => m.id));
+console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => `${m.id}:${m.status || 'registered'}`));
 moduleHealth('WORK', 'ready', `${modules.length} child plugins registered`);
