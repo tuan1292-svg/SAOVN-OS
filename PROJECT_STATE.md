@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Chốt sổ: 17/08/2026
+> Chốt sổ: 18/08/2026 — Engineering Governance / Modular Work checkpoint
 
 ## 1. Project
 
@@ -13,253 +13,164 @@ SAOVN-OS là môi trường làm việc online và Organizational Operating Syst
 
 ---
 
-## 2. Core Architecture
+## 2. Current Development Strategy
 
-Kiến trúc nền tảng đã xác lập:
+SAOVN-OS chuyển sang quy trình **production-safe modular development** vì nhân viên đang sử dụng hệ thống song song với quá trình phát triển.
+
+Nguyên tắc bắt buộc:
 
 ```text
-SAOVN-OS
-│
-├── CORE PLATFORM
-│   ├── Identity
-│   ├── Organization
-│   │   ├── Company
-│   │   ├── Department
-│   │   ├── Team
-│   │   └── Membership
-│   └── Access Control
-│       ├── Role
-│       ├── Permission
-│       ├── Scope
-│       └── Policy
-│
-└── BUSINESS MODULES
-    └── WORK
+BASELINE
+  ↓
+IMPACT ANALYSIS
+  ↓
+MODULE BOUNDARY
+  ↓
+CODE + DATA CONTRACT
+  ↓
+FIRESTORE PERMISSION CONTRACT
+  ↓
+REGRESSION
+  ↓
+REVIEW / RELEASE GATE
+  ↓
+MERGE
 ```
 
-Architecture / Constitution / Domain Model / Module Map / System Architecture / Permission Model / Data Model / Integration Architecture / Technical Architecture / Architecture Decisions / Module Specification đã được xác lập trong `00_CONSTITUTION/`, `01_ARCHITECTURE/` và `DOCS/`.
+Không mở rộng quyền parent để chữa lỗi child. Không sửa module cũ chỉ vì thêm module mới nếu không có impact analysis. Không merge khi regression chưa có bằng chứng.
 
----
-
-## 3. Product Rules Already Agreed
+Các quy tắc này đã được ghi vào:
 
 ```text
-- Làm từng checkpoint cho xong rồi mới chuyển bước.
-- Không vá UI bằng JavaScript nếu có thể sửa HTML/CSS đúng chỗ.
-- Ưu tiên giao diện sạch, gọn, hiển thị thông tin hữu ích.
-- Identity chính = Họ tên + Chức danh.
-- Không dùng email/username thay cho tên nếu Identity đã có họ tên.
-- Email và số điện thoại là thông tin liên hệ/tra cứu.
-- Thông tin liên hệ chi tiết không chiếm chỗ trong Work UI.
-- Members và Department management là khu vực Admin.
-- Public self-registration mặc định OFF.
-- Tài khoản Founder/Admin hiển thị `Founder · Chairman · CEO`.
-- PROJECT_STATE được chốt theo checkpoint, không cập nhật vụn từng bước.
-- Mỗi thay đổi lớn nên có commit riêng để Admin và Member có thể test độc lập.
+00_CONSTITUTION/ENGINEERING_CHANGE_CONTROL.md
+00_CONSTITUTION/MODULE_BOUNDARY_RULES.md
+00_CONSTITUTION/MODULE_CONTRACTS/
+DOCS/QA/REGRESSION_MATRIX.md
+DOCS/QA/RELEASE_CHECKLIST.md
 ```
 
 ---
 
-## 4. Completed Foundation
+## 3. Modular Work Architecture — CURRENT
+
+WORK được chuẩn hóa theo mô hình parent/child:
 
 ```text
-ARCHITECTURE FOUNDATION       COMPLETE
-IDENTITY / LOGIN              COMPLETE FOR CURRENT PROTOTYPE
-PERMISSION NAVIGATION         COMPLETE FOR CURRENT PROTOTYPE
-MEMBERS MANAGEMENT            COMPLETE
-MEMBER IDENTITY DISPLAY       COMPLETE
-MEMBER CONTACT FIELD          COMPLETE
-DEPARTMENT MASTER             COMPLETE
-DEPARTMENT MANAGEMENT         COMPLETE
-DEPARTMENT UI POLISH          COMPLETE
-DEPARTMENT WORKSPACE          COMPLETE
-TEAM STRUCTURE                COMPLETE
-TEAM ASSIGNMENT               COMPLETE
-TEAM → WORK FILTER            COMPLETE
-MANAGEMENT SCOPE RECOGNITION  COMPLETE FOR CURRENT PROTOTYPE
+WORK
+├── WORK.TASK
+├── WORK.CHECKLIST
+├── WORK.COMMENTS
+├── WORK.MENTIONS
+├── WORK.ANALYTICS
+└── WORK.CHAT
 ```
+
+Mỗi child module phải có:
+
+```text
+- Module ID
+- Parent
+- Ownership
+- Dependencies
+- Permission namespace
+- Public contract
+- Failure behavior
+- Regression coverage
+```
+
+Permission namespace mục tiêu:
+
+```text
+WORK.TASK.*
+WORK.CHECKLIST.*
+WORK.COMMENTS.*
+WORK.MENTIONS.*
+WORK.ANALYTICS.*
+WORK.CHAT.*
+```
+
+Child module không được tự động thừa hưởng toàn bộ quyền của parent.
 
 ---
 
-## 5. Identity Display
+## 4. Work Data Ownership
 
-Trong màn hình làm việc, Identity phải hiển thị dạng:
+Ownership baseline:
 
 ```text
-Nguyễn Anh Tuấn
-Founder · Chairman · CEO
+WORK.TASK
+  → workTasks/{taskId}
+
+WORK.CHECKLIST
+  → workTasks/{taskId}/checklist/{itemId}
+
+WORK.COMMENTS
+  → workTasks/{taskId}/comments/{commentId}
+
+WORK.MENTIONS
+  → mention resolution / mention events / notifications
+
+WORK.ANALYTICS
+  → derived / aggregate analytics
+
+WORK.CHAT
+  → workTasks/{taskId}/chat/{messageId}
 ```
 
-Legacy values như `tuan1292` phải được resolve về Identity khi có thể.
-
-Work comments, assignees, member roster và Department Workspace đều ưu tiên Identity hiện tại.
+Legacy storage paths của Checklist/Comments vẫn được coi là **legacy storage contracts** cho tới khi có migration riêng. Không destructive migration chỉ để làm đẹp kiến trúc.
 
 ---
 
-## 6. Members
+## 5. Work Module Registry / Contracts
 
-Members là khu vực quản trị.
+Đã có module registry và Work plugin contracts.
+
+Trạng thái:
+
+```text
+CORE.AUTH          ACTIVE
+CORE.IDENTITY      ACTIVE
+CORE.MEMBERSHIP    ACTIVE
+CORE.PERMISSION    ACTIVE
+CORE.NOTIFICATION  ACTIVE
+
+WORK.TASK          ACTIVE
+WORK.CHECKLIST     LEGACY-BOUNDARY
+WORK.COMMENTS      LEGACY-BOUNDARY
+WORK.MENTIONS      LEGACY-BOUNDARY
+WORK.ANALYTICS     LEGACY-BOUNDARY
+WORK.CHAT          PLANNED / OPTIONAL
+
+ATTENDANCE         ACTIVE FOUNDATION
+```
+
+`LEGACY-BOUNDARY` nghĩa là tính năng đang dùng production/legacy storage hoặc implementation nhưng đã được xác định boundary; không được tự ý refactor destructive.
+
+---
+
+## 6. Work Runtime Protection
 
 Đã có:
 
 ```text
-✓ Admin-only management
-✓ Họ tên + chức danh
-✓ Role
-✓ Status
-✓ Department assignment
-✓ Team assignment
-✓ Team Lead indicator
-✓ Direct manager field
-✓ Phone/contact field
-✓ Email contact field
-✓ Legacy identity resolution
+✓ Core module registry
+✓ Module loader contract
+✓ Work module registry
+✓ Work module manifest
+✓ Permission manifest
+✓ Boundary contract
+✓ Regression gate
+✓ Optional module switch
+✓ Failure isolation design
 ```
 
-Email / phone vẫn tồn tại để phục vụ tra cứu liên hệ, nhưng không được dùng làm Identity chính.
-
-### Ghi chú bảo mật
-
-Cần tiếp tục hoàn thiện data visibility để thông tin liên hệ chi tiết chỉ xuất hiện trong khu vực phù hợp, thay vì đưa email/phone vào các màn hình làm việc chung.
+`WORK.CHAT` hiện **OFF / optional** cho production. Không được bật chỉ vì code đã tồn tại; phải pass Rules + browser regression trước.
 
 ---
 
-## 7. Department
+## 7. Work Functional Baseline
 
-Collection:
-
-```text
-/departments
-```
-
-Trường chính:
-
-```text
-name
-code
-description
-headId
-active
-createdAt
-createdBy
-updatedAt
-updatedBy
-```
-
-Department management đã có:
-
-```text
-✓ List
-✓ Search
-✓ Status filter
-✓ Statistics
-✓ Create
-✓ Edit
-✓ Department Head
-✓ Active / Inactive
-✓ Member count
-✓ Unassigned count
-✓ Member department selector
-✓ UI polish
-✓ Admin-only management
-```
-
----
-
-## 8. Department Workspace
-
-Trang:
-
-```text
-03_APPLICATION/WEB/department-workspace.html
-```
-
-Workspace hiện có:
-
-```text
-✓ Department identity
-✓ Department status
-✓ Member roster
-✓ Họ tên + chức danh
-✓ Work statistics
-✓ Department task list
-✓ Team structure
-✓ Team Lead display
-✓ Team-based Work filtering
-✓ Management scope display
-✓ Task overflow / responsive panel fix
-✓ Không hiển thị trạng thái “Chưa có phòng ban” khi đã có department
-```
-
-Task dài không được phép tràn khỏi panel.
-
----
-
-## 9. Team
-
-Team là tầng tổ chức bên trong Department:
-
-```text
-Department
-│
-├── Team A
-│   ├── Team Lead
-│   └── Members
-│
-├── Team B
-│   ├── Team Lead
-│   └── Members
-│
-└── Chưa phân nhóm
-```
-
-Đã có:
-
-```text
-✓ Team assignment
-✓ Persist team assignment
-✓ Team grouping
-✓ Team Lead identification
-✓ Team → Work filter
-✓ Team field UI polish
-✓ Hiển thị đồng nghiệp cùng phòng/team ở phía Member
-```
-
-Team CRUD độc lập chưa được coi là hoàn thành.
-
----
-
-## 10. Management Scope
-
-Scope model mục tiêu:
-
-```text
-Founder · Chairman · CEO
-        ↓
-TOÀN HỆ THỐNG
-
-Department Head
-        ↓
-PHÒNG BAN
-
-Team Lead
-        ↓
-TEAM
-
-Member
-        ↓
-CÁ NHÂN / CÔNG VIỆC ĐƯỢC GIAO
-```
-
-Workspace đã nhận diện scope. Work security vẫn phải được xác nhận bằng Firestore Rules và test tài khoản thực tế.
-
----
-
-## 11. WORK — First Business Module
-
-WORK là Business Module đầu tiên.
-
-Đã xây dựng:
+Đã có và phải được bảo vệ:
 
 ```text
 ✓ My Work
@@ -267,243 +178,251 @@ WORK là Business Module đầu tiên.
 ✓ Assignments
 ✓ Deadlines
 ✓ Progress
-✓ Status / Kanban tiếng Việt
+✓ Kanban UI
 ✓ Comments / Trao đổi
 ✓ Checklist
 ✓ Activity
-✓ Mentions, gồm @tất cả thành viên
-✓ Notifications integration foundation
-✓ Thành viên tham gia có thể click để mở profile popup
-✓ Danh sách người phụ trách nhiều thành viên
+✓ Mentions
+✓ @tất cả thành viên
+✓ Notifications foundation
+✓ Multi-assignee
 ✓ Department / Team scope filtering
-✓ Member personal / assigned Work loading
-✓ Admin Work management
 ✓ Member Work view
+✓ Admin Work management
 ```
 
-Work Identity luôn dùng Họ tên + Chức danh.
-
-### Work permission checkpoint hiện tại
+Identity trong Work ưu tiên:
 
 ```text
-Admin → Work: đang hoạt động.
-Member → Work được giao: Work hiển thị đúng phạm vi.
-Member → kéo Kanban: CHƯA ĐÓNG CHECKPOINT.
+Họ tên
+Chức danh
 ```
 
-Hiện tại thành viên vẫn gặp:
+Không dùng email/username làm Identity chính khi Identity đã có họ tên.
+
+---
+
+## 8. Recent Work Incident / Known Issues
+
+Các lỗi production đã gặp trong checkpoint trước:
 
 ```text
 FirebaseError: Missing or insufficient permissions.
 ```
 
-khi cập nhật trạng thái Kanban. Console cũng từng ghi nhận permission-denied ở Work memberships / analytics. Đây là **known issue chưa hoàn thành**, không đánh dấu Work security COMPLETE.
-
-Hai commit xử lý Work gần nhất trong checkpoint này:
+Các vùng từng bị ảnh hưởng:
 
 ```text
-06e075bd  fix: chuẩn hóa quyền kéo thả Work theo người được giao
-1abfe4a9  fix: cho phép thành viên được giao cập nhật Work an toàn
+Work Analytics
+Work memberships directory
+Checklist
+Comments
+Mention comment creation
+Member Kanban update
 ```
 
-Các commit trên đã được giữ lại để tiếp tục debug có kiểm soát, không rollback lan sang giao diện đã hoàn thiện.
+Nguyên tắc xử lý mới:
+
+```text
+permission-denied
+  ≠ mở quyền toàn Work
+
+permission-denied
+  → xác định module owner
+  → xác định operation
+  → xác định actor/scope
+  → sửa capability đúng module
+  → regression sibling modules
+```
+
+Không coi Work security là COMPLETE cho tới khi test bằng tài khoản Admin + Member thật.
 
 ---
 
-## 12. Communication / Notifications Foundation
+## 9. Comments / Mentions Boundary
 
-Đã có nền tảng cho:
+`WORK.COMMENTS` là owner của task discussion records.
+
+`WORK.MENTIONS` là owner của mention resolution/events và notification integration, không sở hữu toàn bộ Comments.
+
+Submit comment phải có **một owner rõ ràng**; không cho sibling plugin đồng thời intercept cùng submit event và gây duplicate/blocked submission.
+
+Known requirement:
 
 ```text
-✓ Chat / Conversations
-✓ Tin nhắn
-✓ Unread count
-✓ Notifications
-✓ Notification badge
-✓ Read / unread state
-✓ Mention notification
-✓ @tất cả thành viên
+Comment submit
+→ tạo comment
+→ resolve mentions
+→ tạo notification theo contract
 ```
 
-Các vấn đề trước đây về unread badge, permission và conversation indexing đã được xử lý ở các checkpoint trước. Khi tiếp tục phát triển cần giữ nguyên hành vi đã chốt, không làm mất số chưa đọc khi refresh hoặc khi mở nội dung.
+Permission của từng operation phải được kiểm tra độc lập.
 
 ---
 
-## 13. Known Recent Fixes
+## 10. Firestore Rules Status
+
+`firestore.rules` được coi là **shared high-risk boundary**.
+
+Đã có nguyên tắc:
 
 ```text
-c9b8b11  fix: prevent department workspace task overflow
-941ca84  feat: enforce department head work scope
-fab358b  fix: resolve department head and team lead scope
-43c12b9  fix: align department workspace tasks with scope
-1442162  fix: allow members directory reads without admin permission
-52c3b31  fix: polish member team field and detail inputs
-06e075bd fix: chuẩn hóa quyền kéo thả Work theo người được giao
-1abfe4a9 fix: cho phép thành viên được giao cập nhật Work an toàn
+actor
+resource
+operation
+business reason
+scope
+affected modules
+regression
 ```
 
-Các commit trên repo là Source of Truth; nếu local khác repo thì pull `main` trước khi làm tiếp.
+Rules không được mở rộng chỉ để loại bỏ console error.
+
+`WORK.CHAT` không được coi là production-ready khi Rules và browser test chưa chứng minh capability riêng.
 
 ---
 
-## 14. Current Checkpoint — 17/08/2026
+## 11. QA / Release Gate
 
-### COMPLETE
-
-```text
-Identity
-Members
-Member identity display
-Member contact foundation
-Departments
-Department management
-Department UI
-Department Workspace
-Team structure
-Team assignment
-Team Work filtering
-Management scope recognition
-Member directory access
-Team field UI polish
-Department Workspace task overflow fix
-Work UI / Kanban UI
-Work assignment UI
-Work comments / checklist / mentions foundation
-Chat / notification foundation
-```
-
-### NOT YET CLOSED
+Đã thiết lập:
 
 ```text
-Member → assigned Work → Kanban status update
-Scope → Work security verification
-Firestore Rules verification against real Admin + Member accounts
+DOCS/QA/REGRESSION_MATRIX.md
+DOCS/QA/RELEASE_CHECKLIST.md
 ```
 
-**Không rollback giao diện hoặc các module đã hoàn thiện chỉ vì lỗi permission của Work.**
+Các nhóm regression phải bảo vệ:
+
+```text
+Login
+Attendance
+Work Task
+Checklist
+Comments
+Mentions
+Analytics
+Chat
+Notifications
+Permission boundaries
+```
+
+Release STOP nếu:
+
+```text
+- Login Admin/Member hỏng
+- Work operation cũ regress
+- Chat/Notification regress
+- Attendance regress
+- Rules chưa verify
+- Permission mới rộng hơn contract
+- Migration không có rollback
+```
 
 ---
 
-## 15. NEXT DEVELOPMENT — CHẤM CÔNG / ĐIỂM DANH TRUY CẬP HỆ THỐNG
+## 12. Engineering Branch / PR State
 
-Đây là checkpoint phát triển tiếp theo sau khi chốt State hôm nay.
-
-Mục tiêu ban đầu:
+Engineering work đang nằm trên:
 
 ```text
-SYSTEM ATTENDANCE / ACCESS PRESENCE
-│
-├── Ghi nhận lần đăng nhập thành công
-├── Ghi nhận thời điểm truy cập
-├── Ghi nhận lần hoạt động cuối
-├── Xác định trạng thái đang hoạt động / đã rời
-├── Theo dõi lịch sử truy cập theo ngày
-└── Dashboard Admin xem tình hình truy cập của thành viên
+branch: chore/engineering-governance
+PR: #1
 ```
 
-### Phân biệt rõ
+PR hiện:
 
 ```text
-ĐĂNG NHẬP
-= xác thực tài khoản thành công
-
-TRUY CẬP HỆ THỐNG
-= có phiên làm việc / có hoạt động trong hệ thống
-
-ĐIỂM DANH
-= trạng thái được ghi nhận theo quy tắc chấm công của tổ chức
+OPEN
+DRAFT
+67 commits
+34 changed files
+NOT MERGED
 ```
 
-Không được mặc định rằng “đăng nhập một lần = làm việc cả ngày”.
+PR đã được cập nhật để phản ánh đúng rằng branch có **application code + Firestore Rules + documentation**, không còn mô tả sai là documentation-only.
 
-### Thiết kế dữ liệu mục tiêu
-
-Có thể dùng một lớp attendance/access riêng, không trộn trực tiếp vào Identity:
+### Production safety
 
 ```text
-/systemAccess/{recordId}
-
-userId
-identitySnapshot
-loginAt
-lastActiveAt
-logoutAt
-sessionId
-status
-createdAt
-updatedAt
+main: KHÔNG MERGE THAY ĐỔI CỦA BRANCH NÀY TẠI CHECKPOINT NÀY
 ```
 
-Nếu sau khi thiết kế chi tiết thấy session nên tách riêng với daily attendance thì sẽ tách thành hai collection. **Chưa coi schema này là final trước khi rà lại Constitution / Data Model.**
+Lý do: branch cần được đồng bộ với production baseline và phải có regression evidence trước khi merge.
 
-### Admin cần nhìn thấy
-
-```text
-Thành viên
-Trạng thái hôm nay
-Lần truy cập đầu
-Lần hoạt động cuối
-Tổng phiên / lịch sử
-```
-
-Mục tiêu giao diện có thể tiến tới:
-
-```text
-🟢 Đang hoạt động
-🟡 Đã truy cập hôm nay
-⚪ Chưa truy cập hôm nay
-```
-
-Không dùng dữ liệu presence để kết luận hiệu suất làm việc. Presence chỉ phản ánh truy cập / hoạt động hệ thống.
+GitHub hiện báo branch/PR chưa ở trạng thái merge an toàn. Không giả định đã pass browser/Firebase production test khi chưa có bằng chứng.
 
 ---
 
-## 16. Development Sequence From Here
+## 13. What Is Closed Today
+
+```text
+✓ Engineering Change Control
+✓ Module Boundary Rules
+✓ Module Registry baseline
+✓ Work plugin contract baseline
+✓ Work ownership baseline
+✓ Work permission manifest
+✓ Work boundary validation
+✓ Work regression gate
+✓ Optional plugin isolation design
+✓ Comments single-submit ownership fix
+✓ PR release-safety scope/documentation
+```
+
+Đây là **architecture/governance checkpoint**, không phải tuyên bố rằng toàn bộ Work permission production đã hoàn tất.
+
+---
+
+## 14. What Remains Open
+
+```text
+1. Sync engineering branch with current main
+2. Run actual Admin + Member browser regression
+3. Verify deployed Firestore Rules against real accounts
+4. Close Member → assigned Work → Kanban permission checkpoint
+5. Close Work memberships / analytics permission checkpoint
+6. Verify Checklist / Comments / Mentions end-to-end
+7. Only then enable/test WORK.CHAT
+8. Merge only after release gate passes
+```
+
+Không được bỏ qua thứ tự này.
+
+---
+
+## 15. Next Session — Immediate Action
 
 ```text
 CURRENT CHECKPOINT
   ↓
-1. Chốt PROJECT_STATE
+SYNC BRANCH WITH MAIN
   ↓
-2. Rà Constitution + Data Model cho Attendance
+REGRESSION CURRENT WORK
   ↓
-3. Thiết kế System Access / Attendance data model
+FIX ONLY FAILED MODULE
   ↓
-4. Firestore Rules cho access records
+VERIFY FIRESTORE RULES
   ↓
-5. Ghi nhận login / session
+CLOSE WORK PERMISSION CHECKPOINT
   ↓
-6. Cập nhật lastActiveAt
-  ↓
-7. Xử lý logout / session expiry
-  ↓
-8. Admin attendance dashboard
-  ↓
-9. Test Admin + Member
-  ↓
-10. Chốt checkpoint Attendance
-  ↓
-11. Quay lại đóng Work permission checkpoint
+THEN TEST WORK.CHAT
 ```
 
-Không làm Attendance bằng cách sửa trực tiếp các module Work hiện tại.
+Không bắt đầu một Business Module mới trước khi Work permission checkpoint được đóng nếu việc đó có nguy cơ làm phân tán hoặc ảnh hưởng production stability.
 
 ---
 
-## 17. Next Session Command
+## 16. Working Rule From Now On
 
-```powershell
-cd C:\Users\Admin\Desktop\SAOVN-OS
-git pull origin main
-git status
-git log -5 --oneline
-```
+> **Một module mới là một plug-in có boundary, không phải một lý do để sửa cả parent.**
 
-Nếu Rules đã thay đổi nhưng chưa deploy:
+> **Một permission mới là một capability có scope, không phải một lý do để mở rộng quyền chung.**
 
-```powershell
-firebase deploy --only firestore:rules
-```
+> **Một lỗi mới phải được cô lập về owner trước khi sửa.**
+
+> **Không tuyên bố PASS nếu chưa có evidence.**
+
+> **Không merge vào production khi chưa có rollback + regression evidence.**
 
 ---
 
