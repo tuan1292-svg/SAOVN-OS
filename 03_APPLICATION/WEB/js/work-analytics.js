@@ -1,7 +1,7 @@
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { collection, getDocs, query, where, getDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { auth, db } from './firebase-config.js';
-import { getWorkTaskReadQueries } from './modules/work/work-task-read.contract.js';
+import { getTasksReadableByUser } from './modules/work/work-task-read.contract.js';
 
 const root=document.getElementById('memberAnalytics');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,14 +26,7 @@ onAuthStateChanged(auth,async user=>{
     const teamId=membership.teamId||identity.teamId||'';
     const team=membership.team||identity.team||'';
 
-    const taskQueries=getWorkTaskReadQueries({db,userId:user.uid,isAdmin,isManager,isDepartmentHead,isTeamLead,deptId,dept,teamId,team});
-    const taskMap=new Map();
-    const add=s=>s.docs.forEach(d=>taskMap.set(d.id,{id:d.id,...d.data()}));
-    for(const taskQuery of taskQueries){
-      try{ add(await getDocs(taskQuery)); }
-      catch(error){ console.warn('Analytics task query skipped:',error?.code||error); }
-    }
-    const tasks=[...taskMap.values()];
+    const tasks=await getTasksReadableByUser({userId:user.uid,isAdmin,isManager,isDepartmentHead,isTeamLead,departmentId:deptId,department:dept,teamId,team});
 
     let members=[];
     try{
