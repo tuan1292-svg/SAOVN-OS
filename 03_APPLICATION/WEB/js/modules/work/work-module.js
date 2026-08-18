@@ -1,4 +1,5 @@
 import { moduleHealth, listModules } from '../../core/module-registry.js';
+import { assertWorkBoundary } from './work-module-contract.js';
 
 // Child plugins are bootstrapped in dependency order. Each plugin owns its
 // registration and runtime health; a failed optional child must not abort Work.
@@ -42,6 +43,12 @@ for (const entry of compatibility) {
   }
 }
 
-const modules = listModules('WORK');
-console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => `${m.id}:${m.status || 'registered'}`));
-moduleHealth('WORK', 'ready', `${modules.length} child plugins registered`);
+try {
+  const boundary = assertWorkBoundary();
+  const modules = listModules('WORK');
+  console.info('[SAOVN-OS] Work plugin registry ready', modules.map(m => `${m.id}:${m.status || 'registered'}`));
+  moduleHealth('WORK', 'ready', `${modules.length} child plugins registered; boundary=${boundary.ok}`);
+} catch (error) {
+  moduleHealth('WORK', 'failed', error?.message || String(error));
+  console.error('[WORK] boundary contract failed', error);
+}
