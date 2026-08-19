@@ -2,22 +2,53 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { collection, getDocs, getDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
-// Legacy member fallback only. Module ownership/registration lives in the
-// dedicated WORK plugins. Keeping registrations out of this compatibility
-// file prevents duplicate WORK.* module IDs when the plugin host boots.
-
 for(const id of ['WORK.TASK','WORK.CHECKLIST','WORK.COMMENTS','WORK.MENTIONS','WORK.ANALYTICS']) {
-  // Health is intentionally not registered here; the dedicated plugin owns it.
 }
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusLabel={BACKLOG:'Backlog',TODO:'Todo',IN_PROGRESS:'Đang thực hiện',REVIEW:'Review',DONE:'Hoàn thành'};
 const priorityLabel={LOW:'Thấp',MEDIUM:'Trung bình',HIGH:'Cao',URGENT:'Khẩn cấp'};
+const norm=v=>String(v||'').trim().toLowerCase().replace(/\s+/g,' ');
+const people=new Map();
+
+async function loadDirectoryLinks(){
+  try{
+    const snap=await getDocs(collection(db,'identities'));
+    snap.forEach(s=>{
+      const d=s.data()||{};
+      const name=d.fullName||d.displayName||d.name||d.email||s.id;
+      const person={id:s.id,name};
+      people.set(norm(name),person);
+      if(d.email)people.set(norm(d.email),person);
+    });
+    enhanceDirectoryLinks(document);
+  }catch(error){console.warn('Work identity directory fallback:',error?.code||error);}
+}
+
+function enhanceDirectoryLinks(root){
+  root.querySelectorAll?.('.assignee,.kanban-assignee').forEach(el=>{
+    if(el.querySelector('[data-directory-profile]'))return;
+    const parts=(el.textContent||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!parts.length)return;
+    el.innerHTML=parts.map(part=>{
+      const clean=part.replace(/\s+·\s+.*/,'').trim();
+      const person=people.get(norm(clean));
+      return person?`<a class="work-member-link" data-directory-profile="1" href="member-profile.html?id=${encodeURIComponent(person.id)}">${esc(person.name)}</a>`:esc(part);
+    }).join(', ');
+  });
+  root.querySelectorAll?.('.analytics-person a').forEach(a=>{
+    const person=people.get(norm(a.textContent));
+    if(person){a.href=`member-profile.html?id=${encodeURIComponent(person.id)}`;a.dataset.directoryProfile='1';}
+  });
+}
+
+const directoryObserver=new MutationObserver(()=>enhanceDirectoryLinks(document));
+if(document.body)directoryObserver.observe(document.body,{childList:true,subtree:true});
+loadDirectoryLinks();
 
 onAuthStateChanged(auth,async user=>{
   if(!user)return;
-  // This is a member-only fallback. Admin Work is handled by work-v3.js.
   try{
     const membership=await getDoc(doc(db,'memberships',`mem_${user.uid}_org_saovn_01`));
     const roles=membership.exists()?membership.data()?.roles||{}:{};
