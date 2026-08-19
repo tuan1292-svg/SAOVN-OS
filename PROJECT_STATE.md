@@ -334,12 +334,10 @@ PR hiện:
 ```text
 OPEN
 DRAFT
-67 commits
-34 changed files
 NOT MERGED
 ```
 
-PR đã được cập nhật để phản ánh đúng rằng branch có **application code + Firestore Rules + documentation**, không còn mô tả sai là documentation-only.
+PR chứa **application code + Firestore Rules + documentation**.
 
 ### Production safety
 
@@ -349,11 +347,9 @@ main: KHÔNG MERGE THAY ĐỔI CỦA BRANCH NÀY TẠI CHECKPOINT NÀY
 
 Lý do: branch cần được đồng bộ với production baseline và phải có regression evidence trước khi merge.
 
-GitHub hiện báo branch/PR chưa ở trạng thái merge an toàn. Không giả định đã pass browser/Firebase production test khi chưa có bằng chứng.
-
 ---
 
-## 13. What Is Closed Today
+## 13. What Is Closed
 
 ```text
 ✓ Engineering Change Control
@@ -366,53 +362,116 @@ GitHub hiện báo branch/PR chưa ở trạng thái merge an toàn. Không gi�
 ✓ Work regression gate
 ✓ Optional plugin isolation design
 ✓ Comments single-submit ownership fix
-✓ PR release-safety scope/documentation
+✓ @Tag / Mentions path is functional in current staging test
 ```
 
 Đây là **architecture/governance checkpoint**, không phải tuyên bố rằng toàn bộ Work permission production đã hoàn tất.
 
 ---
 
-## 14. What Remains Open
+## 14. Current Member Permission Checkpoint — 2026-08-19
+
+Test member:
 
 ```text
-1. Sync engineering branch with current main
-2. Run actual Admin + Member browser regression
-3. Verify deployed Firestore Rules against real accounts
-4. Close Member → assigned Work → Kanban permission checkpoint
-5. Close Work memberships / analytics permission checkpoint
-6. Verify Checklist / Comments / Mentions end-to-end
-7. Only then enable/test WORK.CHAT
-8. Merge only after release gate passes
+UID: 49jMcXigONdASEPDpvco02EaHPx1
+membership: mem_49jMcXigONdASEPDpvco02EaHPx1_org_saovn_01
+status: ACTIVE
+role: org_member
+position: INTERN
+userId: 49jMcXigONdASEPDpvco02EaHPx1
+identityId: 49jMcXigONdASEPDpvco02EaHPx1
 ```
 
-Không được bỏ qua thứ tự này.
+Test task đã xác minh có UID member trong `assigneeIds`.
+
+Observed browser results:
+
+```text
+Admin @Tag        PASS
+Admin Comment     PASS
+Admin Checklist   PASS
+
+Member @Tag       PASS
+Member Comment    permission-denied
+Member Checklist  permission-denied
+Member Kanban     permission-denied
+```
+
+Current code inspection confirms:
+
+```text
+work.html
+  → work-v3.js
+  → work-collab.js
+  → WORK.CHECKLIST plugin
+  → WORK.COMMENTS plugin
+```
+
+The current branch Rules explicitly authorize assigned members through `canReadTaskData()` for the task and its Checklist/Comments subcollections, and the tested member is present in `assigneeIds`.
+
+Therefore the next debugging target is **the deployed Firestore Rules/runtime alignment and the exact Member request**, not membership data and not INTERN-vs-EMPLOYEE classification.
+
+Do not broaden Work permissions globally.
 
 ---
 
-## 15. Next Session — Immediate Action
+## 15. Current Firestore Rules Branch State
+
+The branch `chore/engineering-governance` currently contains the latest `firestore.rules` with:
+
+```text
+ACTIVE + active membership status handling
+assigned-member task access
+assigned-member Comments access
+assigned-member Checklist access
+assigned-member task status update boundary
+```
+
+The browser must be tested against the Rules actually published in Firebase. GitHub branch contents alone do not prove the deployed Rules state.
+
+---
+
+## 16. What Remains Open
+
+```text
+1. Verify the Firebase Rules currently published in production match the branch rules.
+2. Re-test the exact assigned Member on the same Task.
+3. If Member Comment/Checklist still fail, isolate the exact Firestore request/runtime path before changing Rules.
+4. Close Member Kanban permission checkpoint.
+5. Close Work memberships / analytics permission checkpoint.
+6. Verify Checklist / Comments / Mentions end-to-end.
+7. Only then enable/test WORK.CHAT.
+8. Merge only after release gate passes.
+```
+
+---
+
+## 17. Next Session — Immediate Action
 
 ```text
 CURRENT CHECKPOINT
   ↓
-SYNC BRANCH WITH MAIN
+VERIFY PUBLISHED FIRESTORE RULES
   ↓
-REGRESSION CURRENT WORK
+TEST ASSIGNED MEMBER
   ↓
-FIX ONLY FAILED MODULE
+CAPTURE EXACT FAILED OPERATION
   ↓
-VERIFY FIRESTORE RULES
+FIX ONLY FAILED MODULE / RULE CAPABILITY
+  ↓
+REGRESSION ADMIN + MEMBER
   ↓
 CLOSE WORK PERMISSION CHECKPOINT
   ↓
 THEN TEST WORK.CHAT
 ```
 
-Không bắt đầu một Business Module mới trước khi Work permission checkpoint được đóng nếu việc đó có nguy cơ làm phân tán hoặc ảnh hưởng production stability.
+Không bắt đầu Business Module mới trước khi Work permission checkpoint được đóng nếu việc đó có nguy cơ làm phân tán hoặc ảnh hưởng production stability.
 
 ---
 
-## 16. Working Rule From Now On
+## 18. Working Rule From Now On
 
 > **Một module mới là một plug-in có boundary, không phải một lý do để sửa cả parent.**
 
