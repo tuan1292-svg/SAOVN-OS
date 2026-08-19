@@ -1,12 +1,12 @@
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { collection, getDocs, query, where, getDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { collection, getDocs, getDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { auth, db } from './firebase-config.js';
 import { getTasksReadableByUser } from './modules/work/work-task-read.contract.js';
 
 const root=document.getElementById('memberAnalytics');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const positionLabels={FOUNDER_CHAIRMAN_CEO:'Founder · Chairman · CEO',DIRECTOR:'Giám đốc',DEPARTMENT_HEAD:'Trưởng phòng',MANAGER:'Quản lý',TEAM_LEAD:'Trưởng nhóm',SENIOR_SPECIALIST:'Chuyên viên cao cấp',SPECIALIST:'Chuyên viên',STAFF:'Nhân viên',COLLABORATOR:'Cộng tác viên',INTERN:'Thực tập sinh',OTHER:'Khác'};
-const hasRole=(roles,names)=>names.some(name=>roles?.[name]===true);
+const hasRole=(roles,names)=>names.some(name=>Array.isArray(roles)?roles.includes(name):roles?.[name]===true);
 
 onAuthStateChanged(auth,async user=>{
   if(!user||!root)return;
@@ -15,22 +15,21 @@ onAuthStateChanged(auth,async user=>{
     const identity=identitySnap.exists()?identitySnap.data():{};
     const membershipSnap=await getDoc(doc(db,'memberships',`mem_${user.uid}_org_saovn_01`));
     const membership=membershipSnap.exists()?membershipSnap.data():{};
-    const systemRoles=membership.roles?.system||{};
-    const orgRoles=membership.roles?.organization||{};
+    const systemRoles=membership.roles?.system||[];
+    const orgRoles=membership.roles?.organization||[];
     const isAdmin=hasRole(systemRoles,['system_admin','admin','ADMIN','SYSTEM_ADMIN'])||hasRole(orgRoles,['org_admin','organization_admin','admin','ADMIN','ORG_ADMIN','ORGANIZATION_ADMIN']);
     const isTeamLead=hasRole(orgRoles,['team_lead','team_leader','TEAM_LEAD','TEAM_LEADER']);
     const isManager=hasRole(orgRoles,['manager','org_manager','MANAGER','ORG_MANAGER']);
-    const isDepartmentHead=orgRoles.department_head===true||orgRoles.DEPARTMENT_HEAD===true;
+    const isDepartmentHead=hasRole(orgRoles,['department_head','DEPARTMENT_HEAD']);
     const deptId=membership.departmentId||identity.departmentId||'';
     const dept=membership.department||identity.department||'';
     const teamId=membership.teamId||identity.teamId||'';
     const team=membership.team||identity.team||'';
-
     const tasks=await getTasksReadableByUser({userId:user.uid,isAdmin,isManager,isDepartmentHead,isTeamLead,departmentId:deptId,department:dept,teamId,team});
 
     let members=[];
     try{
-      const ids=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
+      const ids=await getDocs(collection(db,'identities'));
       members=ids.docs.map(s=>({id:s.id,...s.data()}));
     }catch(error){members=[{id:user.uid,...identity}];}
     if(!isAdmin && isTeamLead && teamId) members=members.filter(m=>String(m.teamId||'')===String(teamId));
