@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Checkpoint: 20/08/2026 — Security Tree + Work Rules refactor ready for Firebase publish/test
+> Checkpoint: 20/08/2026 — Security Tree + Work Rules refactor published; first regression exposed Work UI coupling
 
 ## 1. Project
 
@@ -23,15 +23,23 @@ PR: #1
 main: KHÔNG MERGE tại checkpoint này
 ```
 
-Latest security refactor commit:
+Security refactor commit:
 
 ```text
 1f5e80ae8ddf63f562353de413d94811135aaa2c
 ```
 
-This commit updates `firestore.rules` to a tree/boundary structure and narrows assigned-member task updates to status/audit fields.
+Firebase Rules from that branch have now been manually published by the human tester.
 
-**Firebase has NOT been instructed/published from this checkpoint yet.** The next human action is to review/copy the branch `firestore.rules` into Firebase Console and Publish, then run the regression tests below.
+Latest application fixes are on the same engineering branch and are automatically deployed by Vercel Git integration.
+
+Latest tested-ready deployment:
+
+```text
+https://saovn-ezsfp5b5v-tuans-projects-ce1336a7.vercel.app
+commit: b5a1d594f100ec8995595fd1d154f679feed15ed
+state: READY
+```
 
 ---
 
@@ -68,7 +76,7 @@ No node is considered permanently `LOCKED` until the regression evidence exists.
 
 ## 4. Current Firestore Rules Refactor
 
-`firestore.rules` has been rewritten structurally on the engineering branch.
+`firestore.rules` has been rewritten structurally on the engineering branch and published to Firebase.
 
 ### CORE
 
@@ -123,8 +131,6 @@ updatedAt
 updatedBy
 ```
 
-This is specifically to make Kanban movement possible without allowing an ordinary assigned member to rewrite assignment/scope ownership fields.
-
 Checklist and comments inherit only the parent Work task readability contract.
 
 ---
@@ -143,23 +149,34 @@ The known Work test task contains this UID in `assigneeIds`.
 
 ---
 
-## 6. Previous Baseline / Regression History
+## 6. Current Regression Findings
 
-Previously observed:
+After publishing the structured Rules and testing the latest Vercel deployment:
 
 ```text
-Admin @Tag        PASS
-Admin Comment     PASS
-Admin Checklist   PASS
-Member @Tag       PASS
-Member Comment    permission-denied
-Member Checklist  permission-denied
-Member Kanban     permission-denied
+ADMIN
+  Work → page became unresponsive / appeared to hang
+  Other Admin tests were not completed in this round
+
+MEMBER
+  Work → assigned/current tasks were not returned in the UI
+  Dashboard / Overview → total Work count was not visible
 ```
 
-Previous experiments also caused regressions in Members/Admin. Those experimental versions are **not** the production baseline.
+The immediate application diagnosis found two competing legacy Work scripts running alongside `work-v3.js`:
 
-Current objective is to test the new structured rules without changing unrelated UI code first.
+```text
+work-assignee-migration.js
+  → performed bulk Work writes on every Admin Work page load
+
+work-member-firebase-fix.js
+  → performed a second Work Firebase read/render path
+  → could overwrite the governed Work renderer
+```
+
+Both have now been converted to harmless no-op modules. They remain as files only to avoid stale script references in `work.html`; `work-v3.js` is the single Work task renderer.
+
+`dashboard-data-fix.js` has also been updated so the member Overview explicitly displays **TỔNG CÔNG VIỆC** using the same member Work queries.
 
 ---
 
@@ -169,35 +186,40 @@ These remain application/module issues and must not be solved by broad Firestore
 
 ```text
 WORK / ANALYTICS
-  member/admin click on member name → currently routes to Members UI and layout becomes displaced
+  member/admin click on member name → previously routed to Members UI and layout became displaced
 
 WORK / TEAM
-  member name → clickable
-  admin name  → currently text only
+  member name → previously clickable
+  admin name  → previously text only
 ```
+
+These are deferred until the basic Work loading regression is stable.
 
 ---
 
-## 8. Required Regression Gate After Firebase Publish
+## 8. Regression Gate — CURRENT TEST ROUND
 
-Human tester must verify, in this order:
+The next human test must verify, in this order:
 
 ```text
 A. Admin
-   1. Admin page loads
-   2. Members/admin directory loads
-   3. Admin Work task loads
-   4. Admin comment works
-   5. Admin checklist works
+   1. Open Work
+   2. Confirm page does not hang
+   3. Confirm existing tasks appear
+   4. Confirm total count appears
+   5. Test Comment
+   6. Test Checklist
+   7. Test Kanban move
 
 B. Member
-   1. Member dashboard loads
-   2. Members-related page still loads where applicable
-   3. Assigned Work task loads
-   4. Member Kanban move works
-   5. Member checklist read/create works
-   6. Member comment read/create works
-   7. @Tag still works
+   1. Open Dashboard / Overview
+   2. Confirm TỔNG CÔNG VIỆC has a number
+   3. Open Work
+   4. Confirm assigned task appears
+   5. Test Kanban move
+   6. Test Checklist read/create
+   7. Test Comment read/create
+   8. Test @Tag
 
 C. Cross-branch regression
    1. Admin remains usable after Member tests
@@ -206,21 +228,19 @@ C. Cross-branch regression
    4. No new permission-denied errors outside the tested Work capability
 ```
 
-Only after this evidence may a branch be marked PASS/LOCKED and considered for merge.
+Only after this evidence may a node be marked PASS/LOCKED and considered for merge.
 
 ---
 
 ## 9. Immediate Human Action
 
-**STOP HERE until Firebase Rules are published.**
+No Firebase Rules change is requested at this checkpoint.
 
-Use the latest branch file:
+The Rules are already published. The latest application deployment is:
 
-`firestore.rules` at commit `1f5e80ae8ddf63f562353de413d94811135aaa2c`
+`https://saovn-ezsfp5b5v-tuans-projects-ce1336a7.vercel.app`
 
-Publish it in Firebase Console → Firestore Database → Rules.
-
-Then test the known Member and Admin using the regression gate above.
+Test the regression gate above. If a capability fails, report the exact Console error before changing Rules.
 
 Do **not** merge to `main` yet.
 
