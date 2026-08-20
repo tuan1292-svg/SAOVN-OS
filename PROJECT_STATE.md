@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Chốt sổ: 19/08/2026 — Firestore Security Modularization checkpoint
+> Checkpoint: 20/08/2026 — Security Tree + Work Rules refactor ready for Firebase publish/test
 
 ## 1. Project
 
@@ -13,102 +13,37 @@ SAOVN-OS là môi trường làm việc online và Organizational Operating Syst
 
 ---
 
-## 2. Current Development Strategy
+## 2. Current Branch / Release State
 
-SAOVN-OS sử dụng **production-safe modular development** vì hệ thống được sử dụng song song với quá trình phát triển.
-
-Nguyên tắc bắt buộc:
+Engineering work đang nằm trên:
 
 ```text
-BASELINE
-  ↓
-IMPACT ANALYSIS
-  ↓
-MODULE BOUNDARY
-  ↓
-CODE + DATA CONTRACT
-  ↓
-FIRESTORE PERMISSION CONTRACT
-  ↓
-REGRESSION
-  ↓
-REVIEW / RELEASE GATE
-  ↓
-MERGE
+branch: chore/engineering-governance
+PR: #1
+main: KHÔNG MERGE tại checkpoint này
 ```
 
-Không mở rộng quyền parent để chữa lỗi child. Không sửa module cũ chỉ vì thêm module mới nếu không có impact analysis. Không merge khi regression chưa có bằng chứng.
+Latest security refactor commit:
+
+```text
+1f5e80ae8ddf63f562353de413d94811135aaa2c
+```
+
+This commit updates `firestore.rules` to a tree/boundary structure and narrows assigned-member task updates to status/audit fields.
+
+**Firebase has NOT been instructed/published from this checkpoint yet.** The next human action is to review/copy the branch `firestore.rules` into Firebase Console and Publish, then run the regression tests below.
 
 ---
 
-## 3. Modular Web Architecture — CURRENT
+## 3. Security Architecture — LOCKING MODEL
 
-WORK đã được tách thành parent/child modules:
-
-```text
-WORK
-├── WORK.TASK
-├── WORK.CHECKLIST
-├── WORK.COMMENTS
-├── WORK.MENTIONS
-├── WORK.ANALYTICS
-└── WORK.CHAT
-```
-
-Web code/plugin boundary đã tồn tại và phải tiếp tục được bảo vệ.
-
----
-
-## 4. Critical Architecture Finding — Firestore Rules
-
-### Kết luận của checkpoint 19/08/2026
-
-**Web code đã được modular hóa, nhưng Firestore Security Rules hiện vẫn là một shared/high-risk ruleset.**
-
-Đây là nguyên nhân kiến trúc khiến các lần sửa quyền cho một actor/module có thể làm regress module khác.
-
-Ví dụ đã quan sát:
+Firestore still publishes one final `firestore.rules` file, but the file is internally structured as:
 
 ```text
-Sửa Member permission
-    ↓
-Members/Admin behavior regress
-
-Sửa Admin/identity permission
-    ↓
-Member Work behavior regress
-```
-
-Do đó **không tiếp tục vá `firestore.rules` theo kiểu mở rộng quyền toàn cục**.
-
-### Kiến trúc Rules mục tiêu
-
-Firestore chỉ có một ruleset cuối cùng cho database, nhưng source logic phải được tách theo namespace/module:
-
-```text
-FIRESTORE SECURITY SOURCE
-│
+ROOT
 ├── CORE
-│   ├── AUTHORIZATION
-│   ├── IDENTITY
-│   ├── MEMBERSHIP
-│   └── ORGANIZATION
-│
 ├── ADMIN
-│   ├── MEMBERS
-│   ├── USERS / IDENTITIES
-│   ├── DEPARTMENTS
-│   ├── ROLES
-│   ├── PROJECTS
-│   └── SYSTEM
-│
 ├── MEMBER
-│   ├── IDENTITY
-│   ├── WORK
-│   ├── ATTENDANCE
-│   ├── PROJECTS
-│   └── NOTIFICATIONS
-│
 └── WORK
     ├── TASK
     ├── CHECKLIST
@@ -118,65 +53,83 @@ FIRESTORE SECURITY SOURCE
     └── CHAT
 ```
 
-Target permission namespaces:
+Supporting governance documents:
 
-```text
-ADMIN.*
-MEMBER.*
-WORK.TASK.*
-WORK.CHECKLIST.*
-WORK.COMMENTS.*
-WORK.MENTIONS.*
-WORK.ANALYTICS.*
-WORK.CHAT.*
-```
+- `SECURITY_RULE_TREE.md`
+- `SECURITY_RULE_CONTRACT.md`
 
-### Non-negotiable security boundary
+Rule:
 
-```text
-Sửa ADMIN
-  → không được làm hỏng MEMBER
+> A PASS node is locked against unrelated changes. A child defect must not be repaired by widening another branch.
 
-Sửa MEMBER
-  → không được làm hỏng ADMIN
-
-Sửa WORK
-  → không được làm hỏng MEMBERS / ADMIN
-```
-
-Một Firestore `firestore.rules` cuối cùng vẫn được publish, nhưng source rule logic phải có boundary rõ ràng và được kiểm thử độc lập theo actor + module + operation.
+No node is considered permanently `LOCKED` until the regression evidence exists.
 
 ---
 
-## 5. Work Data Ownership
+## 4. Current Firestore Rules Refactor
+
+`firestore.rules` has been rewritten structurally on the engineering branch.
+
+### CORE
+
+Shared authorization primitives remain at the root:
+
+- signed-in state
+- membership identity
+- organization/system role helpers
+- department/team scope helpers
+
+CORE is high-impact and requires full regression if changed.
+
+### ADMIN
+
+Administrative collections remain isolated conceptually:
+
+- identities administration
+- memberships
+- invitations
+- departments
+- roles
+- system
+
+### MEMBER
+
+Member-facing collections remain separate conceptually:
+
+- attendance
+- documents
+- projects
+- notifications
+
+### WORK
+
+Work capabilities now have explicit helper contracts:
+
+- `WORK.TASK.READ`
+- `WORK.TASK.CREATE`
+- `WORK.TASK.UPDATE`
+- `WORK.TASK.DELETE`
+- `WORK.CHECKLIST.*`
+- `WORK.COMMENTS.*`
+- `WORK.ACTIVITY.*`
+- `WORK.CHAT.*`
+- `WORK.MENTIONS`
+
+For assigned members, Work task UPDATE is intentionally restricted to:
 
 ```text
-WORK.TASK
-  → workTasks/{taskId}
-
-WORK.CHECKLIST
-  → workTasks/{taskId}/checklist/{itemId}
-
-WORK.COMMENTS
-  → workTasks/{taskId}/comments/{commentId}
-
-WORK.MENTIONS
-  → mention resolution / mention events / notifications
-
-WORK.ANALYTICS
-  → derived / aggregate analytics
-
-WORK.CHAT
-  → workTasks/{taskId}/chat/{messageId}
+status
+updatedAt
+updatedBy
 ```
 
-Legacy storage paths của Checklist/Comments vẫn là **legacy storage contracts** cho tới khi có migration riêng. Không destructive migration chỉ để làm đẹp kiến trúc.
+This is specifically to make Kanban movement possible without allowing an ordinary assigned member to rewrite assignment/scope ownership fields.
+
+Checklist and comments inherit only the parent Work task readability contract.
 
 ---
 
-## 6. Current Work Permission Test
-
-Test member:
+## 5. Known Test Member
 
 ```text
 UID: 49jMcXigONdASEPDpvco02EaHPx1
@@ -186,202 +139,105 @@ role: org_member
 position: INTERN
 ```
 
-Task test đã xác minh UID member nằm trong `assigneeIds`.
+The known Work test task contains this UID in `assigneeIds`.
 
-Observed baseline:
+---
+
+## 6. Previous Baseline / Regression History
+
+Previously observed:
 
 ```text
 Admin @Tag        PASS
-Admin Comment     PASS (đã từng xác nhận)
-Admin Checklist   PASS (đã từng xác nhận)
-
+Admin Comment     PASS
+Admin Checklist   PASS
 Member @Tag       PASS
 Member Comment    permission-denied
 Member Checklist  permission-denied
 Member Kanban     permission-denied
 ```
 
-Ngoài ra đã gặp:
+Previous experiments also caused regressions in Members/Admin. Those experimental versions are **not** the production baseline.
 
-```text
-members.js
-  → Đọc memberships Active
-  → permission-denied
-
-Admin page / identities
-  → permission-denied trong một số bản Rules thử nghiệm
-```
-
-Một số bản Rules thử nghiệm gần đây làm Members/Admin regress hoặc gây treo UI. **Không coi các bản Rules thử nghiệm đó là production baseline.**
+Current objective is to test the new structured rules without changing unrelated UI code first.
 
 ---
 
-## 7. Current UI Issues Reported
+## 7. UI Issues Still Open
 
-### WORK / ANALYTICS
-
-Khi Admin hoặc Member click tên thành viên trong phần:
+These remain application/module issues and must not be solved by broad Firestore permission changes:
 
 ```text
 WORK / ANALYTICS
-  → Hiệu suất công việc
-```
+  member/admin click on member name → currently routes to Members UI and layout becomes displaced
 
-đang bị dẫn sang giao diện Members và giao diện bị xô lệch.
-
-### WORK / TEAM
-
-```text
-Member name → click được
-Admin name  → hiện chỉ là text, chưa click được
-```
-
-Các lỗi này thuộc **Work UI/module boundary**, không được chữa bằng cách mở quyền Firestore toàn cục.
-
----
-
-## 8. Firestore Rules Status
-
-`firestore.rules` là **shared high-risk boundary** và hiện **CHƯA được coi là hoàn tất**.
-
-Các bản Rules thử nghiệm đã được commit trên branch `chore/engineering-governance`, nhưng không được coi là production-safe chỉ vì console error giảm.
-
-Nguyên tắc mới:
-
-```text
-permission-denied
-  ↓
-module owner
-  ↓
-operation
-  ↓
-actor
-  ↓
-scope
-  ↓
-minimal capability
-  ↓
-Admin regression
-  ↓
-Member regression
-  ↓
-release gate
-```
-
-Không tiếp tục nới `identities` / `memberships` / `isMember()` / `isAdmin()` toàn cục để chữa lỗi Work.
-
----
-
-## 9. Branch / Release State
-
-Engineering work đang nằm trên:
-
-```text
-branch: chore/engineering-governance
-PR: #1
-PR state: OPEN / DRAFT / NOT MERGED
-```
-
-Production rule:
-
-```text
-main: KHÔNG MERGE branch này tại checkpoint này
-```
-
-Lý do: Rules và Work Member permission chưa đạt regression gate.
-
----
-
-## 10. What Is Closed
-
-```text
-✓ Engineering Change Control baseline
-✓ Module Boundary Rules baseline
-✓ Web Work module/plugin boundary
-✓ Work module registry / contracts
-✓ Work ownership baseline
-✓ Permission namespace concept
-✓ Regression gate concept
-✓ @Tag path đã từng test PASS cho Admin + Member
-✓ Admin Comment/Checklist đã từng test PASS
-```
-
-Đây là **architecture/governance checkpoint**, không phải tuyên bố toàn bộ Work permission đã hoàn tất.
-
----
-
-## 11. What Remains Open
-
-```text
-1. Tái cấu trúc Firestore Rules theo security/module boundary.
-2. Tách rõ ADMIN permission contract.
-3. Tách rõ MEMBER permission contract.
-4. Tách riêng WORK.TASK capability.
-5. Tách riêng WORK.CHECKLIST capability.
-6. Tách riêng WORK.COMMENTS capability.
-7. Tách riêng WORK.MENTIONS capability.
-8. Tách riêng WORK.ANALYTICS capability.
-9. Tách riêng WORK.CHAT capability.
-10. Có một final firestore.rules được assemble từ các boundary rõ ràng.
-11. Regression Admin sau mọi thay đổi Member.
-12. Regression Member sau mọi thay đổi Admin.
-13. Regression Members/Admin sau mọi thay đổi Work.
-14. Sửa Work Analytics profile navigation.
-15. Làm Admin identity trong Work Team clickable.
-16. Sau khi security boundary ổn mới xử lý tiếp Member Checklist/Comment/Kanban.
-17. Chỉ merge sau release gate.
+WORK / TEAM
+  member name → clickable
+  admin name  → currently text only
 ```
 
 ---
 
-## 12. Next Session — Immediate Plan
+## 8. Required Regression Gate After Firebase Publish
 
-Không tiếp tục patch Rules hiện tại theo kiểu ad-hoc.
-
-Bắt đầu từ:
+Human tester must verify, in this order:
 
 ```text
-CURRENT BASELINE
-  ↓
-DESIGN SECURITY MODULE BOUNDARIES
-  ↓
-ADMIN RULE CONTRACT
-  ↓
-MEMBER RULE CONTRACT
-  ↓
-WORK RULE CONTRACTS
-  ↓
-ASSEMBLE FINAL FIRESTORE RULES
-  ↓
-EMULATOR / RULES TEST IF AVAILABLE
-  ↓
-ADMIN REGRESSION
-  ↓
-MEMBER REGRESSION
-  ↓
-WORK REGRESSION
-  ↓
-PUBLISH ONLY AFTER PASS
+A. Admin
+   1. Admin page loads
+   2. Members/admin directory loads
+   3. Admin Work task loads
+   4. Admin comment works
+   5. Admin checklist works
+
+B. Member
+   1. Member dashboard loads
+   2. Members-related page still loads where applicable
+   3. Assigned Work task loads
+   4. Member Kanban move works
+   5. Member checklist read/create works
+   6. Member comment read/create works
+   7. @Tag still works
+
+C. Cross-branch regression
+   1. Admin remains usable after Member tests
+   2. Member remains usable after Admin tests
+   3. No page hangs
+   4. No new permission-denied errors outside the tested Work capability
 ```
 
-Mục tiêu là **không còn tình trạng sửa Admin làm hỏng Member hoặc sửa Member làm hỏng Admin**.
+Only after this evidence may a branch be marked PASS/LOCKED and considered for merge.
 
 ---
 
-## 13. Working Rule From Now On
+## 9. Immediate Human Action
 
-> **Một module mới là một plug-in có boundary, không phải một lý do để sửa cả parent.**
+**STOP HERE until Firebase Rules are published.**
 
-> **Một permission mới là một capability có scope, không phải một lý do để mở rộng quyền chung.**
+Use the latest branch file:
 
-> **Admin, Member và Work phải có security boundary độc lập.**
+`firestore.rules` at commit `1f5e80ae8ddf63f562353de413d94811135aaa2c`
 
-> **Phần đã PASS phải được bảo vệ bằng regression trước khi merge thay đổi mới.**
+Publish it in Firebase Console → Firestore Database → Rules.
+
+Then test the known Member and Admin using the regression gate above.
+
+Do **not** merge to `main` yet.
+
+---
+
+## 10. Working Rule From Now On
+
+> **Sửa ADMIN không được làm hỏng MEMBER.**
+
+> **Sửa MEMBER không được làm hỏng ADMIN.**
+
+> **Sửa WORK không được làm hỏng ADMIN/MEMBER.**
+
+> **Một node đã PASS phải được regression-protect trước khi thay đổi node khác.**
+
+> **Không dùng broad allow read/write làm shortcut cho một capability con.**
 
 > **Không tuyên bố PASS nếu chưa có evidence.**
-
-> **Không merge vào production khi chưa có rollback + regression evidence.**
-
----
 
 # END OF PROJECT STATE
