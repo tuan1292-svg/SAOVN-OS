@@ -3,70 +3,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ============================================================
-    // ROOT / CORE
-    // Shared authorization primitives. Do not change casually:
-    // CORE changes require regression of every branch.
+    // ROOT / CORE — shared primitives
     // ============================================================
     function signedIn() { return request.auth != null; }
     function membershipId() { return "mem_" + request.auth.uid + "_org_saovn_01"; }
     function memberDocId(userId) { return "mem_" + userId + "_org_saovn_01"; }
-    function isActiveStatus(data) { return data.get("status", "") in ["ACTIVE", "active"]; }
+    function isActive(data) { return data.get("status", "") in ["ACTIVE", "active"]; }
     function isMember() { return signedIn() && exists(/databases/$(database)/documents/memberships/$(membershipId())); }
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
-    function hasOrgRole(roleName) { return isMember() && membership().roles != null && membership().roles.organization != null && roleName in membership().roles.organization; }
-    function hasSystemRole(roleName) { return isMember() && membership().roles != null && membership().roles.system != null && roleName in membership().roles.system; }
+    function hasOrgRole(r) { return isMember() && membership().roles != null && membership().roles.organization != null && r in membership().roles.organization; }
+    function hasSystemRole(r) { return isMember() && membership().roles != null && membership().roles.system != null && r in membership().roles.system; }
     function isSystemAdmin() { return hasSystemRole("system_admin") || hasSystemRole("admin") || hasSystemRole("ADMIN") || hasSystemRole("SYSTEM_ADMIN"); }
     function isAdmin() { return isSystemAdmin() || hasOrgRole("org_admin") || hasOrgRole("organization_admin") || hasOrgRole("admin") || hasOrgRole("ADMIN") || hasOrgRole("ORG_ADMIN") || hasOrgRole("ORGANIZATION_ADMIN"); }
     function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager") || hasOrgRole("MANAGER") || hasOrgRole("ORG_MANAGER"); }
     function isTeamLead() { return hasOrgRole("team_lead") || hasOrgRole("team_leader") || hasOrgRole("TEAM_LEAD") || hasOrgRole("TEAM_LEADER"); }
-    function currentDepartmentId() { return isMember() ? membership().get("departmentId", "") : ""; }
-    function currentDepartment() { return isMember() ? membership().get("department", "") : ""; }
-    function currentTeamId() { return isMember() ? membership().get("teamId", "") : ""; }
-    function currentTeam() { return isMember() ? membership().get("team", "") : ""; }
-    function isDepartmentHead() { return isMember() && currentDepartmentId() != "" && exists(/databases/$(database)/documents/departments/$(currentDepartmentId())) && get(/databases/$(database)/documents/departments/$(currentDepartmentId())).data.get("headId", "") == request.auth.uid; }
+    function departmentId() { return isMember() ? membership().get("departmentId", "") : ""; }
+    function departmentName() { return isMember() ? membership().get("department", "") : ""; }
+    function teamId() { return isMember() ? membership().get("teamId", "") : ""; }
+    function teamName() { return isMember() ? membership().get("team", "") : ""; }
+    function isDepartmentHead() { return isMember() && departmentId() != "" && exists(/databases/$(database)/documents/departments/$(departmentId())) && get(/databases/$(database)/documents/departments/$(departmentId())).data.get("headId", "") == request.auth.uid; }
     function isPrivileged() { return isAdmin() || isManager() || isTeamLead() || isDepartmentHead(); }
-    function isWorkManager() { return isAdmin() || isManager() || isDepartmentHead() || isTeamLead(); }
+    function isWorkManager() { return isAdmin() || isManager() || isTeamLead() || isDepartmentHead(); }
 
     // ============================================================
-    // WORK / TASK CONTRACT
-    // Everything below this point is Work-specific authorization.
-    // A Work repair must not widen ADMIN or MEMBER capabilities.
+    // WORK — task boundary
     // ============================================================
-    function taskInDepartment(data) { return (currentDepartmentId() != "" && data.get("departmentId", "") == currentDepartmentId()) || (currentDepartment() != "" && data.get("department", "") == currentDepartment()); }
-    function taskInTeam(data) { return (currentTeamId() != "" && data.get("teamId", "") == currentTeamId()) || (currentTeam() != "" && data.get("team", "") == currentTeam()); }
-    function taskInManagementScope(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)); }
-    function taskOwnedByCurrentUser(data) { return data.get("createdBy", "") == request.auth.uid; }
-    function taskAssignedToCurrentUser(data) { return request.auth.uid in data.get("assigneeIds", []); }
-    function taskLegacyAssignedToCurrentUser(data) { return data.get("assigneeId", "") == request.auth.uid; }
-    function canReadTaskData(data) { return isMember() && (taskInManagementScope(data) || taskOwnedByCurrentUser(data) || taskAssignedToCurrentUser(data) || taskLegacyAssignedToCurrentUser(data)); }
-    function canCreateWork() { return isMember(); }
-    function canDeleteWork() { return isWorkManager(); }
-    function canCreateTaskData(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)) || (isMember() && taskOwnedByCurrentUser(data) && (data.get("assigneeIds", []) == [] || (data.get("assigneeIds", []) is list && data.get("assigneeIds", []).size() == 1 && request.auth.uid in data.get("assigneeIds", [])) || data.get("assigneeId", "") == "" || data.get("assigneeId", "") == request.auth.uid)); }
-    function canUpdateManagedTask(oldData, newData) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData)) || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData)); }
-    function canUpdateAssignedTaskStatus(oldData, newData) { return isMember() && (taskAssignedToCurrentUser(oldData) || taskLegacyAssignedToCurrentUser(oldData) || taskOwnedByCurrentUser(oldData)) && newData.diff(oldData).affectedKeys().hasOnly(["status", "updatedAt", "updatedBy"]); }
-    function canReadWorkChild(taskData) { return canReadTaskData(taskData); }
-    function canCreateWorkComment(taskData) { return canReadWorkChild(taskData) && request.resource.data.authorId == request.auth.uid; }
-    function canMutateWorkComment(taskData) { return canReadWorkChild(taskData) && (resource.data.authorId == request.auth.uid || isPrivileged()); }
-    function canMutateWorkChecklist(taskData) { return canReadWorkChild(taskData); }
-    function canReadWorkChat(taskData) { return canReadWorkChild(taskData); }
-    function canWriteWorkChat(taskData) { return canReadWorkChild(taskData); }
-    function canCreateWorkMentionNotification(recipientId) { return signedIn() && isMember() && request.resource.data.type == "WORK_MENTION" && request.resource.data.senderId == request.auth.uid && request.resource.data.recipientId == recipientId && request.resource.data.taskId is string && exists(/databases/$(database)/documents/workTasks/$(request.resource.data.taskId)) && canReadTaskData(get(/databases/$(database)/documents/workTasks/$(request.resource.data.taskId)).data) && recipientId != request.auth.uid && (recipientId in get(/databases/$(database)/documents/workTasks/$(request.resource.data.taskId)).data.get("assigneeIds", []) || get(/databases/$(database)/documents/workTasks/$(request.resource.data.taskId)).data.get("createdBy", "") == recipientId); }
+    function taskInDepartment(data) { return (departmentId() != "" && data.get("departmentId", "") == departmentId()) || (departmentName() != "" && data.get("department", "") == departmentName()); }
+    function taskInTeam(data) { return (teamId() != "" && data.get("teamId", "") == teamId()) || (teamName() != "" && data.get("team", "") == teamName()); }
+    function taskOwned(data) { return data.get("createdBy", "") == request.auth.uid; }
+    function taskAssigned(data) { return request.auth.uid in data.get("assigneeIds", []); }
+    function taskLegacyAssigned(data) { return data.get("assigneeId", "") == request.auth.uid; }
+    function taskManaged(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)); }
+    function taskReadable(data) { return isMember() && (taskManaged(data) || taskOwned(data) || taskAssigned(data) || taskLegacyAssigned(data)); }
+    function taskStatusOnly(oldData, newData) { return isMember() && (taskAssigned(oldData) || taskLegacyAssigned(oldData) || taskOwned(oldData)) && newData.diff(oldData).affectedKeys().hasOnly(["status", "updatedAt", "updatedBy"]); }
+    function taskManagedUpdate(oldData, newData) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData)) || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData)); }
+    function taskChildReadable(data) { return taskReadable(data); }
 
     // ============================================================
-    // CORE / IDENTITY + MEMBERSHIP
-    // These are intentionally kept separate from Work child writes.
+    // CORE / DIRECTORY
     // ============================================================
     match /identities/{userId} {
+      // Directory reads are intentionally separate from membership writes.
       allow read: if signedIn();
       allow create, update: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
+
     match /memberships/{membershipDocId} {
-      allow read: if signedIn() && (membershipDocId == membershipId() || isAdmin() || isManager() || isActiveStatus(resource.data));
-      allow create: if isAdmin() || (signedIn() && membershipDocId == membershipId() && isActiveStatus(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01" && request.resource.data.invitationId is string && exists(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)) && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "PENDING" && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.email == request.auth.token.email && get(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId == "org_saovn_01");
-      allow update: if isAdmin() || (signedIn() && membershipDocId == membershipId() && resource.data.status in ["PENDING", "pending"] && isActiveStatus(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
+      // Active memberships are readable by signed-in users for directory/work.
+      // Own membership remains readable regardless of status.
+      allow read: if signedIn() && (membershipDocId == membershipId() || isAdmin() || isManager() || isActive(resource.data));
+      allow create: if isAdmin() || (signedIn() && membershipDocId == membershipId() && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
+      allow update: if isAdmin() || (signedIn() && membershipDocId == membershipId() && resource.data.status in ["PENDING", "pending"] && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
       allow delete: if isAdmin();
     }
+
     match /invitations/{invitationId} {
       allow read: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && resource.data.email == request.auth.token.email);
       allow create: if isAdmin() && request.resource.data.organizationId == "org_saovn_01" && request.resource.data.invitedBy == request.auth.uid && request.resource.data.status == "PENDING" && request.resource.data.email is string && request.resource.data.role in ["MEMBER", "MANAGER", "ADMIN"];
@@ -75,86 +66,71 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // ADMIN BRANCH
-    // Administrative collections only.
+    // ADMIN
     // ============================================================
     match /departments/{departmentId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /roles/{roleId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /system/{documentId} { allow read, create, update, delete: if isSystemAdmin(); }
 
     // ============================================================
-    // MEMBER BRANCH
-    // Member-facing operations only.
+    // MEMBER
     // ============================================================
-    match /attendanceSessions/{sessionId} { allow read: if isMember() && (resource.data.userId == request.auth.uid || isAdmin()); allow create: if isMember() && request.resource.data.userId == request.auth.uid; allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid; allow delete: if isAdmin(); }
-    match /attendanceDays/{attendanceId} { allow read: if isMember(); allow create: if isMember() && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01"; allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == resource.data.organizationId; allow delete: if isAdmin(); }
+    match /attendanceSessions/{sessionId} {
+      allow read: if isMember() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+    match /attendanceDays/{attendanceId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01";
+      allow update: if isMember() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == resource.data.organizationId;
+      allow delete: if isAdmin();
+    }
     match /documents/{documentId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
 
     // ============================================================
-    // WORK BRANCH / TASK + CHILD CAPABILITIES
+    // WORK
+    // Explicit read leaves are intentional: they make Firestore query
+    // authorization easy to reason about and protect Admin/Member branches.
     // ============================================================
     match /workTasks/{taskId} {
-      // WORK.TASK.READ
-      allow read: if canReadTaskData(resource.data);
+      allow read: if isMember() && taskAssigned(resource.data);
+      allow read: if isMember() && taskLegacyAssigned(resource.data);
+      allow read: if isMember() && taskOwned(resource.data);
+      allow read: if isMember() && taskManaged(resource.data);
+      allow create: if isMember() && (isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(request.resource.data)) || (isTeamLead() && taskInTeam(request.resource.data)) || (taskOwned(request.resource.data) && (request.resource.data.get("assigneeIds", []) == [] || request.resource.data.get("assigneeId", "") == "" || request.auth.uid in request.resource.data.get("assigneeIds", []) || request.resource.data.get("assigneeId", "") == request.auth.uid)));
+      allow update: if taskManagedUpdate(resource.data, request.resource.data) || taskStatusOnly(resource.data, request.resource.data);
+      allow delete: if isWorkManager() && taskManaged(resource.data);
 
-      // WORK.TASK.CREATE
-      allow create: if canCreateWork() && canCreateTaskData(request.resource.data);
-
-      // WORK.TASK.UPDATE
-      // Managers/admins keep management update rights. Assigned members may
-      // move the task only by changing status + audit fields.
-      allow update: if canUpdateManagedTask(resource.data, request.resource.data) || canUpdateAssignedTaskStatus(resource.data, request.resource.data);
-
-      // WORK.TASK.DELETE
-      allow delete: if canDeleteWork() && taskInManagementScope(resource.data);
-
-      // WORK.COMMENTS
       match /comments/{commentId} {
-        allow read: if canReadWorkChild(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if canCreateWorkComment(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow update, delete: if canMutateWorkComment(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && (resource.data.authorId == request.auth.uid || isPrivileged());
       }
-
-      // WORK.CHECKLIST
       match /checklist/{itemId} {
-        allow read: if canReadWorkChild(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create, update, delete: if canMutateWorkChecklist(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow read: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create, update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
       }
-
-      // WORK.ACTIVITY
       match /activity/{activityId} {
-        allow read, create: if canReadWorkChild(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow update, delete: if canReadWorkChild(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged();
+        allow read, create: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged();
       }
-
-      // WORK.CHAT
       match /chat/{messageId} {
-        allow read: if canReadWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if canWriteWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && request.resource.data.senderId == request.auth.uid && request.resource.data.taskId == taskId;
-        allow update, delete: if canWriteWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && resource.data.senderId == request.auth.uid;
+        allow read: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && request.resource.data.senderId == request.auth.uid && request.resource.data.taskId == taskId;
+        allow update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && resource.data.senderId == request.auth.uid;
       }
     }
 
     // ============================================================
-    // MEMBER PROJECTS / NOTIFICATIONS
+    // PROJECTS / NOTIFICATIONS / DIRECT CHAT
     // ============================================================
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
-    match /notifications/{userId} {
-      allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
-      match /items/{notificationId} {
-        allow read, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
-        allow create: if signedIn() && (request.auth.uid == userId || isPrivileged() || canCreateWorkMentionNotification(userId));
-      }
-    }
-
-    // ============================================================
-    // DIRECT CHAT
-    // ============================================================
     function isConversationMember(data) { return isMember() && request.auth.uid in data.get("memberIds", []); }
-    function canCreateDirectConversation(data) { return isMember() && data.get("type", "") == "direct" && data.get("memberIds", []) is list && data.get("memberIds", []).size() == 2 && request.auth.uid in data.get("memberIds", []) && data.get("memberIds", [""])[0] != data.get("memberIds", ["", ""])[1] && exists(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[0]))) && exists(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[1]))) && isActiveStatus(get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[0]))).data) && isActiveStatus(get(/databases/$(database)/documents/memberships/$(memberDocId(data.get("memberIds", ["", ""])[1]))).data); }
-    function canCreateChatNotification(recipientId) { return signedIn() && request.resource.data.type == "CHAT" && request.resource.data.senderId == request.auth.uid && request.resource.data.recipientId == recipientId && request.resource.data.conversationId is string && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)) && isConversationMember(get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data) && recipientId != request.auth.uid && recipientId in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.memberIds; }
+    function canCreateDirectConversation(data) { return isMember() && data.get("type", "") == "direct" && data.get("memberIds", []) is list && data.get("memberIds", []).size() == 2 && request.auth.uid in data.get("memberIds", []); }
     match /conversations/{conversationId} {
       allow read: if isConversationMember(resource.data);
       allow create: if canCreateDirectConversation(request.resource.data);
@@ -166,10 +142,14 @@ service cloud.firestore {
         allow update, delete: if isConversationMember(get(/databases/$(database)/documents/conversations/$(conversationId)).data) && resource.data.senderId == request.auth.uid;
       }
     }
+    match /notifications/{userId} {
+      allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      match /items/{notificationId} {
+        allow read, update, delete: if signedIn() && (request.auth.uid == userId || isPrivileged());
+        allow create: if signedIn() && (request.auth.uid == userId || isPrivileged());
+      }
+    }
 
-    // ============================================================
-    // DEFAULT DENY
-    // ============================================================
     match /{document=**} { allow read, write: if false; }
   }
 }
