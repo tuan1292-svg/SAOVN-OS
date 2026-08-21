@@ -1,105 +1,95 @@
 // SAOVN-OS — Shared Navigation Controller
-// Single source of truth for the left navigation across all application pages.
+// One application navigation for every user. Visibility is capability-driven.
 
 const NAV_ITEMS = [
   { section: 'CORE', items: [
-    ['dashboard.html', '⌂', 'Tổng quan', 'dashboard'],
-    ['work.html', '▣', 'Công việc', 'work'],
-    ['departments.html', '▤', 'Phòng ban', 'departments'],
-    ['members.html', '♙', 'Thành viên', 'members']
+    ['dashboard.html', '⌂', 'Tổng quan', 'dashboard', 'dashboard.view'],
+    ['work.html', '▣', 'Công việc', 'work', 'work.task.view'],
+    ['departments.html', '▤', 'Phòng ban', 'departments', 'organization.department.view'],
+    ['members.html', '♙', 'Thành viên', 'members', 'people.member.view']
   ]},
   { section: 'TRAO ĐỔI', items: [
-    ['chat.html', '◌', 'Trò chuyện', 'chat'],
-    ['notifications.html', '♢', 'Thông báo', 'notifications']
+    ['chat.html', '◌', 'Trò chuyện', 'chat', null],
+    ['notifications.html', '♢', 'Thông báo', 'notifications', null]
   ]},
   { section: 'MODULES', items: [
-    ['work.html', '▱', 'Work', 'work-module']
+    ['work.html', '▱', 'Work', 'work-module', 'work.task.view'],
+    ['#projects', '◇', 'Dự án', 'projects', 'project.view']
   ]},
-  { section: 'QUẢN TRỊ', items: [
-    ['members.html', '♙', 'Quản lý thành viên', 'admin-members'],
-    ['departments.html', '▤', 'Quản lý phòng ban', 'admin-departments'],
-    ['#modules', '♙', 'Vai trò', 'admin-roles'],
-    ['#modules', '▣', 'Phân quyền', 'admin-permissions'],
-    ['#modules', '⚙', 'Cài đặt', 'admin-settings']
+  { section: 'QUẢN TRỊ', adminOnly: true, items: [
+    ['members.html', '♙', 'Quản lý thành viên', 'admin-members', 'people.member.update'],
+    ['departments.html', '▤', 'Quản lý phòng ban', 'admin-departments', 'organization.department.manage'],
+    ['#roles', '♙', 'Vai trò', 'admin-roles', 'admin.role.manage'],
+    ['#permissions', '▣', 'Phân quyền', 'admin-system', 'admin.system.manage'],
+    ['#settings', '⚙', 'Cài đặt', 'admin-settings', 'admin.system.manage']
   ]}
 ];
 
 function currentKey() {
   const page = (location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
   return ({
-    'dashboard.html': 'dashboard',
-    'work.html': 'work',
-    'departments.html': 'departments',
-    'members.html': 'members',
-    'chat.html': 'chat',
-    'notifications.html': 'notifications'
+    'dashboard.html': 'dashboard', 'work.html': 'work', 'departments.html': 'departments',
+    'members.html': 'members', 'chat.html': 'chat', 'notifications.html': 'notifications'
   })[page] || '';
 }
 
-function makeSection(section, items, active) {
+function makeSection(group, active) {
   const wrap = document.createElement('div');
-  // Both class families are intentional: older pages use nav-group/nav-item,
-  // newer pages use sidebar-section/navigation-item.
   wrap.className = 'sidebar-section nav-group saovn-nav-section';
-  wrap.dataset.navSection = section;
-  if (section === 'QUẢN TRỊ') {
-    wrap.hidden = true;
-    wrap.dataset.adminNavigation = 'true';
-  }
+  wrap.dataset.navSection = group.section;
+  if (group.adminOnly) { wrap.hidden = true; wrap.dataset.adminNavigation = 'true'; }
 
   const title = document.createElement('div');
   title.className = 'sidebar-title nav-title';
-  title.innerHTML = `<span>${section}</span>`;
+  title.innerHTML = `<span>${group.section}</span>`;
   wrap.appendChild(title);
 
-  items.forEach(([href, icon, label, key]) => {
+  group.items.forEach(([href, icon, label, key, capability]) => {
     const link = document.createElement('a');
     link.className = 'navigation-item nav-item';
     if (key === active || (active === 'work' && key === 'work-module')) link.classList.add('active');
     link.href = href;
     link.dataset.navKey = key;
+    if (capability) link.dataset.capability = capability;
     link.innerHTML = `<span class="nav-icon">${icon}</span><span>${label}</span>`;
     wrap.appendChild(link);
   });
   return wrap;
 }
 
-function renderNavigation() {
+async function renderNavigation() {
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar || sidebar.dataset.navigationReady === 'true') return;
-
   const bottom = sidebar.querySelector('.sidebar-bottom');
   if (!bottom) return;
 
   sidebar.dataset.navigationReady = 'true';
-  // Remove every page-specific navigation implementation, regardless of its
-  // old class name. Brand/workspace/user controls remain untouched.
   sidebar.querySelectorAll('.sidebar-section, .nav-group, .module-section').forEach(node => node.remove());
-
   const active = currentKey();
-  NAV_ITEMS.forEach(group => sidebar.insertBefore(makeSection(group.section, group.items, active), bottom));
+  NAV_ITEMS.forEach(group => sidebar.insertBefore(makeSection(group, active), bottom));
 
-  // permissions.js owns the authoritative role. It will reveal/hide the admin
-  // group when its async permission state becomes ready.
-  window.addEventListener('saovn:permissions-ready', event => {
-    const isAdmin = event.detail?.role === 'ADMIN';
-    const admin = sidebar.querySelector('[data-admin-navigation="true"]');
-    if (admin) admin.hidden = !isAdmin;
-  });
+  const apply = event => {
+    const permissions = event.detail?.permissions;
+    if (!(permissions instanceof Set)) return;
+    sidebar.querySelectorAll('[data-capability]').forEach(node => {
+      const allowed = permissions.has(node.dataset.capability);
+      node.hidden = !allowed;
+      node.setAttribute('aria-hidden', String(!allowed));
+      if (allowed) node.removeAttribute('tabindex'); else node.setAttribute('tabindex', '-1');
+    });
+    sidebar.querySelectorAll('[data-admin-navigation="true"]').forEach(node => {
+      node.hidden = ![...permissions].some(p => p.startsWith('admin.'));
+    });
+  };
 
-  // Load permissions lazily so pages that do not otherwise import permissions.js
-  // still receive the same role-aware navigation.
-  import('./permissions.js')
-    .then(({ getPermissions }) => getPermissions())
-    .then(state => {
-      const admin = sidebar.querySelector('[data-admin-navigation="true"]');
-      if (admin) admin.hidden = state?.role !== 'ADMIN';
-    })
-    .catch(error => console.warn('Shared navigation permission sync unavailable:', error));
+  window.addEventListener('saovn:permissions-ready', apply);
+  try {
+    const { getPermissions } = await import('./permissions.js');
+    apply({ detail: await getPermissions() });
+  } catch (error) {
+    console.warn('Shared navigation permission sync unavailable:', error);
+  }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', renderNavigation, { once: true });
-} else {
-  renderNavigation();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderNavigation, { once: true });
+else renderNavigation();
