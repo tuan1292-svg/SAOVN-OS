@@ -76,6 +76,26 @@ function currentRoute() {
   return String(location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
 }
 
+function ensureControlPlaneEntry(allowed) {
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    const title = section.querySelector('.sidebar-title')?.textContent?.toUpperCase() || '';
+    if (!title.includes('QUẢN TRỊ')) return;
+    let link = section.querySelector('a[data-control-plane-entry]');
+    if (!link && allowed) {
+      const nav = section.querySelector('nav');
+      if (nav) {
+        link = document.createElement('a');
+        link.href = 'admin-control.html';
+        link.className = 'navigation-item';
+        link.dataset.controlPlaneEntry = 'true';
+        link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
+        nav.appendChild(link);
+      }
+    }
+    if (link) link.hidden = !allowed;
+  });
+}
+
 function applyNavigation() {
   const route = currentRoute();
 
@@ -100,9 +120,8 @@ function applyNavigation() {
   });
 
   const controlPlaneAllowed = hasPermission(PERMISSIONS.SYSTEM_MANAGE);
-  document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => {
-    node.hidden = !controlPlaneAllowed;
-  });
+  ensureControlPlaneEntry(controlPlaneAllowed);
+  document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => { node.hidden = !controlPlaneAllowed; });
   document.querySelectorAll('.sidebar-section').forEach(section => {
     const title = section.querySelector('.sidebar-title')?.textContent?.toUpperCase() || '';
     if (title.includes('QUẢN TRỊ')) section.hidden = !controlPlaneAllowed;
