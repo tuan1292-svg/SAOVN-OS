@@ -4,6 +4,7 @@
  */
 
 import { ACCESS_SCOPE } from './access-contract.js';
+import { createOrganizationContext } from './organization-context.js';
 
 const EMPTY = Object.freeze({});
 
@@ -80,10 +81,12 @@ export function buildRuntimeContext({ user = null, membership = {}, policy = {} 
   const normalizedPolicy = normalizePolicy(policy);
   const scope = normalizeScope(membership.scope || membership);
   const capabilities = resolveCapabilities({ membership, policy: normalizedPolicy });
+  const organization = createOrganizationContext({ identity: user || {}, membership });
 
   return Object.freeze({
     user,
     membership,
+    organization,
     policy: normalizedPolicy,
     scope,
     capabilities,
