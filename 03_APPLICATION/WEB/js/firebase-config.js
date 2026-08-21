@@ -19,9 +19,9 @@ getAnalytics(app);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Shared application chrome. Loaded from the common Firebase bootstrap so every
-// authenticated WEB page gets the same navigation without duplicating menu HTML.
+// Shared Experience Plane: every WEB page gets the same runtime shell.
 if (typeof window !== 'undefined') {
+  import('./core/experience-shell.js').catch(error => console.warn('Experience shell unavailable:', error?.code || error));
   import('./navigation.js').catch(error => console.warn('Shared navigation unavailable:', error));
   import('./header-badges.js').catch(error => console.warn('Header badges unavailable:', error?.code || error));
 }
