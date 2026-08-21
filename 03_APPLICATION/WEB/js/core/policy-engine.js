@@ -32,16 +32,21 @@ export function normalizePolicy(policy = {}) {
   });
 }
 
+export function normalizeRoleId(roleId) {
+  return String(roleId || '').trim().toUpperCase();
+}
+
 export function resolveCapabilities({ membership = {}, policy = {} } = {}) {
   const p = normalizePolicy(policy);
-  const roleIds = Array.isArray(membership.roleIds)
+  const rawRoleIds = Array.isArray(membership.roleIds)
     ? membership.roleIds
     : (membership.role ? [membership.role] : []);
+  const roleIds = [...new Set(rawRoleIds.map(normalizeRoleId).filter(Boolean))];
 
   const result = new Set(Array.isArray(membership.capabilities) ? membership.capabilities : []);
 
   for (const roleId of roleIds) {
-    const role = p.roles?.[roleId];
+    const role = p.roles?.[roleId] || p.roles?.[String(roleId).toLowerCase()];
     if (!role) continue;
     for (const capability of role.capabilities || []) result.add(capability);
   }
@@ -65,8 +70,8 @@ export function moduleEnabled(policy, moduleId, membership = {}) {
   if (module === false) return false;
   if (module?.enabled === false) return false;
   if (module?.roles?.length) {
-    const roles = membership.roleIds || (membership.role ? [membership.role] : []);
-    if (!roles.some(role => module.roles.includes(role))) return false;
+    const roles = (membership.roleIds || (membership.role ? [membership.role] : [])).map(normalizeRoleId);
+    if (!roles.some(role => module.roles.map(normalizeRoleId).includes(role))) return false;
   }
   return true;
 }
