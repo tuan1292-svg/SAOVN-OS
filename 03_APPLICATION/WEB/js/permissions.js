@@ -79,13 +79,11 @@ function currentRoute() {
 function applyNavigation() {
   const route = currentRoute();
 
-  // Shared Experience Plane: navigation is derived from capabilities + runtime policy.
   document.querySelectorAll('a[href]').forEach(node => {
     const raw = String(node.getAttribute('href') || '').split('#')[0].split('?')[0];
     const target = raw.split('/').pop()?.toLowerCase();
     const moduleId = ROUTE_MODULES.get(target);
     if (!moduleId) return;
-
     const module = listModules().find(item => item.id === moduleId);
     const enabled = state.context?.moduleEnabled?.(moduleId) !== false;
     const allowed = module ? module.capabilities.some(capability => hasPermission(capability)) : true;
@@ -101,11 +99,17 @@ function applyNavigation() {
     node.setAttribute('aria-hidden', String(!allowed));
   });
 
+  const controlPlaneAllowed = hasPermission(PERMISSIONS.SYSTEM_MANAGE);
   document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => {
-    node.hidden = !hasPermission(PERMISSIONS.SYSTEM_MANAGE);
+    node.hidden = !controlPlaneAllowed;
+  });
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    const title = section.querySelector('.sidebar-title')?.textContent?.toUpperCase() || '';
+    if (title.includes('QUẢN TRỊ')) section.hidden = !controlPlaneAllowed;
   });
 
   if (route === 'members.html' && !hasPermission(PERMISSIONS.MEMBERS_VIEW)) window.location.replace('dashboard.html');
+  if (route === 'admin-control.html' && !controlPlaneAllowed) window.location.replace('dashboard.html');
 }
 
 async function load(user) {
