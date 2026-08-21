@@ -2,6 +2,7 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { buildRuntimeContext } from './core/policy-engine.js';
+import { listModules } from './core/module-registry.js';
 
 const MEMBERSHIP_ID = uid => `mem_${uid}_org_saovn_01`;
 const RUNTIME_POLICY_ID = 'runtime';
@@ -22,9 +23,9 @@ const DEFAULT_POLICY = Object.freeze({
     chat: { enabled: true }, notifications: { enabled: true }, projects: { enabled: true }
   },
   roles: {
-    MEMBER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view'] },
-    MANAGER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.task.delete','work.task.assign','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','project.create','project.update'] },
-    ADMIN: { capabilities: Object.values(PERMISSIONS) }
+    MEMBER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','chat.view','notifications.view'] },
+    MANAGER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.task.delete','work.task.assign','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','project.create','project.update','chat.view','notifications.view'] },
+    ADMIN: { capabilities: [...Object.values(PERMISSIONS), 'chat.view', 'notifications.view'] }
   }
 });
 
@@ -66,8 +67,32 @@ export function can(area, action = 'read') {
   return hasPermission(key) || Boolean(aliases[key] && hasPermission(aliases[key]));
 }
 
+const ROUTE_MODULES = new Map([
+  ['dashboard.html', 'dashboard'], ['work.html', 'work'], ['departments.html', 'departments'],
+  ['chat.html', 'chat'], ['notifications.html', 'notifications'], ['members.html', 'members']
+]);
+
+function currentRoute() {
+  return String(location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
+}
+
 function applyNavigation() {
-  const admin = state.role === 'ADMIN';
+  const route = currentRoute();
+
+  // Shared Experience Plane: navigation is derived from capabilities + runtime policy.
+  document.querySelectorAll('a[href]').forEach(node => {
+    const raw = String(node.getAttribute('href') || '').split('#')[0].split('?')[0];
+    const target = raw.split('/').pop()?.toLowerCase();
+    const moduleId = ROUTE_MODULES.get(target);
+    if (!moduleId) return;
+
+    const module = listModules().find(item => item.id === moduleId);
+    const enabled = state.context?.moduleEnabled?.(moduleId) !== false;
+    const allowed = module ? module.capabilities.some(capability => hasPermission(capability)) : true;
+    node.hidden = !enabled || !allowed;
+    node.setAttribute('aria-hidden', String(!enabled || !allowed));
+  });
+
   document.querySelectorAll('[data-capability]').forEach(node => {
     const capability = node.dataset.capability;
     if (!capability) return;
@@ -75,8 +100,12 @@ function applyNavigation() {
     node.hidden = !allowed;
     node.setAttribute('aria-hidden', String(!allowed));
   });
-  document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => { node.hidden = !admin; });
-  if (location.pathname.toLowerCase().endsWith('/members.html') && !hasPermission(PERMISSIONS.MEMBERS_VIEW)) window.location.replace('dashboard.html');
+
+  document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => {
+    node.hidden = !hasPermission(PERMISSIONS.SYSTEM_MANAGE);
+  });
+
+  if (route === 'members.html' && !hasPermission(PERMISSIONS.MEMBERS_VIEW)) window.location.replace('dashboard.html');
 }
 
 async function load(user) {
