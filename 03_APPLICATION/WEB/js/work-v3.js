@@ -9,7 +9,7 @@ let user=null,scope=null,tasks=[],members=[],selectedAssigneeIds=new Set(),view=
 const SL={BACKLOG:'Chờ xử lý',TODO:'Cần làm',IN_PROGRESS:'Đang thực hiện',REVIEW:'Chờ duyệt',DONE:'Hoàn thành'};
 const PL={LOW:'Thấp',MEDIUM:'Trung bình',HIGH:'Cao',URGENT:'Khẩn cấp'};
 const POSITIONS={INTERN:'Thực tập sinh',COLLABORATOR:'Cộng tác viên',STAFF:'Nhân viên',SPECIALIST:'Chuyên viên',SENIOR_SPECIALIST:'Chuyên viên cao cấp',TEAM_LEAD:'Trưởng nhóm',MANAGER:'Quản lý',DEPARTMENT_HEAD:'Trưởng phòng',DIRECTOR:'Giám đốc',OTHER:'Khác'};
-const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>\\\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\"':'&quot;',"'":'&#39;'}[c]));
 const positionLabel=p=>POSITIONS[String(p||'STAFF').toUpperCase()]||String(p||'Nhân viên');
 
 function normalizeAssignees(t){
@@ -48,7 +48,23 @@ function setAssignees(ids=[]){const allowed=new Set(directoryMembers().map(m=>m.
 function openPicker(){E.menu?.classList.add('open');renderAssigneeOptions();}function closePicker(){E.menu?.classList.remove('open');}
 async function migrateLegacyAssignments(taskList){if(!isAdmin())return;const jobs=taskList.filter(t=>Array.isArray(t.assignees)&&t.assignees.length&&(!Array.isArray(t.assigneeIds)||!t.assigneeIds.length)).map(async t=>{const ids=t.assignees.map(a=>typeof a==='string'?a:a?.id).filter(Boolean);if(!ids.length)return;try{await updateDoc(doc(db,'workTasks',t.id),{assigneeIds:[...new Set(ids)],assigneeId:ids[0]||null,updatedBy:user.uid,updatedAt:serverTimestamp()});t.assigneeIds=[...new Set(ids)];t.assigneeId=ids[0]||null;}catch(error){console.warn('Không đồng bộ assigneeIds cho Work cũ:',t.id,error);}});if(jobs.length)await Promise.all(jobs);}
 async function loadTasks(){const map=new Map();const add=s=>s.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()}));if(isAdmin()){add(await getDocs(query(collection(db,'workTasks'),orderBy('createdAt','desc'))));}else if(scope?.type==='DEPARTMENT'&&scope.departmentId){add(await getDocs(query(collection(db,'workTasks'),where('departmentId','==',scope.departmentId))));await loadPersonalTasks(map);}else if(scope?.type==='DEPARTMENT_LEGACY'&&scope.department){add(await getDocs(query(collection(db,'workTasks'),where('department','==',scope.department))));await loadPersonalTasks(map);}else if(scope?.type==='TEAM'&&scope.teamId){add(await getDocs(query(collection(db,'workTasks'),where('teamId','==',scope.teamId))));await loadPersonalTasks(map);}else if(scope?.type==='TEAM'&&scope.team){add(await getDocs(query(collection(db,'workTasks'),where('team','==',scope.team))));await loadPersonalTasks(map);}else{await loadPersonalTasks(map);}const loaded=[...map.values()];await migrateLegacyAssignments(loaded);tasks=loaded.filter(t=>taskInScope(t,scope)).sort((a,b)=>{const aa=a.createdAt?.toMillis?.()||new Date(a.createdAt||0).getTime()||0;const bb=b.createdAt?.toMillis?.()||new Date(b.createdAt||0).getTime()||0;return bb-aa;});render();}
-async function loadPersonalTasks(map){const results=[];const safeQuery=async make=>{try{return await make();}catch(error){console.warn('Work personal query skipped:',error);return null;}};results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid)))));results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid)))));results.push(await safeQuery(()=>getDocs(query(collection(db,'workTasks'),where('assigneeId','==',user.uid)))));results.filter(Boolean).forEach(s=>s.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()})));}
+async function loadPersonalTasks(map){
+  const queries=[
+    ['assigneeIds',()=>getDocs(query(collection(db,'workTasks'),where('assigneeIds','array-contains',user.uid)))],
+    ['createdBy',()=>getDocs(query(collection(db,'workTasks'),where('createdBy','==',user.uid)))],
+    ['assigneeId',()=>getDocs(query(collection(db,'workTasks'),where('assigneeId','==',user.uid)))]
+  ];
+  for(const [name,make] of queries){
+    try{
+      const snap=await make();
+      snap.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()}));
+    }catch(error){
+      const code=error?.code||'unknown';
+      console.error(`[WORK][MEMBER QUERY FAILED] ${name}`,{code,message:error?.message||String(error),uid:user?.uid,scope});
+      throw new Error(`Work không tải được task theo ${name}. Firestore: ${code}. ${error?.message||''}`);
+    }
+  }
+}
 function visible(){const q=E.search.value.trim().toLowerCase();return tasks.filter(t=>(!q||`${t.title||''} ${t.description||''} ${assigneeText(t)}`.toLowerCase().includes(q))&&(E.sf.value==='ALL'||t.status===E.sf.value)&&(E.pf.value==='ALL'||t.priority===E.pf.value));}
 function render(){const today=new Date().toISOString().slice(0,10);E.total.textContent=tasks.length;E.progress.textContent=tasks.filter(t=>t.status==='IN_PROGRESS').length;E.done.textContent=tasks.filter(t=>t.status==='DONE').length;E.overdue.textContent=tasks.filter(t=>t.dueDate&&t.dueDate<today&&t.status!=='DONE').length;const v=visible();E.result.textContent=`${v.length} công việc`;E.boardTitle.textContent=isAdmin()?(view==='list'?'Danh sách công việc toàn workspace':'Bảng công việc toàn workspace'):(view==='list'?`Công việc · ${scope?.label||'Phạm vi cá nhân'}`:`Bảng công việc · ${scope?.label||'Phạm vi cá nhân'}`);if(view==='list'){E.list.style.display='block';E.kanban.classList.remove('active');renderList(v);}else{E.list.style.display='none';E.kanban.classList.add('active');renderKanban(v);}}
 function row(t){const today=new Date().toISOString().slice(0,10),over=t.dueDate&&t.dueDate<today&&t.status!=='DONE';return`<div class="task-row" data-detail="${esc(t.id)}"><div class="task-main"><i class="task-dot"></i><div><strong>${esc(t.title||'Không tên')}</strong><small>${esc(t.description||'Chưa có mô tả')}</small></div></div><span class="status ${t.status||'TODO'}">${SL[t.status]||'Cần làm'}</span><span class="priority ${t.priority||'MEDIUM'}">${PL[t.priority]||'Trung bình'}</span><span class="assignee" title="${esc(assigneeText(t))}">${esc(assigneeText(t))}</span><span class="due ${over?'overdue':''}">${t.dueDate?date(t.dueDate):'Không deadline'}</span>${taskEditable(t)?`<button class="row-menu" data-edit="${esc(t.id)}" title="Sửa">⋮</button>`:''}</div>`;}
