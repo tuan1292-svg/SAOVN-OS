@@ -7,8 +7,8 @@ import { auth, db } from '../firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { getPermissions } from '../permissions.js';
+import { listModules } from './module-registry.js';
 
-const MEMBERSHIP_ID = uid => `mem_${uid}_org_saovn_01`;
 const identityCache = new Map();
 let started = false;
 
@@ -17,11 +17,7 @@ function text(selector, value) {
 }
 
 function roleLabel(role) {
-  return ({
-    ADMIN: 'Quản trị hệ thống',
-    MANAGER: 'Quản lý',
-    MEMBER: 'Thành viên'
-  })[role] || 'Thành viên';
+  return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý', MEMBER: 'Thành viên' })[role] || 'Thành viên';
 }
 
 async function loadIdentity(uid, fallbackUser) {
@@ -37,11 +33,7 @@ async function loadIdentity(uid, fallbackUser) {
     identityCache.set(uid, identity);
     return identity;
   } catch (error) {
-    return {
-      name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên',
-      email: fallbackUser.email || '',
-      avatarUrl: fallbackUser.photoURL || ''
-    };
+    return { name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên', email: fallbackUser.email || '', avatarUrl: fallbackUser.photoURL || '' };
   }
 }
 
@@ -50,49 +42,41 @@ function applyIdentity(identity, role) {
   text('#topbarIdentity', identity.name);
   text('[data-identity-email]', identity.email);
   text('[data-runtime-role]', roleLabel(role));
-
   document.querySelectorAll('.user-avatar, .avatar').forEach(node => {
     if (identity.avatarUrl) {
       node.textContent = '';
       node.style.backgroundImage = `url("${identity.avatarUrl.replaceAll('"', '')}")`;
       node.style.backgroundSize = 'cover';
       node.style.backgroundPosition = 'center';
-    } else {
-      node.textContent = identity.name.trim().charAt(0).toUpperCase() || 'S';
-    }
+    } else node.textContent = identity.name.trim().charAt(0).toUpperCase() || 'S';
   });
-
   document.documentElement.dataset.saovnRole = role;
   document.documentElement.dataset.saovnIdentityReady = 'true';
 }
 
 function installRouteGuard(state) {
-  const route = location.pathname.split('/').pop()?.toLowerCase() || '';
+  const route = (location.pathname.split('/').pop() || '').toLowerCase();
   const context = state.context;
   if (!context) return;
   if (route === 'admin-control.html' && !state.permissions.has('admin.system.manage')) {
     location.replace('dashboard.html');
     return;
   }
-  if (route === 'members.html' && !state.permissions.has('people.member.view')) {
-    location.replace('dashboard.html');
-  }
+  const module = listModules().find(item => item.routes?.some(path => String(path).split('/').pop()?.toLowerCase() === route));
+  if (!module) return;
+  const enabled = context.moduleEnabled(module.id);
+  const allowed = enabled && module.capabilities.some(capability => context.can(capability));
+  if (!allowed) location.replace('dashboard.html');
 }
 
 async function start(user) {
   if (!user) {
     document.documentElement.dataset.saovnAuth = 'anonymous';
-    if (!['index.html', 'activate.html', ''].includes(location.pathname.split('/').pop()?.toLowerCase() || '')) {
-      location.replace('index.html');
-    }
+    if (!['index.html', 'activate.html', ''].includes((location.pathname.split('/').pop() || '').toLowerCase())) location.replace('index.html');
     return;
   }
-
   document.documentElement.dataset.saovnAuth = 'authenticated';
-  const [state, identity] = await Promise.all([
-    getPermissions(),
-    loadIdentity(user.uid, user)
-  ]);
+  const [state, identity] = await Promise.all([getPermissions(), loadIdentity(user.uid, user)]);
   applyIdentity(identity, state.role);
   installRouteGuard(state);
   window.dispatchEvent(new CustomEvent('saovn:shell-ready', { detail: { identity, state } }));
