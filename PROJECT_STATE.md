@@ -11,9 +11,7 @@
 
 SAOVN-OS là môi trường làm việc online và Organizational Operating System cho SAOVN.
 
----
-
-## 2. Current Product Direction — LOCKED
+## 2. Product Direction — LOCKED
 
 SAOVN-OS dùng **một Experience Plane / Application Shell chung** cho toàn bộ nhân viên, quản lý và lãnh đạo.
 
@@ -29,19 +27,7 @@ SAOVN-OS dùng **một Experience Plane / Application Shell chung** cho toàn b�
                               Organization / Config
 ```
 
-Không xây Admin Work và Member Work thành hai ứng dụng khác nhau.
-
-Cùng một module nghiệp vụ được dùng bởi mọi người; khác biệt nằm ở:
-
-```text
-Identity → Membership → Role → Scope → Capability → UI
-```
-
-Frontend chỉ phản ánh capability. Firestore Rules/backend mới là lớp thực thi bảo mật cuối cùng.
-
-Admin Control Plane thay đổi policy/configuration; Experience Plane đọc runtime state và tự thích nghi.
-
----
+Không xây Admin Work và Member Work thành hai ứng dụng khác nhau. Cùng một module nghiệp vụ được dùng bởi mọi người; khác biệt nằm ở Identity → Membership → Role → Scope → Capability → UI. Frontend chỉ phản ánh capability. Firestore Rules/backend mới là lớp thực thi bảo mật cuối cùng.
 
 ## 3. Core Architecture
 
@@ -82,11 +68,7 @@ CONTROL PLANE
     └── Runtime policy
 ```
 
----
-
 ## 4. Shared Experience Plane
-
-Đã triển khai nền tảng dùng chung:
 
 ```text
 ✓ Shared Application Shell
@@ -102,69 +84,60 @@ CONTROL PLANE
 ✓ Direct-route protection
 ✓ Module enable/disable enforcement
 ✓ Safe baseline when policy cannot be loaded
+✓ Module dependency/readiness validation
 ```
 
 Các trang nghiệp vụ không được tự tạo một hệ thống permission riêng nếu đã có contract ở Core.
 
----
-
 ## 5. Module Registry
 
-File chính:
+File chính: `03_APPLICATION/WEB/js/core/module-registry.js`
+
+Registry hiện quản lý Dashboard, Work, Departments, Members, Projects, Attendance, Chat và Notifications.
+
+Mỗi module khai báo `id`, `version`, `label`, `dependencies`, `capabilities`, `routes`, `navigation`, `events`.
+
+Registry có dependency validation, missing/disabled dependency detection, readiness state, `canLoadModule()`, `enabledModules()` và `moduleHealth()`.
+
+Checkpoint: `347a55c7fd1aba3ee8cff78a2de31cb9a66bd2e8`.
+
+## 6. Identity / Membership Contract — NEW
+
+File mới:
+
+`03_APPLICATION/WEB/js/core/identity-context.js`
+
+Contract này chuẩn hóa ranh giới Identity/Membership cho Experience Plane.
 
 ```text
-03_APPLICATION/WEB/js/core/module-registry.js
+Auth User
+   ↓
+Identity Context
+   ├── uid
+   ├── displayName
+   ├── title
+   ├── contact
+   └── photo
+
+Membership Context
+   ├── organization
+   ├── company
+   ├── department
+   ├── team
+   ├── project
+   ├── roleIds
+   ├── manager
+   └── status
+
+Scope Context
+   └── SELF / TEAM / DEPARTMENT / GLOBAL...
 ```
 
-Registry hiện quản lý các module:
+Contract này **không cấp quyền**. Nó chỉ tạo context ổn định để Policy/Capability Engine sử dụng. Security vẫn do backend/Firestore Rules.
 
-```text
-Dashboard
-Work
-Departments
-Members
-Projects
-Attendance
-Chat
-Notifications
-```
+Checkpoint mới: `e161594845ac024a5f05bc54416a9b26f2fc4f3a`.
 
-Mỗi module khai báo:
-
-```text
-id
-version
-label
-dependencies
-capabilities
-routes
-navigation
-events
-```
-
-Registry hiện có:
-
-```text
-✓ Dependency validation
-✓ Missing dependency detection
-✓ Disabled dependency detection
-✓ Module readiness state
-✓ canLoadModule()
-✓ enabledModules()
-✓ moduleHealth()
-```
-
-Mục tiêu: module bị Admin tắt hoặc thiếu dependency không được chạy nửa vời và gây lỗi dây chuyền.
-
-Checkpoint commit:
-
-```text
-347a55c7fd1aba3ee8cff78a2de31cb9a66bd2e8
-```
-
----
-
-## 6. Access Model
+## 7. Access Model
 
 Vocabulary chuẩn:
 
@@ -175,86 +148,21 @@ Capability
 Policy
 ```
 
-Scope mục tiêu:
+Scope mục tiêu: `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`, `GROUP`, `GLOBAL`.
 
-```text
-SELF
-PROJECT
-TEAM
-DEPARTMENT
-COMPANY
-GROUP
-GLOBAL
-```
+Chức danh công ty không phải permission trực tiếp.
 
-Không dùng chức danh công ty làm permission trực tiếp.
+## 8. Control Plane
 
-Ví dụ:
+Admin Control Plane là khu vực hậu phương. Admin điều chỉnh runtime policy, module enabled/disabled, role capability policy và system configuration. Experience Plane đọc state này.
 
-```text
-Chức danh:
-Founder · Chairman · CEO
-Department Head
-Team Lead
-Specialist
-Staff
+Admin không sửa JS/HTML frontend để điều khiển hệ thống. Admin sửa policy/configuration; frontend phản ánh policy/configuration.
 
-≠
+## 9. Runtime Policy
 
-System Role:
-ADMIN
-MANAGER
-MEMBER
-```
+Đã có canonical role normalization, deep merge policy với baseline, active policy runtime state, realtime policy update, capability re-resolution, safe unauthenticated state và safe baseline khi policy không tải được.
 
-Role có thể được mở rộng sau này mà không phải viết lại module nghiệp vụ.
-
----
-
-## 7. Control Plane
-
-Admin Control Plane là khu vực hậu phương.
-
-Admin điều chỉnh:
-
-```text
-✓ Runtime policy
-✓ Module enabled / disabled
-✓ Role capability policy
-✓ System configuration
-```
-
-Experience Plane đọc state này.
-
-Nguyên tắc:
-
-```text
-Admin không sửa JS/HTML của frontend để điều khiển hệ thống.
-Admin sửa policy/configuration.
-Frontend phản ánh policy/configuration.
-```
-
-Admin Control không xuất hiện với user thông thường và route được bảo vệ bằng capability quản trị hệ thống.
-
----
-
-## 8. Runtime Policy
-
-Runtime policy đã được đưa về một nguồn resolve chung.
-
-Đã có:
-
-```text
-✓ Canonical role normalization
-✓ Deep merge policy với baseline
-✓ activePolicy runtime state
-✓ Realtime policy update
-✓ Capability re-resolution khi policy thay đổi
-✓ Không cấp quyền mặc định cho unauthenticated user
-✓ Safe baseline khi policy không tải được
-```
-
-Luồng:
+Luồng chuẩn:
 
 ```text
 Firebase Auth
@@ -270,109 +178,25 @@ Module Registry
 Navigation / Route Guard / UI
 ```
 
----
+## 10. Organization / People
 
-## 9. Organization / Identity
+Các phần trước đã có Members management, Department management, Department Workspace, Team structure, Team assignment, Team Lead, Direct manager, Department scope, Team scope và legacy identity resolution.
 
-Các phần đã có từ checkpoint trước:
+Identity chính trong UI là Họ tên + Chức danh. Email/phone là thông tin liên hệ, không phải Identity chính.
 
-```text
-✓ Members management
-✓ Department management
-✓ Department Workspace
-✓ Team structure
-✓ Team assignment
-✓ Team Lead
-✓ Direct manager
-✓ Department scope
-✓ Team scope
-✓ Legacy identity resolution
-```
+## 11. Work — First Business Module
 
-Identity chính trong UI:
-
-```text
-Nguyễn Anh Tuấn
-Founder · Chairman · CEO
-```
-
-Email/phone là thông tin liên hệ, không phải Identity chính.
-
----
-
-## 10. Work — First Business Module
-
-Work vẫn là Business Module đầu tiên.
-
-Đã có:
-
-```text
-✓ My Work
-✓ Tasks
-✓ Assignments
-✓ Deadlines
-✓ Progress
-✓ Kanban
-✓ Comments
-✓ Checklist
-✓ Activity
-✓ Mentions
-✓ Notifications foundation
-✓ Department / Team filtering
-✓ Member Work view
-✓ Admin Work management
-```
+Đã có My Work, Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity, Mentions, Notifications foundation, Department/Team filtering, Member Work view và Admin Work management.
 
 ### Known issue — CHƯA CLOSED
 
-```text
-Member → assigned Work → Kanban status update
-```
-
-Từng gặp:
-
-```text
-FirebaseError: Missing or insufficient permissions.
-```
+`Member → assigned Work → Kanban status update` từng gặp `FirebaseError: Missing or insufficient permissions`.
 
 Không đánh dấu Work security COMPLETE cho tới khi test bằng tài khoản Firebase thực tế và xác nhận Firestore Rules.
 
-Không rollback UI/module đã hoàn thiện chỉ vì lỗi permission Work.
+## 12. Communication / Notifications
 
----
-
-## 11. Communication / Notifications
-
-Foundation đã có:
-
-```text
-✓ Conversations
-✓ Messages
-✓ Unread count
-✓ Notifications
-✓ Badge
-✓ Read / unread state
-✓ Mention notification
-✓ @tất cả thành viên
-```
-
-Các lỗi indexing / permission / unread trước đó phải được giữ nguyên behavior khi refactor.
-
----
-
-## 12. Current Code Checkpoints
-
-Các checkpoint kiến trúc mới nhất trên `main`:
-
-```text
-347a55c7  feat(core): add module dependency validation and readiness checks
-```
-
-Các checkpoint trước đó gồm shared shell, policy engine, canonical access contract, navigation/route guard, Control Plane và runtime policy realtime.
-
-GitHub `main` là Source of Truth.
-
----
+Foundation đã có Conversations, Messages, Unread count, Notifications, Badge, Read/unread state, Mention notification và `@tất cả thành viên`.
 
 ## 13. Development Rules — LOCKED
 
@@ -390,9 +214,8 @@ GitHub `main` là Source of Truth.
 11. Mỗi checkpoint lớn phải có commit rõ ràng.
 12. PROJECT_STATE được cập nhật theo checkpoint, không ghi vụn từng thay đổi.
 13. Không gọi một phần nền tảng là COMPLETE nếu chưa kiểm chứng behavior thực tế.
+14. Identity/Membership/Scope phải đi qua canonical context trước khi module nghiệp vụ sử dụng.
 ```
-
----
 
 ## 14. Next Development Sequence
 
@@ -419,7 +242,5 @@ Release checkpoint
 ```
 
 Work permission issue remains a known checkpoint and is not hidden.
-
----
 
 # END OF PROJECT STATE
