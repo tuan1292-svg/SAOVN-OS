@@ -13,18 +13,20 @@ export const PERMISSIONS = Object.freeze({
   DEPARTMENTS_VIEW: 'organization.department.view', DEPARTMENTS_MANAGE: 'organization.department.manage',
   MEMBERS_VIEW: 'people.member.view', MEMBERS_CREATE: 'people.member.create', MEMBERS_UPDATE: 'people.member.update', MEMBERS_ROLE_MANAGE: 'people.member.role.manage', MEMBERS_DELETE: 'people.member.delete',
   PROJECTS_VIEW: 'project.view', PROJECTS_CREATE: 'project.create', PROJECTS_EDIT: 'project.update', PROJECTS_DELETE: 'project.delete',
+  ATTENDANCE_VIEW: 'attendance.view', ATTENDANCE_MANAGE: 'attendance.manage',
+  CHAT_VIEW: 'chat.view', NOTIFICATIONS_VIEW: 'notifications.view',
   ROLES_MANAGE: 'admin.role.manage', SYSTEM_MANAGE: 'admin.system.manage'
 });
 
 const DEFAULT_POLICY = Object.freeze({
-  version: 1,
+  version: 2,
   modules: {
     dashboard: { enabled: true }, work: { enabled: true }, departments: { enabled: true }, members: { enabled: true },
-    chat: { enabled: true }, notifications: { enabled: true }, projects: { enabled: true }
+    chat: { enabled: true }, notifications: { enabled: true }, projects: { enabled: true }, attendance: { enabled: true }
   },
   roles: {
-    MEMBER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','chat.view','notifications.view'] },
-    MANAGER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.task.delete','work.task.assign','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','project.create','project.update','chat.view','notifications.view'] },
+    MEMBER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','attendance.view','chat.view','notifications.view'] },
+    MANAGER: { capabilities: ['dashboard.view','work.task.view','work.task.create','work.task.update','work.task.delete','work.task.assign','work.comment.create','work.checklist.update','organization.department.view','people.member.view','project.view','project.create','project.update','attendance.view','attendance.manage','chat.view','notifications.view'] },
     ADMIN: { capabilities: [...Object.values(PERMISSIONS), 'chat.view', 'notifications.view'] }
   }
 });
@@ -36,20 +38,13 @@ let activeUser = null;
 let activeMembership = {};
 let activePolicy = DEFAULT_POLICY;
 
-const clone = value => {
-  if (Array.isArray(value)) return value.slice();
-  if (value && typeof value === 'object') return { ...value };
-  return value;
-};
+const clone = value => Array.isArray(value) ? value.slice() : (value && typeof value === 'object' ? { ...value } : value);
 
 function mergePolicy(base, override) {
   const result = { ...base };
   Object.entries(override || {}).forEach(([key, value]) => {
-    if (value && typeof value === 'object' && !Array.isArray(value) && base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])) {
-      result[key] = mergePolicy(base[key], value);
-    } else {
-      result[key] = clone(value);
-    }
+    if (value && typeof value === 'object' && !Array.isArray(value) && base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])) result[key] = mergePolicy(base[key], value);
+    else result[key] = clone(value);
   });
   return result;
 }
@@ -68,8 +63,7 @@ function roleFromMembership(data = {}) {
     ...(Array.isArray(roles.system) ? roles.system : []),
     ...(Array.isArray(roles.organization) ? roles.organization : []),
     ...(Array.isArray(data.role) ? data.role : [data.role].filter(Boolean)),
-    data.systemRole,
-    data.organizationRole
+    data.systemRole, data.organizationRole
   ].filter(Boolean);
   const normalized = all.map(normalizeRole);
   if (normalized.includes('ADMIN')) return 'ADMIN';
@@ -90,17 +84,8 @@ async function loadPolicy() {
 function applyPolicy(policy) {
   if (!activeUser) return state;
   activePolicy = mergePolicy(DEFAULT_POLICY, policy || {});
-  const context = buildRuntimeContext({
-    user: activeUser,
-    membership: { ...activeMembership, role: state.role },
-    policy: activePolicy
-  });
-  state = {
-    ...state,
-    permissions: context.capabilities,
-    context,
-    policy: activePolicy
-  };
+  const context = buildRuntimeContext({ user: activeUser, membership: { ...activeMembership, role: state.role }, policy: activePolicy });
+  state = { ...state, permissions: context.capabilities, context, policy: activePolicy };
   window.SAOVNRuntime = context;
   applyNavigation();
   window.dispatchEvent(new CustomEvent('saovn:permissions-ready', { detail: state }));
@@ -111,9 +96,7 @@ function applyPolicy(policy) {
 function watchPolicy() {
   if (policyUnsubscribe) policyUnsubscribe();
   if (!activeUser) return;
-  policyUnsubscribe = onSnapshot(doc(db, 'systemConfig', RUNTIME_POLICY_ID), snap => {
-    applyPolicy(snap.exists() ? snap.data() : DEFAULT_POLICY);
-  }, error => {
+  policyUnsubscribe = onSnapshot(doc(db, 'systemConfig', RUNTIME_POLICY_ID), snap => applyPolicy(snap.exists() ? snap.data() : DEFAULT_POLICY), error => {
     console.warn('[SAOVN][RUNTIME] policy listener unavailable; retaining last known policy.', error?.code || error);
   });
 }
@@ -125,7 +108,8 @@ export function can(area, action = 'read') {
     'members.create': PERMISSIONS.MEMBERS_CREATE, 'members.update': PERMISSIONS.MEMBERS_UPDATE,
     'members.delete': PERMISSIONS.MEMBERS_DELETE, 'members.role.manage': PERMISSIONS.MEMBERS_ROLE_MANAGE,
     'departments.read': PERMISSIONS.DEPARTMENTS_VIEW, 'departments.manage': PERMISSIONS.DEPARTMENTS_MANAGE,
-    'dashboard.read': PERMISSIONS.DASHBOARD_VIEW
+    'dashboard.read': PERMISSIONS.DASHBOARD_VIEW, 'attendance.read': PERMISSIONS.ATTENDANCE_VIEW,
+    'attendance.manage': PERMISSIONS.ATTENDANCE_MANAGE
   };
   const key = `${area}.${action}`;
   return hasPermission(key) || Boolean(aliases[key] && hasPermission(aliases[key]));
@@ -133,26 +117,21 @@ export function can(area, action = 'read') {
 
 const ROUTE_MODULES = new Map([
   ['dashboard.html', 'dashboard'], ['work.html', 'work'], ['departments.html', 'departments'],
-  ['chat.html', 'chat'], ['notifications.html', 'notifications'], ['members.html', 'members']
+  ['chat.html', 'chat'], ['notifications.html', 'notifications'], ['members.html', 'members'],
+  ['projects.html', 'projects'], ['attendance.html', 'attendance']
 ]);
 
-function currentRoute() {
-  return String(location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
-}
+function currentRoute() { return String(location.pathname.split('/').pop() || 'dashboard.html').toLowerCase(); }
 
 function ensureControlPlaneEntry(allowed) {
   document.querySelectorAll('.sidebar-section').forEach(section => {
     const title = section.querySelector('.sidebar-title')?.textContent?.toUpperCase() || '';
-    if (!title.includes('QUẢN TRỊ')) return;
+    if (!title.includes('QUẢN TRỊ') && !title.includes('ADMIN')) return;
     let link = section.querySelector('a[data-control-plane-entry]');
     if (!link && allowed) {
       const container = section.querySelector('nav') || section;
-      link = document.createElement('a');
-      link.href = 'admin-control.html';
-      link.className = 'navigation-item';
-      link.dataset.controlPlaneEntry = 'true';
-      link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
-      container.appendChild(link);
+      link = document.createElement('a'); link.href = 'admin-control.html'; link.className = 'navigation-item'; link.dataset.controlPlaneEntry = 'true';
+      link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>'; container.appendChild(link);
     }
     if (link) link.hidden = !allowed;
   });
@@ -171,31 +150,26 @@ function applyNavigation() {
     node.hidden = !enabled || !allowed;
     node.setAttribute('aria-hidden', String(!enabled || !allowed));
   });
-
   document.querySelectorAll('[data-capability]').forEach(node => {
     const capability = node.dataset.capability;
     if (!capability) return;
     const allowed = hasPermission(capability);
-    node.hidden = !allowed;
-    node.setAttribute('aria-hidden', String(!allowed));
+    node.hidden = !allowed; node.setAttribute('aria-hidden', String(!allowed));
   });
-
   const controlPlaneAllowed = hasPermission(PERMISSIONS.SYSTEM_MANAGE);
   ensureControlPlaneEntry(controlPlaneAllowed);
   document.querySelectorAll('[data-admin-navigation="true"]').forEach(node => { node.hidden = !controlPlaneAllowed; });
   document.querySelectorAll('.sidebar-section').forEach(section => {
     const title = section.querySelector('.sidebar-title')?.textContent?.toUpperCase() || '';
-    if (title.includes('QUẢN TRỊ')) section.hidden = !controlPlaneAllowed;
+    if (title.includes('QUẢN TRỊ') || title.includes('ADMIN')) section.hidden = !controlPlaneAllowed;
   });
-
   if (route === 'members.html' && !hasPermission(PERMISSIONS.MEMBERS_VIEW)) window.location.replace('dashboard.html');
   if (route === 'admin-control.html' && !controlPlaneAllowed) window.location.replace('dashboard.html');
 }
 
 async function load(user) {
   if (!user) return state;
-  activeUser = user;
-  state.uid = user.uid;
+  activeUser = user; state.uid = user.uid;
   try {
     const snap = await getDoc(doc(db, 'memberships', MEMBERSHIP_ID(user.uid)));
     activeMembership = snap.exists() ? snap.data() : {};
@@ -203,15 +177,13 @@ async function load(user) {
     activeMembership = {};
     console.warn('Membership unavailable; using safe MEMBER baseline.', error?.code || error);
   }
-
   const role = roleFromMembership(activeMembership);
   const policy = await loadPolicy();
   activePolicy = policy;
   const context = buildRuntimeContext({ user, membership: { ...activeMembership, role }, policy });
   state = { ready: true, uid: user.uid, role, permissions: context.capabilities, context, policy };
   window.SAOVNRuntime = context;
-  applyNavigation();
-  watchPolicy();
+  applyNavigation(); watchPolicy();
   window.dispatchEvent(new CustomEvent('saovn:permissions-ready', { detail: state }));
   window.dispatchEvent(new CustomEvent('saovn:runtime-ready', { detail: context }));
   return state;
@@ -219,13 +191,10 @@ async function load(user) {
 
 readyPromise = new Promise(resolve => onAuthStateChanged(auth, async user => {
   if (policyUnsubscribe) { policyUnsubscribe(); policyUnsubscribe = null; }
-  activeUser = user;
-  activeMembership = {};
+  activeUser = user; activeMembership = {};
   if (!user) {
     state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(), context: null, policy: DEFAULT_POLICY };
-    applyNavigation();
-    resolve(state);
-    return;
+    applyNavigation(); resolve(state); return;
   }
   resolve(await load(user));
 }));
