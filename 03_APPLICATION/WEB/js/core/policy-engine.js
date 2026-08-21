@@ -3,15 +3,16 @@
  * UI uses this for rendering only; backend/data rules remain authoritative.
  */
 
+import { ACCESS_SCOPE } from './access-contract.js';
+
 const EMPTY = Object.freeze({});
 
-export const SCOPE_ORDER = Object.freeze([
-  'SELF', 'PROJECT', 'TEAM', 'DEPARTMENT', 'COMPANY', 'GROUP', 'GLOBAL'
-]);
+export const SCOPE_ORDER = Object.freeze([...ACCESS_SCOPE]);
 
 export function normalizeScope(scope = {}) {
+  const type = String(scope.type || 'SELF').toUpperCase();
   return Object.freeze({
-    type: String(scope.type || 'SELF').toUpperCase(),
+    type: SCOPE_ORDER.includes(type) ? type : 'SELF',
     organizationId: scope.organizationId || '',
     companyId: scope.companyId || '',
     departmentId: scope.departmentId || '',
