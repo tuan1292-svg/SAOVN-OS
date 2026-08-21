@@ -4,7 +4,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function membershipId() { return "mem_" + request.auth.uid + "_org_saovn_01"; }
-    function memberDocId(userId) { return "mem_" + userId + "_org_saovn_01"; }
     function isActive(data) { return data.get("status", "") == "ACTIVE" || data.get("status", "") == "active"; }
     function isMember() { return signedIn() && exists(/databases/$(database)/documents/memberships/$(membershipId())); }
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
@@ -57,6 +56,12 @@ service cloud.firestore {
     match /departments/{departmentId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /roles/{roleId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /system/{documentId} { allow read, create, update, delete: if isSystemAdmin(); }
+    // Runtime policy is configuration, not security authority. Members may read
+    // it so the shared shell can adapt; only Admin may change it.
+    match /systemConfig/{configId} {
+      allow read: if isMember();
+      allow create, update, delete: if isAdmin();
+    }
 
     match /attendanceSessions/{sessionId} {
       allow read: if isMember() && (resource.data.userId == request.auth.uid || isAdmin());
