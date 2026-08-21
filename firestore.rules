@@ -26,7 +26,7 @@ service cloud.firestore {
     function isWorkManager() { return isAdmin() || isManager() || isTeamLead() || isDepartmentHead(); }
 
     // ============================================================
-    // WORK / TASK — explicit read branches
+    // WORK / TASK — explicit authorization contract
     // ============================================================
     function taskInDepartment(data) { return (departmentId() != "" && data.get("departmentId", "") == departmentId()) || (departmentName() != "" && data.get("department", "") == departmentName()); }
     function taskInTeam(data) { return (teamId() != "" && data.get("teamId", "") == teamId()) || (teamName() != "" && data.get("team", "") == teamName()); }
@@ -40,6 +40,12 @@ service cloud.firestore {
     function taskManagedUpdate(oldData, newData) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData)) || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData)); }
     function taskChildReadable(data) { return taskReadable(data); }
 
+    // Named helpers keep the disabled CHAT boundary explicit and testable.
+    // WORK.CHAT remains disabled at the module layer; these helpers only define
+    // the authorization contract for its isolated Firestore subtree.
+    function canReadWorkChat(data) { return taskChildReadable(data); }
+    function canWriteWorkChat(data) { return taskChildReadable(data) && isMember(); }
+
     // ============================================================
     // CORE / DIRECTORY
     // ============================================================
@@ -50,8 +56,6 @@ service cloud.firestore {
     }
 
     match /memberships/{membershipDocId} {
-      // Query-safe: an ACTIVE/active membership is readable by any signed-in
-      // organization member. Own membership is always readable.
       allow read: if signedIn() && (membershipDocId == membershipId() || isAdmin() || isManager() || isActive(resource.data));
       allow create: if isAdmin() || (signedIn() && membershipDocId == membershipId() && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
       allow update: if isAdmin() || (signedIn() && membershipDocId == membershipId() && resource.data.status in ["PENDING", "pending"] && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
@@ -97,8 +101,6 @@ service cloud.firestore {
       allow read: if isMember() && taskLegacyAssigned(resource.data);
       allow read: if isMember() && taskOwned(resource.data);
       allow read: if isMember() && taskManaged(resource.data);
-      // Ordinary members may READ tasks in their own department/team scope;
-      // they may still UPDATE only tasks assigned to/owned by themselves.
       allow read: if isMember() && taskMemberScope(resource.data);
       allow create: if isMember() && (isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(request.resource.data)) || (isTeamLead() && taskInTeam(request.resource.data)) || (taskOwned(request.resource.data) && (request.resource.data.get("assigneeIds", []) == [] || request.resource.data.get("assigneeId", "") == "" || request.auth.uid in request.resource.data.get("assigneeIds", []) || request.resource.data.get("assigneeId", "") == request.auth.uid)));
       allow update: if taskManagedUpdate(resource.data, request.resource.data) || taskStatusOnly(resource.data, request.resource.data);
@@ -118,9 +120,9 @@ service cloud.firestore {
         allow update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && isPrivileged();
       }
       match /chat/{messageId} {
-        allow read: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
-        allow create: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && request.resource.data.senderId == request.auth.uid && request.resource.data.taskId == taskId;
-        allow update, delete: if taskChildReadable(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && resource.data.senderId == request.auth.uid;
+        allow read: if canReadWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data);
+        allow create: if canWriteWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && request.resource.data.senderId == request.auth.uid && request.resource.data.taskId == taskId;
+        allow update, delete: if canWriteWorkChat(get(/databases/$(database)/documents/workTasks/$(taskId)).data) && resource.data.senderId == request.auth.uid;
       }
     }
 
