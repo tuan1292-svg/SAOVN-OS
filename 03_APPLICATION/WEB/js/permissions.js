@@ -34,23 +34,53 @@ let readyPromise;
 let policyUnsubscribe = null;
 let activeUser = null;
 let activeMembership = {};
+let activePolicy = DEFAULT_POLICY;
+
+const clone = value => {
+  if (Array.isArray(value)) return value.slice();
+  if (value && typeof value === 'object') return { ...value };
+  return value;
+};
+
+function mergePolicy(base, override) {
+  const result = { ...base };
+  Object.entries(override || {}).forEach(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])) {
+      result[key] = mergePolicy(base[key], value);
+    } else {
+      result[key] = clone(value);
+    }
+  });
+  return result;
+}
+
+function normalizeRole(value) {
+  const role = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (!role) return 'MEMBER';
+  if (['SYSTEM_ADMIN', 'ADMINISTRATOR', 'ORG_ADMIN', 'OWNER', 'SUPER_ADMIN'].includes(role) || role === 'ADMIN') return 'ADMIN';
+  if (['MANAGER', 'DIRECTOR', 'EXECUTIVE', 'TEAM_LEAD', 'DEPARTMENT_HEAD'].includes(role)) return 'MANAGER';
+  return 'MEMBER';
+}
 
 function roleFromMembership(data = {}) {
   const roles = data.roles || {};
   const all = [
     ...(Array.isArray(roles.system) ? roles.system : []),
     ...(Array.isArray(roles.organization) ? roles.organization : []),
-    ...(Array.isArray(data.role) ? data.role : [data.role].filter(Boolean))
-  ].map(v => String(v).toLowerCase());
-  if (all.some(v => v.includes('system_admin') || v === 'admin' || v === 'administrator' || v.includes('org_admin'))) return 'ADMIN';
-  if (all.some(v => v.includes('manager') || v.includes('director') || v.includes('executive') || v.includes('team_lead'))) return 'MANAGER';
+    ...(Array.isArray(data.role) ? data.role : [data.role].filter(Boolean)),
+    data.systemRole,
+    data.organizationRole
+  ].filter(Boolean);
+  const normalized = all.map(normalizeRole);
+  if (normalized.includes('ADMIN')) return 'ADMIN';
+  if (normalized.includes('MANAGER')) return 'MANAGER';
   return 'MEMBER';
 }
 
 async function loadPolicy() {
   try {
     const snap = await getDoc(doc(db, 'systemConfig', RUNTIME_POLICY_ID));
-    return snap.exists() ? { ...DEFAULT_POLICY, ...snap.data() } : DEFAULT_POLICY;
+    return snap.exists() ? mergePolicy(DEFAULT_POLICY, snap.data()) : DEFAULT_POLICY;
   } catch (error) {
     console.warn('Runtime policy unavailable; using safe local baseline.', error?.code || error);
     return DEFAULT_POLICY;
@@ -59,15 +89,17 @@ async function loadPolicy() {
 
 function applyPolicy(policy) {
   if (!activeUser) return state;
+  activePolicy = mergePolicy(DEFAULT_POLICY, policy || {});
   const context = buildRuntimeContext({
     user: activeUser,
     membership: { ...activeMembership, role: state.role },
-    policy
+    policy: activePolicy
   });
   state = {
     ...state,
     permissions: context.capabilities,
-    context
+    context,
+    policy: activePolicy
   };
   window.SAOVNRuntime = context;
   applyNavigation();
@@ -80,8 +112,7 @@ function watchPolicy() {
   if (policyUnsubscribe) policyUnsubscribe();
   if (!activeUser) return;
   policyUnsubscribe = onSnapshot(doc(db, 'systemConfig', RUNTIME_POLICY_ID), snap => {
-    const policy = snap.exists() ? { ...DEFAULT_POLICY, ...snap.data() } : DEFAULT_POLICY;
-    applyPolicy(policy);
+    applyPolicy(snap.exists() ? snap.data() : DEFAULT_POLICY);
   }, error => {
     console.warn('[SAOVN][RUNTIME] policy listener unavailable; retaining last known policy.', error?.code || error);
   });
@@ -129,7 +160,6 @@ function ensureControlPlaneEntry(allowed) {
 
 function applyNavigation() {
   const route = currentRoute();
-
   document.querySelectorAll('a[href]').forEach(node => {
     const raw = String(node.getAttribute('href') || '').split('#')[0].split('?')[0];
     const target = raw.split('/').pop()?.toLowerCase();
@@ -176,8 +206,9 @@ async function load(user) {
 
   const role = roleFromMembership(activeMembership);
   const policy = await loadPolicy();
+  activePolicy = policy;
   const context = buildRuntimeContext({ user, membership: { ...activeMembership, role }, policy });
-  state = { ready: true, uid: user.uid, role, permissions: context.capabilities, context };
+  state = { ready: true, uid: user.uid, role, permissions: context.capabilities, context, policy };
   window.SAOVNRuntime = context;
   applyNavigation();
   watchPolicy();
@@ -191,7 +222,7 @@ readyPromise = new Promise(resolve => onAuthStateChanged(auth, async user => {
   activeUser = user;
   activeMembership = {};
   if (!user) {
-    state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(DEFAULT_POLICY.roles.MEMBER.capabilities), context: null };
+    state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(), context: null, policy: DEFAULT_POLICY };
     applyNavigation();
     resolve(state);
     return;
@@ -203,5 +234,6 @@ export async function getPermissions() { await readyPromise; return state; }
 export const role = () => state.role;
 export const permissionState = () => state;
 export const runtimeContext = () => state.context;
-export const permissionsForRole = roleName => [...(DEFAULT_POLICY.roles[String(roleName || 'MEMBER').toUpperCase()]?.capabilities || DEFAULT_POLICY.roles.MEMBER.capabilities)];
-window.SAOVNPermissions = { get: getPermissions, can, hasPermission, role, state: permissionState, runtime: runtimeContext, permissionsForRole };
+export const runtimePolicy = () => activePolicy;
+export const permissionsForRole = roleName => [...(activePolicy.roles[normalizeRole(roleName)]?.capabilities || activePolicy.roles.MEMBER.capabilities)];
+window.SAOVNPermissions = { get: getPermissions, can, hasPermission, role, state: permissionState, runtime: runtimeContext, policy: runtimePolicy, permissionsForRole };
