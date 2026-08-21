@@ -10,14 +10,42 @@ function openMember(uid) {
   location.href = url.toString();
 }
 
-function wireLegacyTeamMembers() {
+async function loadDirectoryIndex() {
+  const { db } = await import('./firebase-config.js');
+  const { collection, getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js');
+  const index = new Map();
+  try {
+    const [identities, memberships] = await Promise.all([
+      getDocs(query(collection(db, 'identities'), where('status', '==', 'ACTIVE'))),
+      getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE')))
+    ]);
+    identities.forEach(s => {
+      const d = s.data() || {};
+      const name = clean(d.fullName || d.displayName || d.name || d.email);
+      if (name) index.set(name.toLowerCase(), s.id);
+    });
+    memberships.forEach(s => {
+      const d = s.data() || {};
+      const uid = d.userId || d.identityId || d.uid || '';
+      if (!uid) return;
+      const name = clean(d.fullName || d.displayName || d.name || '');
+      if (name) index.set(name.toLowerCase(), uid);
+    });
+  } catch (error) {
+    console.warn('Team member directory link lookup skipped:', error?.code || error);
+  }
+  return index;
+}
+
+async function wireLegacyTeamMembers(index) {
   if (!teamList) return;
   teamList.querySelectorAll('.team-members > span').forEach(span => {
     if (span.dataset.memberLink === '1') return;
     const name = clean(span.querySelector('b')?.textContent);
     if (!name) return;
-    const uid = clean(span.dataset.memberId || span.getAttribute('data-member-id'));
+    const uid = clean(span.dataset.memberId || span.getAttribute('data-member-id')) || index?.get(name.toLowerCase()) || '';
     if (!uid) return;
+    span.dataset.memberId = uid;
     span.dataset.memberLink = '1';
     span.classList.add('member-link');
     span.tabIndex = 0;
@@ -30,8 +58,9 @@ function wireLegacyTeamMembers() {
   });
 }
 
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
   if (!user || !teamList) return;
-  wireLegacyTeamMembers();
-  new MutationObserver(wireLegacyTeamMembers).observe(teamList, { childList: true, subtree: true });
+  const index = await loadDirectoryIndex();
+  await wireLegacyTeamMembers(index);
+  new MutationObserver(() => wireLegacyTeamMembers(index)).observe(teamList, { childList: true, subtree: true });
 });
