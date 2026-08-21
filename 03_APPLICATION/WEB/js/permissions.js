@@ -1,6 +1,6 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { doc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { buildRuntimeContext } from './core/policy-engine.js';
 import { listModules } from './core/module-registry.js';
 
@@ -31,6 +31,9 @@ const DEFAULT_POLICY = Object.freeze({
 
 let state = { ready: false, uid: null, role: 'MEMBER', permissions: new Set(), context: null };
 let readyPromise;
+let policyUnsubscribe = null;
+let activeUser = null;
+let activeMembership = {};
 
 function roleFromMembership(data = {}) {
   const roles = data.roles || {};
@@ -52,6 +55,36 @@ async function loadPolicy() {
     console.warn('Runtime policy unavailable; using safe local baseline.', error?.code || error);
     return DEFAULT_POLICY;
   }
+}
+
+function applyPolicy(policy) {
+  if (!activeUser) return state;
+  const context = buildRuntimeContext({
+    user: activeUser,
+    membership: { ...activeMembership, role: state.role },
+    policy
+  });
+  state = {
+    ...state,
+    permissions: context.capabilities,
+    context
+  };
+  window.SAOVNRuntime = context;
+  applyNavigation();
+  window.dispatchEvent(new CustomEvent('saovn:permissions-ready', { detail: state }));
+  window.dispatchEvent(new CustomEvent('saovn:runtime-ready', { detail: context }));
+  return state;
+}
+
+function watchPolicy() {
+  if (policyUnsubscribe) policyUnsubscribe();
+  if (!activeUser) return;
+  policyUnsubscribe = onSnapshot(doc(db, 'systemConfig', RUNTIME_POLICY_ID), snap => {
+    const policy = snap.exists() ? { ...DEFAULT_POLICY, ...snap.data() } : DEFAULT_POLICY;
+    applyPolicy(policy);
+  }, error => {
+    console.warn('[SAOVN][RUNTIME] policy listener unavailable; retaining last known policy.', error?.code || error);
+  });
 }
 
 export function hasPermission(permission) { return state.permissions.has(permission); }
@@ -82,15 +115,13 @@ function ensureControlPlaneEntry(allowed) {
     if (!title.includes('QUẢN TRỊ')) return;
     let link = section.querySelector('a[data-control-plane-entry]');
     if (!link && allowed) {
-      const nav = section.querySelector('nav');
-      if (nav) {
-        link = document.createElement('a');
-        link.href = 'admin-control.html';
-        link.className = 'navigation-item';
-        link.dataset.controlPlaneEntry = 'true';
-        link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
-        nav.appendChild(link);
-      }
+      const container = section.querySelector('nav') || section;
+      link = document.createElement('a');
+      link.href = 'admin-control.html';
+      link.className = 'navigation-item';
+      link.dataset.controlPlaneEntry = 'true';
+      link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
+      container.appendChild(link);
     }
     if (link) link.hidden = !allowed;
   });
@@ -133,24 +164,32 @@ function applyNavigation() {
 
 async function load(user) {
   if (!user) return state;
+  activeUser = user;
   state.uid = user.uid;
-  let membership = {};
   try {
     const snap = await getDoc(doc(db, 'memberships', MEMBERSHIP_ID(user.uid)));
-    membership = snap.exists() ? snap.data() : {};
-  } catch (error) { console.warn('Membership unavailable; using safe MEMBER baseline.', error?.code || error); }
+    activeMembership = snap.exists() ? snap.data() : {};
+  } catch (error) {
+    activeMembership = {};
+    console.warn('Membership unavailable; using safe MEMBER baseline.', error?.code || error);
+  }
 
-  const role = roleFromMembership(membership);
+  const role = roleFromMembership(activeMembership);
   const policy = await loadPolicy();
-  const context = buildRuntimeContext({ user, membership: { ...membership, role }, policy });
+  const context = buildRuntimeContext({ user, membership: { ...activeMembership, role }, policy });
   state = { ready: true, uid: user.uid, role, permissions: context.capabilities, context };
+  window.SAOVNRuntime = context;
   applyNavigation();
+  watchPolicy();
   window.dispatchEvent(new CustomEvent('saovn:permissions-ready', { detail: state }));
   window.dispatchEvent(new CustomEvent('saovn:runtime-ready', { detail: context }));
   return state;
 }
 
 readyPromise = new Promise(resolve => onAuthStateChanged(auth, async user => {
+  if (policyUnsubscribe) { policyUnsubscribe(); policyUnsubscribe = null; }
+  activeUser = user;
+  activeMembership = {};
   if (!user) {
     state = { ready: true, uid: null, role: 'MEMBER', permissions: new Set(DEFAULT_POLICY.roles.MEMBER.capabilities), context: null };
     applyNavigation();
