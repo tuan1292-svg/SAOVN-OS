@@ -3,12 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ============================================================
-    // ROOT / CORE — shared primitives
+    // ROOT / CORE — shared authorization primitives
     // ============================================================
     function signedIn() { return request.auth != null; }
     function membershipId() { return "mem_" + request.auth.uid + "_org_saovn_01"; }
     function memberDocId(userId) { return "mem_" + userId + "_org_saovn_01"; }
-    function isActive(data) { return data.get("status", "") in ["ACTIVE", "active"]; }
+    function isActive(data) { return data.get("status", "") == "ACTIVE" || data.get("status", "") == "active"; }
     function isMember() { return signedIn() && exists(/databases/$(database)/documents/memberships/$(membershipId())); }
     function membership() { return get(/databases/$(database)/documents/memberships/$(membershipId())).data; }
     function hasOrgRole(r) { return isMember() && membership().roles != null && membership().roles.organization != null && r in membership().roles.organization; }
@@ -26,7 +26,7 @@ service cloud.firestore {
     function isWorkManager() { return isAdmin() || isManager() || isTeamLead() || isDepartmentHead(); }
 
     // ============================================================
-    // WORK — task boundary
+    // WORK / TASK — explicit read branches
     // ============================================================
     function taskInDepartment(data) { return (departmentId() != "" && data.get("departmentId", "") == departmentId()) || (departmentName() != "" && data.get("department", "") == departmentName()); }
     function taskInTeam(data) { return (teamId() != "" && data.get("teamId", "") == teamId()) || (teamName() != "" && data.get("team", "") == teamName()); }
@@ -34,7 +34,8 @@ service cloud.firestore {
     function taskAssigned(data) { return request.auth.uid in data.get("assigneeIds", []); }
     function taskLegacyAssigned(data) { return data.get("assigneeId", "") == request.auth.uid; }
     function taskManaged(data) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(data)) || (isTeamLead() && taskInTeam(data)); }
-    function taskReadable(data) { return isMember() && (taskManaged(data) || taskOwned(data) || taskAssigned(data) || taskLegacyAssigned(data)); }
+    function taskMemberScope(data) { return isMember() && (taskInDepartment(data) || taskInTeam(data)); }
+    function taskReadable(data) { return isMember() && (taskManaged(data) || taskMemberScope(data) || taskOwned(data) || taskAssigned(data) || taskLegacyAssigned(data)); }
     function taskStatusOnly(oldData, newData) { return isMember() && (taskAssigned(oldData) || taskLegacyAssigned(oldData) || taskOwned(oldData)) && newData.diff(oldData).affectedKeys().hasOnly(["status", "updatedAt", "updatedBy"]); }
     function taskManagedUpdate(oldData, newData) { return isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(oldData) && taskInDepartment(newData)) || (isTeamLead() && taskInTeam(oldData) && taskInTeam(newData)); }
     function taskChildReadable(data) { return taskReadable(data); }
@@ -43,15 +44,14 @@ service cloud.firestore {
     // CORE / DIRECTORY
     // ============================================================
     match /identities/{userId} {
-      // Directory reads are intentionally separate from membership writes.
       allow read: if signedIn();
       allow create, update: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
     match /memberships/{membershipDocId} {
-      // Active memberships are readable by signed-in users for directory/work.
-      // Own membership remains readable regardless of status.
+      // Query-safe: an ACTIVE/active membership is readable by any signed-in
+      // organization member. Own membership is always readable.
       allow read: if signedIn() && (membershipDocId == membershipId() || isAdmin() || isManager() || isActive(resource.data));
       allow create: if isAdmin() || (signedIn() && membershipDocId == membershipId() && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
       allow update: if isAdmin() || (signedIn() && membershipDocId == membershipId() && resource.data.status in ["PENDING", "pending"] && isActive(request.resource.data) && request.resource.data.identityId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.organizationId == "org_saovn_01");
@@ -91,14 +91,15 @@ service cloud.firestore {
 
     // ============================================================
     // WORK
-    // Explicit read leaves are intentional: they make Firestore query
-    // authorization easy to reason about and protect Admin/Member branches.
     // ============================================================
     match /workTasks/{taskId} {
       allow read: if isMember() && taskAssigned(resource.data);
       allow read: if isMember() && taskLegacyAssigned(resource.data);
       allow read: if isMember() && taskOwned(resource.data);
       allow read: if isMember() && taskManaged(resource.data);
+      // Ordinary members may READ tasks in their own department/team scope;
+      // they may still UPDATE only tasks assigned to/owned by themselves.
+      allow read: if isMember() && taskMemberScope(resource.data);
       allow create: if isMember() && (isAdmin() || ((isManager() || isDepartmentHead()) && taskInDepartment(request.resource.data)) || (isTeamLead() && taskInTeam(request.resource.data)) || (taskOwned(request.resource.data) && (request.resource.data.get("assigneeIds", []) == [] || request.resource.data.get("assigneeId", "") == "" || request.auth.uid in request.resource.data.get("assigneeIds", []) || request.resource.data.get("assigneeId", "") == request.auth.uid)));
       allow update: if taskManagedUpdate(resource.data, request.resource.data) || taskStatusOnly(resource.data, request.resource.data);
       allow delete: if isWorkManager() && taskManaged(resource.data);
@@ -129,6 +130,7 @@ service cloud.firestore {
     match /projects/{projectId} { allow read: if isMember(); allow create, update: if isPrivileged(); allow delete: if isAdmin(); }
     match /projects/{projectId}/members/{memberId} { allow read: if isMember(); allow create, update, delete: if isPrivileged(); }
     match /projects/{projectId}/activity/{activityId} { allow read, create: if isMember(); allow update, delete: if isPrivileged(); }
+
     function isConversationMember(data) { return isMember() && request.auth.uid in data.get("memberIds", []); }
     function canCreateDirectConversation(data) { return isMember() && data.get("type", "") == "direct" && data.get("memberIds", []) is list && data.get("memberIds", []).size() == 2 && request.auth.uid in data.get("memberIds", []); }
     match /conversations/{conversationId} {
