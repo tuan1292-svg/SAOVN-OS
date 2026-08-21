@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Checkpoint: 21/08/2026 — Work security read scope corrected; waiting for Firebase Rules publish + regression
+> Checkpoint: 21/08/2026 — Member Work permissions isolated; Admin Team links hardened; Firebase Rules publish is the remaining human action before final regression
 
 ## 1. Project
 
@@ -8,8 +8,6 @@
 **Organization:** SAOVN  
 **Repository:** https://github.com/tuan1292-svg/SAOVN-OS.git  
 **Local:** `C:\Users\Admin\Desktop\SAOVN-OS`
-
-SAOVN-OS là môi trường làm việc online và Organizational Operating System cho SAOVN.
 
 ## 2. Current Branch / Release State
 
@@ -21,16 +19,23 @@ main: KHÔNG MERGE
 
 All engineering changes remain isolated on the governance branch.
 
-Latest Rules fix commit:
+Latest application commit:
+
+```text
+79101c6208278e7f0e48f53d3419f29264c14832
+```
+
+Latest Vercel deployment from that commit:
+
+```text
+saovn-fq4pt8cnx-tuans-projects-ce1336a7.vercel.app
+state: READY
+```
+
+Latest Rules commit:
 
 ```text
 ab952dd06bd9ae2f5be1c76749484c72f6dd2d80
-```
-
-Latest application commit before this Rules fix:
-
-```text
-85821fb3dfd306b391a9a4c048f879d3af7b9b68
 ```
 
 ## 3. Security Rule Tree
@@ -52,36 +57,30 @@ ROOT
     └── CHAT
 ```
 
-Supporting documents:
-
-- `SECURITY_RULE_TREE.md`
-- `SECURITY_RULE_CONTRACT.md`
-
 Rule: a capability defect must be repaired inside its own branch; do not widen unrelated Admin/Member permissions as a shortcut.
 
-## 4. Latest Rules Change
+## 4. Current Rules Fix
 
-`WORK.TASK.READ` now explicitly permits an authenticated active organization member to read tasks matching their own department/team scope.
+`firestore.rules` on the governance branch now explicitly permits an authenticated member to READ Work tasks in their own department/team scope while keeping task UPDATE restricted.
 
-This is separate from edit authority.
+It also explicitly permits active/ACTIVE membership directory reads, so Member/Work directory queries can resolve personnel data without opening membership writes.
+
+For Work child modules, READ/CREATE/UPDATE/DELETE are evaluated against the parent task's `taskReadable()` scope for:
+
+- `workTasks/{taskId}/checklist/*`
+- `workTasks/{taskId}/comments/*`
+- `workTasks/{taskId}/activity/*`
+- `workTasks/{taskId}/chat/*`
+
+Member Kanban status changes remain limited to:
 
 ```text
-READ:
-  assigned task
-  legacy assigned task
-  own-created task
-  management-scope task
-  own department/team scope task
-
-UPDATE:
-  management authority
-  OR assigned/owned task with only:
-    status
-    updatedAt
-    updatedBy
+status
+updatedAt
+updatedBy
 ```
 
-The membership directory read branch was also kept explicit for `ACTIVE` and `active` membership status values, so Member/Work queries can read active memberships without opening membership writes.
+for assigned/owned tasks.
 
 ## 5. Known Test Member
 
@@ -95,84 +94,81 @@ position: INTERN
 
 Known test task contains this UID in `assigneeIds`.
 
-## 6. Application Fixes Already Completed
+## 6. Application Fix Completed In This Session
 
-- Removed competing automatic Work assignee migration behavior on page load.
-- Removed competing Member Firebase Work fallback renderer.
-- `work-v3.js` remains the single Work task renderer.
-- Member Overview explicitly displays `TỔNG CÔNG VIỆC` from the member's Work queries.
-- Team member profile navigation was isolated from a second directory permission query.
+The department Team-link bridge was fixed so the legacy Team renderer can resolve a displayed member name to its active identity/membership UID and make it open the member profile.
 
-Latest Team-link fix:
+This specifically closes the remaining Admin-side symptom where the Admin/Founder entry was rendered as plain text and could not be clicked.
+
+Commit:
 
 ```text
-85821fb3dfd306b391a9a4c048f879d3af7b9b68
+79101c6208278e7f0e48f53d3419f29264c14832
 ```
 
-## 7. Last Human Test Findings
+## 7. Current Human Test Findings
 
-ADMIN:
-- Work previously hung.
-- Department → Team member names were not consistently clickable.
-- Other Admin areas were comparatively stable.
+### MEMBER — remaining failures observed before latest Rules publish
 
-MEMBER:
-- Overview did not show Work total.
-- Work did not show current tasks and previously lost some Team/other scope UI.
-- Department did not show Work.
-- Members page reported `Đọc memberships Active: Missing or insufficient permissions.`
+- Work checklist: permission-denied
+- Work comments: permission-denied
+- Work Kanban move: permission-denied
+- Members page: cannot load Active memberships/personnel
 
-## 8. Current Intended Fix
+These failures are consistent with the Firebase Console still running the older Rules version supplied earlier in the session.
 
-The latest Rules commit addresses the Work read-scope defect that caused member department/team Work queries to be denied while leaving Member task editing restricted.
+### ADMIN
 
-No broad `allow read, write: if signedIn()` shortcut was introduced.
+- Work is substantially usable.
+- Remaining known issue was Department → Team member profile clickability.
+- Application-side bridge for that legacy renderer is now fixed in commit `79101c6208278e7f0e48f53d3419f29264c14832`.
 
-## 9. Human Action Required Now
+## 8. Human Action Required Now
 
-The latest Rules file is **NOT YET confirmed published to Firebase** after commit `ab952dd06bd9ae2f5be1c76749484c72f6dd2d80`.
-
-Human must:
+**Only one manual action is required before the final regression:**
 
 1. Open Firebase Console → Firestore Database → Rules.
-2. Replace the entire Rules editor with the latest `firestore.rules` from `chore/engineering-governance`.
+2. Replace the entire Rules editor with the current `firestore.rules` from `chore/engineering-governance`.
 3. Publish.
-4. Then test the latest Vercel deployment.
+4. Open the latest Vercel deployment below and run the Member regression first.
 
-Do not edit Rules manually beyond that file and do not merge to `main`.
+Do not merge to `main` yet.
 
-## 10. Regression Gate
-
-After Publish:
+## 9. Latest Test Deployment
 
 ```text
-ADMIN
-  Work loads without hanging
-  existing tasks appear
-  total count appears
-  Comment works
-  Checklist works
-  Kanban move works
-  Department → Team member click works
-
-MEMBER
-  Overview shows TỔNG CÔNG VIỆC
-  Work shows assigned/current tasks
-  Team/other Work navigation remains visible
-  Department shows permitted Work
-  Members page loads without membership permission error
-  Kanban move works for assigned task
-  Checklist read/create works
-  Comment read/create works
-  @Tag works
-
-CROSS-REGRESSION
-  Admin remains usable after Member test
-  Member remains usable after Admin test
-  no page hangs
-  no unrelated permission-denied errors
+https://saovn-fq4pt8cnx-tuans-projects-ce1336a7.vercel.app
 ```
 
-No capability is marked PASS/LOCKED until tested evidence exists.
+## 10. Final Regression Gate
+
+### MEMBER
+
+- Overview shows Work total
+- Work shows current/assigned tasks
+- Checklist READ + CREATE + UPDATE works
+- Comments READ + CREATE works
+- Kanban move works for assigned task
+- Members page loads personnel without permission-denied
+- @Tag works
+- Department Work remains visible
+
+### ADMIN
+
+- Work does not hang
+- Existing tasks remain visible
+- Checklist works
+- Comments work
+- Kanban move works
+- Department Team member names click to profiles
+
+### CROSS-REGRESSION
+
+- Test Member first, then Admin
+- Test Admin first, then Member
+- No page hangs
+- No unrelated permission-denied errors
+
+No capability is marked PASS/LOCKED until human test evidence confirms it.
 
 # END OF PROJECT STATE
