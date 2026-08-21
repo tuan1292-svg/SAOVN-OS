@@ -109,30 +109,37 @@ Contract chuẩn hóa Identity/Membership/Organization/Department/Team/Role/Mana
 
 Checkpoint: `e161594845ac024a5f05bc54416a9b26f2fc4f3a`.
 
-## 7. Organization / Scope Context — NEW
+## 7. Organization / Scope Context
 
-File mới: `03_APPLICATION/WEB/js/core/organization-context.js`.
+File: `03_APPLICATION/WEB/js/core/organization-context.js`.
 
-Context này chuẩn hóa company/organization, department, team, membership, role, title và trạng thái thành một scope object dùng chung.
-
-```text
-Identity
-  ↓
-Membership
-  ↓
-Organization Context
-  ├── Company / Organization
-  ├── Department
-  ├── Team
-  ├── Role
-  └── Scope
-```
-
-Có `scopeMatches()` cho các scope `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`. Đây là context/read model, không phải security boundary và không tự cấp capability.
+Context chuẩn hóa company/organization, department, team, membership, role, title và trạng thái thành scope object dùng chung. Có `scopeMatches()` cho `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`. Đây là context/read model, không phải security boundary.
 
 Checkpoint: `c348d5d1b9c9aa1248dd622563f6f5e215b4de04`.
 
-## 8. Access Model
+## 8. Runtime Organization Integration — NEW
+
+`policy-engine.js` đã tích hợp `createOrganizationContext()` trực tiếp vào `buildRuntimeContext()`.
+
+Runtime context hiện có:
+
+```text
+Runtime
+├── user
+├── membership
+├── organization
+├── scope
+├── policy
+├── capabilities
+├── can()
+└── moduleEnabled()
+```
+
+Như vậy module nghiệp vụ có một nguồn context chuẩn thay vì tự đọc company/department/team/role theo nhiều format khác nhau.
+
+Checkpoint: `d974098025895aa5f600dd6250961945bfde976e`.
+
+## 9. Access Model
 
 Vocabulary chuẩn: Role, Scope, Capability, Policy.
 
@@ -140,13 +147,13 @@ Scope mục tiêu: `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`, `GROUP`, 
 
 Chức danh công ty không phải permission trực tiếp.
 
-## 9. Control Plane
+## 10. Control Plane
 
 Admin Control Plane là khu vực hậu phương. Admin điều chỉnh runtime policy, module enabled/disabled, role capability policy và system configuration. Experience Plane đọc state này.
 
 Admin không sửa JS/HTML frontend để điều khiển hệ thống. Admin sửa policy/configuration; frontend phản ánh policy/configuration.
 
-## 10. Runtime Policy
+## 11. Runtime Policy
 
 Đã có canonical role normalization, deep merge policy với baseline, active policy runtime state, realtime policy update, capability re-resolution, safe unauthenticated state và safe baseline khi policy không tải được.
 
@@ -157,6 +164,8 @@ Firebase Auth
     ↓
 Identity / Membership
     ↓
+Organization Context
+    ↓
 Runtime Policy
     ↓
 Capability Resolver
@@ -166,13 +175,13 @@ Module Registry
 Navigation / Route Guard / UI
 ```
 
-## 11. Organization / People
+## 12. Organization / People
 
 Các phần trước đã có Members management, Department management, Department Workspace, Team structure, Team assignment, Team Lead, Direct manager, Department scope, Team scope và legacy identity resolution.
 
 Identity chính trong UI là Họ tên + Chức danh. Email/phone là thông tin liên hệ, không phải Identity chính.
 
-## 12. Work — First Business Module
+## 13. Work — First Business Module
 
 Đã có My Work, Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity, Mentions, Notifications foundation, Department/Team filtering, Member Work view và Admin Work management.
 
@@ -182,11 +191,11 @@ Identity chính trong UI là Họ tên + Chức danh. Email/phone là thông tin
 
 Không đánh dấu Work security COMPLETE cho tới khi test bằng tài khoản Firebase thực tế và xác nhận Firestore Rules.
 
-## 13. Communication / Notifications
+## 14. Communication / Notifications
 
 Foundation đã có Conversations, Messages, Unread count, Notifications, Badge, Read/unread state, Mention notification và `@tất cả thành viên`.
 
-## 14. Development Rules — LOCKED
+## 15. Development Rules — LOCKED
 
 ```text
 1. Một Experience Plane chung cho toàn công ty.
@@ -206,7 +215,7 @@ Foundation đã có Conversations, Messages, Unread count, Notifications, Badge,
 15. Organization Context chỉ là read/context layer; không được dùng thay Firestore security.
 ```
 
-## 15. Next Development Sequence
+## 16. Next Development Sequence
 
 ```text
 CURRENT
