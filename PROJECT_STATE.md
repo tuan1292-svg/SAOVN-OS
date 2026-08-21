@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Chốt sổ: 17/08/2026
+> Chốt sổ kỹ thuật: 21/08/2026 — Shared Experience Plane / Control Plane checkpoint
 
 ## 1. Project
 
@@ -13,253 +13,298 @@ SAOVN-OS là môi trường làm việc online và Organizational Operating Syst
 
 ---
 
-## 2. Core Architecture
+## 2. Current Product Direction — LOCKED
 
-Kiến trúc nền tảng đã xác lập:
+SAOVN-OS dùng **một Experience Plane / Application Shell chung** cho toàn bộ nhân viên, quản lý và lãnh đạo.
 
 ```text
-SAOVN-OS
-│
-├── CORE PLATFORM
-│   ├── Identity
-│   ├── Organization
-│   │   ├── Company
-│   │   ├── Department
-│   │   ├── Team
-│   │   └── Membership
-│   └── Access Control
-│       ├── Role
-│       ├── Permission
-│       ├── Scope
-│       └── Policy
-│
-└── BUSINESS MODULES
-    └── WORK
+                    SAOVN-OS
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+   EXPERIENCE PLANE           CONTROL PLANE
+   dùng chung toàn công ty    Admin / hậu phương
+          │                         │
+     Modules + UI             Policy / Identity /
+                              Organization / Config
 ```
 
-Architecture / Constitution / Domain Model / Module Map / System Architecture / Permission Model / Data Model / Integration Architecture / Technical Architecture / Architecture Decisions / Module Specification đã được xác lập trong `00_CONSTITUTION/`, `01_ARCHITECTURE/` và `DOCS/`.
+Không xây Admin Work và Member Work thành hai ứng dụng khác nhau.
+
+Cùng một module nghiệp vụ được dùng bởi mọi người; khác biệt nằm ở:
+
+```text
+Identity → Membership → Role → Scope → Capability → UI
+```
+
+Frontend chỉ phản ánh capability. Firestore Rules/backend mới là lớp thực thi bảo mật cuối cùng.
+
+Admin Control Plane thay đổi policy/configuration; Experience Plane đọc runtime state và tự thích nghi.
 
 ---
 
-## 3. Product Rules Already Agreed
+## 3. Core Architecture
 
 ```text
-- Làm từng checkpoint cho xong rồi mới chuyển bước.
-- Không vá UI bằng JavaScript nếu có thể sửa HTML/CSS đúng chỗ.
-- Ưu tiên giao diện sạch, gọn, hiển thị thông tin hữu ích.
-- Identity chính = Họ tên + Chức danh.
-- Không dùng email/username thay cho tên nếu Identity đã có họ tên.
-- Email và số điện thoại là thông tin liên hệ/tra cứu.
-- Thông tin liên hệ chi tiết không chiếm chỗ trong Work UI.
-- Members và Department management là khu vực Admin.
-- Public self-registration mặc định OFF.
-- Tài khoản Founder/Admin hiển thị `Founder · Chairman · CEO`.
-- PROJECT_STATE được chốt theo checkpoint, không cập nhật vụn từng bước.
-- Mỗi thay đổi lớn nên có commit riêng để Admin và Member có thể test độc lập.
+CORE PLATFORM
+├── Identity
+├── Organization
+│   ├── Company
+│   ├── Department
+│   ├── Team
+│   └── Membership
+├── Access Control
+│   ├── Role
+│   ├── Permission
+│   ├── Scope
+│   ├── Capability
+│   └── Policy
+├── Runtime Configuration
+└── Module Registry
+
+EXPERIENCE PLANE
+├── Application Shell
+├── Dashboard
+├── Work
+├── Organization / Departments
+├── People / Members
+├── Projects
+├── Attendance
+├── Chat
+└── Notifications
+
+CONTROL PLANE
+└── Admin Control
+    ├── Identity administration
+    ├── Roles / capabilities
+    ├── Organization configuration
+    ├── Module enable/disable
+    └── Runtime policy
 ```
 
 ---
 
-## 4. Completed Foundation
+## 4. Shared Experience Plane
+
+Đã triển khai nền tảng dùng chung:
 
 ```text
-ARCHITECTURE FOUNDATION       COMPLETE
-IDENTITY / LOGIN              COMPLETE FOR CURRENT PROTOTYPE
-PERMISSION NAVIGATION         COMPLETE FOR CURRENT PROTOTYPE
-MEMBERS MANAGEMENT            COMPLETE
-MEMBER IDENTITY DISPLAY       COMPLETE
-MEMBER CONTACT FIELD          COMPLETE
-DEPARTMENT MASTER             COMPLETE
-DEPARTMENT MANAGEMENT         COMPLETE
-DEPARTMENT UI POLISH          COMPLETE
-DEPARTMENT WORKSPACE          COMPLETE
-TEAM STRUCTURE                COMPLETE
-TEAM ASSIGNMENT               COMPLETE
-TEAM → WORK FILTER            COMPLETE
-MANAGEMENT SCOPE RECOGNITION  COMPLETE FOR CURRENT PROTOTYPE
+✓ Shared Application Shell
+✓ Shared runtime bootstrap
+✓ Canonical access contract
+✓ Canonical capability vocabulary
+✓ Canonical scope vocabulary
+✓ Registry-driven navigation
+✓ Registry-driven route guard
+✓ Runtime policy loading
+✓ Runtime policy realtime update
+✓ Capability-driven UI
+✓ Direct-route protection
+✓ Module enable/disable enforcement
+✓ Safe baseline when policy cannot be loaded
+```
+
+Các trang nghiệp vụ không được tự tạo một hệ thống permission riêng nếu đã có contract ở Core.
+
+---
+
+## 5. Module Registry
+
+File chính:
+
+```text
+03_APPLICATION/WEB/js/core/module-registry.js
+```
+
+Registry hiện quản lý các module:
+
+```text
+Dashboard
+Work
+Departments
+Members
+Projects
+Attendance
+Chat
+Notifications
+```
+
+Mỗi module khai báo:
+
+```text
+id
+version
+label
+dependencies
+capabilities
+routes
+navigation
+events
+```
+
+Registry hiện có:
+
+```text
+✓ Dependency validation
+✓ Missing dependency detection
+✓ Disabled dependency detection
+✓ Module readiness state
+✓ canLoadModule()
+✓ enabledModules()
+✓ moduleHealth()
+```
+
+Mục tiêu: module bị Admin tắt hoặc thiếu dependency không được chạy nửa vời và gây lỗi dây chuyền.
+
+Checkpoint commit:
+
+```text
+347a55c7fd1aba3ee8cff78a2de31cb9a66bd2e8
 ```
 
 ---
 
-## 5. Identity Display
+## 6. Access Model
 
-Trong màn hình làm việc, Identity phải hiển thị dạng:
+Vocabulary chuẩn:
+
+```text
+Role
+Scope
+Capability
+Policy
+```
+
+Scope mục tiêu:
+
+```text
+SELF
+PROJECT
+TEAM
+DEPARTMENT
+COMPANY
+GROUP
+GLOBAL
+```
+
+Không dùng chức danh công ty làm permission trực tiếp.
+
+Ví dụ:
+
+```text
+Chức danh:
+Founder · Chairman · CEO
+Department Head
+Team Lead
+Specialist
+Staff
+
+≠
+
+System Role:
+ADMIN
+MANAGER
+MEMBER
+```
+
+Role có thể được mở rộng sau này mà không phải viết lại module nghiệp vụ.
+
+---
+
+## 7. Control Plane
+
+Admin Control Plane là khu vực hậu phương.
+
+Admin điều chỉnh:
+
+```text
+✓ Runtime policy
+✓ Module enabled / disabled
+✓ Role capability policy
+✓ System configuration
+```
+
+Experience Plane đọc state này.
+
+Nguyên tắc:
+
+```text
+Admin không sửa JS/HTML của frontend để điều khiển hệ thống.
+Admin sửa policy/configuration.
+Frontend phản ánh policy/configuration.
+```
+
+Admin Control không xuất hiện với user thông thường và route được bảo vệ bằng capability quản trị hệ thống.
+
+---
+
+## 8. Runtime Policy
+
+Runtime policy đã được đưa về một nguồn resolve chung.
+
+Đã có:
+
+```text
+✓ Canonical role normalization
+✓ Deep merge policy với baseline
+✓ activePolicy runtime state
+✓ Realtime policy update
+✓ Capability re-resolution khi policy thay đổi
+✓ Không cấp quyền mặc định cho unauthenticated user
+✓ Safe baseline khi policy không tải được
+```
+
+Luồng:
+
+```text
+Firebase Auth
+    ↓
+Identity / Membership
+    ↓
+Runtime Policy
+    ↓
+Capability Resolver
+    ↓
+Module Registry
+    ↓
+Navigation / Route Guard / UI
+```
+
+---
+
+## 9. Organization / Identity
+
+Các phần đã có từ checkpoint trước:
+
+```text
+✓ Members management
+✓ Department management
+✓ Department Workspace
+✓ Team structure
+✓ Team assignment
+✓ Team Lead
+✓ Direct manager
+✓ Department scope
+✓ Team scope
+✓ Legacy identity resolution
+```
+
+Identity chính trong UI:
 
 ```text
 Nguyễn Anh Tuấn
 Founder · Chairman · CEO
 ```
 
-Legacy values như `tuan1292` phải được resolve về Identity khi có thể.
-
-Work comments, assignees, member roster và Department Workspace đều ưu tiên Identity hiện tại.
+Email/phone là thông tin liên hệ, không phải Identity chính.
 
 ---
 
-## 6. Members
+## 10. Work — First Business Module
 
-Members là khu vực quản trị.
+Work vẫn là Business Module đầu tiên.
 
 Đã có:
-
-```text
-✓ Admin-only management
-✓ Họ tên + chức danh
-✓ Role
-✓ Status
-✓ Department assignment
-✓ Team assignment
-✓ Team Lead indicator
-✓ Direct manager field
-✓ Phone/contact field
-✓ Email contact field
-✓ Legacy identity resolution
-```
-
-Email / phone vẫn tồn tại để phục vụ tra cứu liên hệ, nhưng không được dùng làm Identity chính.
-
-### Ghi chú bảo mật
-
-Cần tiếp tục hoàn thiện data visibility để thông tin liên hệ chi tiết chỉ xuất hiện trong khu vực phù hợp, thay vì đưa email/phone vào các màn hình làm việc chung.
-
----
-
-## 7. Department
-
-Collection:
-
-```text
-/departments
-```
-
-Trường chính:
-
-```text
-name
-code
-description
-headId
-active
-createdAt
-createdBy
-updatedAt
-updatedBy
-```
-
-Department management đã có:
-
-```text
-✓ List
-✓ Search
-✓ Status filter
-✓ Statistics
-✓ Create
-✓ Edit
-✓ Department Head
-✓ Active / Inactive
-✓ Member count
-✓ Unassigned count
-✓ Member department selector
-✓ UI polish
-✓ Admin-only management
-```
-
----
-
-## 8. Department Workspace
-
-Trang:
-
-```text
-03_APPLICATION/WEB/department-workspace.html
-```
-
-Workspace hiện có:
-
-```text
-✓ Department identity
-✓ Department status
-✓ Member roster
-✓ Họ tên + chức danh
-✓ Work statistics
-✓ Department task list
-✓ Team structure
-✓ Team Lead display
-✓ Team-based Work filtering
-✓ Management scope display
-✓ Task overflow / responsive panel fix
-✓ Không hiển thị trạng thái “Chưa có phòng ban” khi đã có department
-```
-
-Task dài không được phép tràn khỏi panel.
-
----
-
-## 9. Team
-
-Team là tầng tổ chức bên trong Department:
-
-```text
-Department
-│
-├── Team A
-│   ├── Team Lead
-│   └── Members
-│
-├── Team B
-│   ├── Team Lead
-│   └── Members
-│
-└── Chưa phân nhóm
-```
-
-Đã có:
-
-```text
-✓ Team assignment
-✓ Persist team assignment
-✓ Team grouping
-✓ Team Lead identification
-✓ Team → Work filter
-✓ Team field UI polish
-✓ Hiển thị đồng nghiệp cùng phòng/team ở phía Member
-```
-
-Team CRUD độc lập chưa được coi là hoàn thành.
-
----
-
-## 10. Management Scope
-
-Scope model mục tiêu:
-
-```text
-Founder · Chairman · CEO
-        ↓
-TOÀN HỆ THỐNG
-
-Department Head
-        ↓
-PHÒNG BAN
-
-Team Lead
-        ↓
-TEAM
-
-Member
-        ↓
-CÁ NHÂN / CÔNG VIỆC ĐƯỢC GIAO
-```
-
-Workspace đã nhận diện scope. Work security vẫn phải được xác nhận bằng Firestore Rules và test tài khoản thực tế.
-
----
-
-## 11. WORK — First Business Module
-
-WORK là Business Module đầu tiên.
-
-Đã xây dựng:
 
 ```text
 ✓ My Work
@@ -267,243 +312,113 @@ WORK là Business Module đầu tiên.
 ✓ Assignments
 ✓ Deadlines
 ✓ Progress
-✓ Status / Kanban tiếng Việt
-✓ Comments / Trao đổi
+✓ Kanban
+✓ Comments
 ✓ Checklist
 ✓ Activity
-✓ Mentions, gồm @tất cả thành viên
-✓ Notifications integration foundation
-✓ Thành viên tham gia có thể click để mở profile popup
-✓ Danh sách người phụ trách nhiều thành viên
-✓ Department / Team scope filtering
-✓ Member personal / assigned Work loading
-✓ Admin Work management
+✓ Mentions
+✓ Notifications foundation
+✓ Department / Team filtering
 ✓ Member Work view
+✓ Admin Work management
 ```
 
-Work Identity luôn dùng Họ tên + Chức danh.
-
-### Work permission checkpoint hiện tại
+### Known issue — CHƯA CLOSED
 
 ```text
-Admin → Work: đang hoạt động.
-Member → Work được giao: Work hiển thị đúng phạm vi.
-Member → kéo Kanban: CHƯA ĐÓNG CHECKPOINT.
+Member → assigned Work → Kanban status update
 ```
 
-Hiện tại thành viên vẫn gặp:
+Từng gặp:
 
 ```text
 FirebaseError: Missing or insufficient permissions.
 ```
 
-khi cập nhật trạng thái Kanban. Console cũng từng ghi nhận permission-denied ở Work memberships / analytics. Đây là **known issue chưa hoàn thành**, không đánh dấu Work security COMPLETE.
+Không đánh dấu Work security COMPLETE cho tới khi test bằng tài khoản Firebase thực tế và xác nhận Firestore Rules.
 
-Hai commit xử lý Work gần nhất trong checkpoint này:
-
-```text
-06e075bd  fix: chuẩn hóa quyền kéo thả Work theo người được giao
-1abfe4a9  fix: cho phép thành viên được giao cập nhật Work an toàn
-```
-
-Các commit trên đã được giữ lại để tiếp tục debug có kiểm soát, không rollback lan sang giao diện đã hoàn thiện.
+Không rollback UI/module đã hoàn thiện chỉ vì lỗi permission Work.
 
 ---
 
-## 12. Communication / Notifications Foundation
+## 11. Communication / Notifications
 
-Đã có nền tảng cho:
+Foundation đã có:
 
 ```text
-✓ Chat / Conversations
-✓ Tin nhắn
+✓ Conversations
+✓ Messages
 ✓ Unread count
 ✓ Notifications
-✓ Notification badge
+✓ Badge
 ✓ Read / unread state
 ✓ Mention notification
 ✓ @tất cả thành viên
 ```
 
-Các vấn đề trước đây về unread badge, permission và conversation indexing đã được xử lý ở các checkpoint trước. Khi tiếp tục phát triển cần giữ nguyên hành vi đã chốt, không làm mất số chưa đọc khi refresh hoặc khi mở nội dung.
+Các lỗi indexing / permission / unread trước đó phải được giữ nguyên behavior khi refactor.
 
 ---
 
-## 13. Known Recent Fixes
+## 12. Current Code Checkpoints
+
+Các checkpoint kiến trúc mới nhất trên `main`:
 
 ```text
-c9b8b11  fix: prevent department workspace task overflow
-941ca84  feat: enforce department head work scope
-fab358b  fix: resolve department head and team lead scope
-43c12b9  fix: align department workspace tasks with scope
-1442162  fix: allow members directory reads without admin permission
-52c3b31  fix: polish member team field and detail inputs
-06e075bd fix: chuẩn hóa quyền kéo thả Work theo người được giao
-1abfe4a9 fix: cho phép thành viên được giao cập nhật Work an toàn
+347a55c7  feat(core): add module dependency validation and readiness checks
 ```
 
-Các commit trên repo là Source of Truth; nếu local khác repo thì pull `main` trước khi làm tiếp.
+Các checkpoint trước đó gồm shared shell, policy engine, canonical access contract, navigation/route guard, Control Plane và runtime policy realtime.
+
+GitHub `main` là Source of Truth.
 
 ---
 
-## 14. Current Checkpoint — 17/08/2026
-
-### COMPLETE
+## 13. Development Rules — LOCKED
 
 ```text
-Identity
-Members
-Member identity display
-Member contact foundation
-Departments
-Department management
-Department UI
-Department Workspace
-Team structure
-Team assignment
-Team Work filtering
-Management scope recognition
-Member directory access
-Team field UI polish
-Department Workspace task overflow fix
-Work UI / Kanban UI
-Work assignment UI
-Work comments / checklist / mentions foundation
-Chat / notification foundation
+1. Một Experience Plane chung cho toàn công ty.
+2. Admin là Control Plane hậu phương.
+3. Không tách Admin UI và Member UI thành hai business application.
+4. Không rải role/permission logic vào từng module nếu Core đã có contract.
+5. Frontend không phải security boundary.
+6. Firestore Rules/backend là security enforcement cuối cùng.
+7. Admin thay đổi policy/configuration; frontend phản ánh runtime state.
+8. Module phải khai báo dependency và contract.
+9. Module disabled/dependency-disabled không được chạy nửa vời.
+10. Không sửa module A bằng hack để chữa lỗi do contract của Core.
+11. Mỗi checkpoint lớn phải có commit rõ ràng.
+12. PROJECT_STATE được cập nhật theo checkpoint, không ghi vụn từng thay đổi.
+13. Không gọi một phần nền tảng là COMPLETE nếu chưa kiểm chứng behavior thực tế.
 ```
-
-### NOT YET CLOSED
-
-```text
-Member → assigned Work → Kanban status update
-Scope → Work security verification
-Firestore Rules verification against real Admin + Member accounts
-```
-
-**Không rollback giao diện hoặc các module đã hoàn thiện chỉ vì lỗi permission của Work.**
 
 ---
 
-## 15. NEXT DEVELOPMENT — CHẤM CÔNG / ĐIỂM DANH TRUY CẬP HỆ THỐNG
-
-Đây là checkpoint phát triển tiếp theo sau khi chốt State hôm nay.
-
-Mục tiêu ban đầu:
+## 14. Next Development Sequence
 
 ```text
-SYSTEM ATTENDANCE / ACCESS PRESENCE
-│
-├── Ghi nhận lần đăng nhập thành công
-├── Ghi nhận thời điểm truy cập
-├── Ghi nhận lần hoạt động cuối
-├── Xác định trạng thái đang hoạt động / đã rời
-├── Theo dõi lịch sử truy cập theo ngày
-└── Dashboard Admin xem tình hình truy cập của thành viên
+CURRENT
+  ↓
+Identity / Membership / Organization / Scope contract
+  ↓
+Application Shell stabilization
+  ↓
+People / Organization module integration
+  ↓
+Communication module integration
+  ↓
+Work refactor onto canonical Scope + Capability
+  ↓
+Attendance / System Access
+  ↓
+Firestore Rules verification with real Admin + Member accounts
+  ↓
+End-to-end regression
+  ↓
+Release checkpoint
 ```
 
-### Phân biệt rõ
-
-```text
-ĐĂNG NHẬP
-= xác thực tài khoản thành công
-
-TRUY CẬP HỆ THỐNG
-= có phiên làm việc / có hoạt động trong hệ thống
-
-ĐIỂM DANH
-= trạng thái được ghi nhận theo quy tắc chấm công của tổ chức
-```
-
-Không được mặc định rằng “đăng nhập một lần = làm việc cả ngày”.
-
-### Thiết kế dữ liệu mục tiêu
-
-Có thể dùng một lớp attendance/access riêng, không trộn trực tiếp vào Identity:
-
-```text
-/systemAccess/{recordId}
-
-userId
-identitySnapshot
-loginAt
-lastActiveAt
-logoutAt
-sessionId
-status
-createdAt
-updatedAt
-```
-
-Nếu sau khi thiết kế chi tiết thấy session nên tách riêng với daily attendance thì sẽ tách thành hai collection. **Chưa coi schema này là final trước khi rà lại Constitution / Data Model.**
-
-### Admin cần nhìn thấy
-
-```text
-Thành viên
-Trạng thái hôm nay
-Lần truy cập đầu
-Lần hoạt động cuối
-Tổng phiên / lịch sử
-```
-
-Mục tiêu giao diện có thể tiến tới:
-
-```text
-🟢 Đang hoạt động
-🟡 Đã truy cập hôm nay
-⚪ Chưa truy cập hôm nay
-```
-
-Không dùng dữ liệu presence để kết luận hiệu suất làm việc. Presence chỉ phản ánh truy cập / hoạt động hệ thống.
-
----
-
-## 16. Development Sequence From Here
-
-```text
-CURRENT CHECKPOINT
-  ↓
-1. Chốt PROJECT_STATE
-  ↓
-2. Rà Constitution + Data Model cho Attendance
-  ↓
-3. Thiết kế System Access / Attendance data model
-  ↓
-4. Firestore Rules cho access records
-  ↓
-5. Ghi nhận login / session
-  ↓
-6. Cập nhật lastActiveAt
-  ↓
-7. Xử lý logout / session expiry
-  ↓
-8. Admin attendance dashboard
-  ↓
-9. Test Admin + Member
-  ↓
-10. Chốt checkpoint Attendance
-  ↓
-11. Quay lại đóng Work permission checkpoint
-```
-
-Không làm Attendance bằng cách sửa trực tiếp các module Work hiện tại.
-
----
-
-## 17. Next Session Command
-
-```powershell
-cd C:\Users\Admin\Desktop\SAOVN-OS
-git pull origin main
-git status
-git log -5 --oneline
-```
-
-Nếu Rules đã thay đổi nhưng chưa deploy:
-
-```powershell
-firebase deploy --only firestore:rules
-```
+Work permission issue remains a known checkpoint and is not hidden.
 
 ---
 
