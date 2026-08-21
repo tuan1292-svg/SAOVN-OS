@@ -101,64 +101,52 @@ Registry có dependency validation, missing/disabled dependency detection, readi
 
 Checkpoint: `347a55c7fd1aba3ee8cff78a2de31cb9a66bd2e8`.
 
-## 6. Identity / Membership Contract — NEW
+## 6. Identity / Membership Contract
 
-File mới:
+File: `03_APPLICATION/WEB/js/core/identity-context.js`.
 
-`03_APPLICATION/WEB/js/core/identity-context.js`
+Contract chuẩn hóa Identity/Membership/Organization/Department/Team/Role/Manager/Status thành context ổn định cho Experience Plane. Contract không cấp quyền; Policy/Capability Engine và backend/Rules vẫn là authority.
 
-Contract này chuẩn hóa ranh giới Identity/Membership cho Experience Plane.
+Checkpoint: `e161594845ac024a5f05bc54416a9b26f2fc4f3a`.
 
-```text
-Auth User
-   ↓
-Identity Context
-   ├── uid
-   ├── displayName
-   ├── title
-   ├── contact
-   └── photo
+## 7. Organization / Scope Context — NEW
 
-Membership Context
-   ├── organization
-   ├── company
-   ├── department
-   ├── team
-   ├── project
-   ├── roleIds
-   ├── manager
-   └── status
+File mới: `03_APPLICATION/WEB/js/core/organization-context.js`.
 
-Scope Context
-   └── SELF / TEAM / DEPARTMENT / GLOBAL...
-```
-
-Contract này **không cấp quyền**. Nó chỉ tạo context ổn định để Policy/Capability Engine sử dụng. Security vẫn do backend/Firestore Rules.
-
-Checkpoint mới: `e161594845ac024a5f05bc54416a9b26f2fc4f3a`.
-
-## 7. Access Model
-
-Vocabulary chuẩn:
+Context này chuẩn hóa company/organization, department, team, membership, role, title và trạng thái thành một scope object dùng chung.
 
 ```text
-Role
-Scope
-Capability
-Policy
+Identity
+  ↓
+Membership
+  ↓
+Organization Context
+  ├── Company / Organization
+  ├── Department
+  ├── Team
+  ├── Role
+  └── Scope
 ```
+
+Có `scopeMatches()` cho các scope `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`. Đây là context/read model, không phải security boundary và không tự cấp capability.
+
+Checkpoint: `c348d5d1b9c9aa1248dd622563f6f5e215b4de04`.
+
+## 8. Access Model
+
+Vocabulary chuẩn: Role, Scope, Capability, Policy.
 
 Scope mục tiêu: `SELF`, `PROJECT`, `TEAM`, `DEPARTMENT`, `COMPANY`, `GROUP`, `GLOBAL`.
 
 Chức danh công ty không phải permission trực tiếp.
 
-## 8. Control Plane
+## 9. Control Plane
 
 Admin Control Plane là khu vực hậu phương. Admin điều chỉnh runtime policy, module enabled/disabled, role capability policy và system configuration. Experience Plane đọc state này.
 
 Admin không sửa JS/HTML frontend để điều khiển hệ thống. Admin sửa policy/configuration; frontend phản ánh policy/configuration.
 
-## 9. Runtime Policy
+## 10. Runtime Policy
 
 Đã có canonical role normalization, deep merge policy với baseline, active policy runtime state, realtime policy update, capability re-resolution, safe unauthenticated state và safe baseline khi policy không tải được.
 
@@ -178,13 +166,13 @@ Module Registry
 Navigation / Route Guard / UI
 ```
 
-## 10. Organization / People
+## 11. Organization / People
 
 Các phần trước đã có Members management, Department management, Department Workspace, Team structure, Team assignment, Team Lead, Direct manager, Department scope, Team scope và legacy identity resolution.
 
 Identity chính trong UI là Họ tên + Chức danh. Email/phone là thông tin liên hệ, không phải Identity chính.
 
-## 11. Work — First Business Module
+## 12. Work — First Business Module
 
 Đã có My Work, Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity, Mentions, Notifications foundation, Department/Team filtering, Member Work view và Admin Work management.
 
@@ -194,11 +182,11 @@ Identity chính trong UI là Họ tên + Chức danh. Email/phone là thông tin
 
 Không đánh dấu Work security COMPLETE cho tới khi test bằng tài khoản Firebase thực tế và xác nhận Firestore Rules.
 
-## 12. Communication / Notifications
+## 13. Communication / Notifications
 
 Foundation đã có Conversations, Messages, Unread count, Notifications, Badge, Read/unread state, Mention notification và `@tất cả thành viên`.
 
-## 13. Development Rules — LOCKED
+## 14. Development Rules — LOCKED
 
 ```text
 1. Một Experience Plane chung cho toàn công ty.
@@ -215,14 +203,13 @@ Foundation đã có Conversations, Messages, Unread count, Notifications, Badge,
 12. PROJECT_STATE được cập nhật theo checkpoint, không ghi vụn từng thay đổi.
 13. Không gọi một phần nền tảng là COMPLETE nếu chưa kiểm chứng behavior thực tế.
 14. Identity/Membership/Scope phải đi qua canonical context trước khi module nghiệp vụ sử dụng.
+15. Organization Context chỉ là read/context layer; không được dùng thay Firestore security.
 ```
 
-## 14. Next Development Sequence
+## 15. Next Development Sequence
 
 ```text
 CURRENT
-  ↓
-Identity / Membership / Organization / Scope contract
   ↓
 Application Shell stabilization
   ↓
