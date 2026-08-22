@@ -1,6 +1,6 @@
 /* SAOVN-OS Experience Plane — Shared Application Shell
- * One shell for every authenticated person. Role/capability changes the
- * available experience; it never creates a separate application.
+ * One shell for every authenticated person. Organizational title is display
+ * context only; capabilities/scope remain the authorization contract.
  */
 
 import { auth, db } from '../firebase-config.js';
@@ -17,23 +17,30 @@ function text(selector, value) {
 }
 
 function roleLabel(role) {
-  return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý', MEMBER: 'Thành viên' })[role] || 'Thành viên';
+  return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý phạm vi', MEMBER: 'Thành viên' })[role] || 'Thành viên';
 }
 
-async function loadIdentity(uid, fallbackUser) {
-  if (identityCache.has(uid)) return identityCache.get(uid);
+async function loadIdentity(uid, fallbackUser, membership = {}) {
+  const cacheKey = `${uid}:${membership?.id || membership?.membershipId || ''}`;
+  if (identityCache.has(cacheKey)) return identityCache.get(cacheKey);
   try {
     const snap = await getDoc(doc(db, 'identities', uid));
     const data = snap.exists() ? snap.data() : {};
     const identity = {
       name: data.fullName || data.displayName || fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên',
       email: data.email || fallbackUser.email || '',
+      title: membership.title || membership.jobTitle || data.title || data.jobTitle || '',
       avatarUrl: data.photoURL || fallbackUser.photoURL || ''
     };
-    identityCache.set(uid, identity);
+    identityCache.set(cacheKey, identity);
     return identity;
   } catch (error) {
-    return { name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên', email: fallbackUser.email || '', avatarUrl: fallbackUser.photoURL || '' };
+    return {
+      name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên',
+      email: fallbackUser.email || '',
+      title: membership.title || membership.jobTitle || '',
+      avatarUrl: fallbackUser.photoURL || ''
+    };
   }
 }
 
@@ -41,7 +48,8 @@ function applyIdentity(identity, role) {
   text('#userIdentity, [data-identity-name]', identity.name);
   text('#topbarIdentity', identity.name);
   text('[data-identity-email]', identity.email);
-  text('[data-runtime-role]', roleLabel(role));
+  text('[data-runtime-role]', identity.title || roleLabel(role));
+  text('[data-runtime-position]', identity.title || '');
   document.querySelectorAll('.user-avatar, .avatar').forEach(node => {
     if (identity.avatarUrl) {
       node.textContent = '';
@@ -76,7 +84,8 @@ async function start(user) {
     return;
   }
   document.documentElement.dataset.saovnAuth = 'authenticated';
-  const [state, identity] = await Promise.all([getPermissions(), loadIdentity(user.uid, user)]);
+  const state = await getPermissions();
+  const identity = await loadIdentity(user.uid, user, state.context?.membership || {});
   applyIdentity(identity, state.role);
   installRouteGuard(state);
   window.dispatchEvent(new CustomEvent('saovn:shell-ready', { detail: { identity, state } }));
