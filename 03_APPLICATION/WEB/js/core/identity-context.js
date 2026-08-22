@@ -1,6 +1,6 @@
 /* SAOVN-OS Core — Identity Context
  * Normalizes the identity/membership boundary consumed by the Experience Plane.
- * It never grants access; it only provides stable identity and organizational context.
+ * It never grants access or invents a security scope.
  */
 
 export function normalizeIdentity(user = {}, member = {}) {
@@ -22,7 +22,7 @@ export function normalizeMembership(member = {}) {
 
   return Object.freeze({
     id: member.id || '',
-    organizationId: member.organizationId || member.orgId || 'saovn_01',
+    organizationId: member.organizationId || member.orgId || '',
     companyId: member.companyId || '',
     departmentId: member.departmentId || '',
     teamId: member.teamId || '',
@@ -42,7 +42,6 @@ export function buildIdentityContext({ user = {}, member = {} } = {}) {
     identity,
     membership,
     scope: Object.freeze({
-      type: membership.roleIds.includes('ADMIN') ? 'GLOBAL' : membership.teamId ? 'TEAM' : membership.departmentId ? 'DEPARTMENT' : 'SELF',
       organizationId: membership.organizationId,
       companyId: membership.companyId,
       departmentId: membership.departmentId,
