@@ -18,7 +18,46 @@ Admin ─────────────> CONTROL PLANE / BACK OFFICE
 
 Chức danh/vị trí không tạo ra một giao diện nghiệp vụ riêng. Quyền và phạm vi dữ liệu thay đổi theo policy/capability/scope trong cùng application.
 
-## 2. Core Architecture
+## 2. UI / UX Direction — LOCKED
+
+**Glassmorphism của SAOVN-OS là visual language chính và phải được giữ lại.** Không được thay bằng một dashboard template khác chỉ vì đang refactor kiến trúc.
+
+Các đặc trưng cần giữ:
+- nền tối có chiều sâu;
+- panel kính mờ / `backdrop-filter: blur(...)`;
+- border mảnh, trong suốt;
+- ánh sáng xanh và gradient nhẹ;
+- sidebar + topbar + card hierarchy hiện tại;
+- responsive behavior hiện tại;
+- không biến Experience Plane thành giao diện Admin.
+
+Refactor Core/Access phải thay đổi **logic và data flow**, không phá hình thái UI đã được duyệt.
+
+## 3. Legacy Members — LOCKED
+
+**Không bắt thành viên cũ đăng ký lại.**
+
+Firebase Auth hiện tại tiếp tục là Identity source cho tài khoản đã tồn tại. Login dùng `signInWithEmailAndPassword()` và không có flow tự đăng ký. Sau khi đăng nhập, hệ thống đọc `identities/{uid}` và membership hiện hữu để dựng runtime context.
+
+People/Members tiếp tục đọc dữ liệu Identity/Membership hiện hữu. Các refactor Core phải tương thích với UID, identity document và membership document hiện tại.
+
+Nguyên tắc migration:
+
+```text
+Existing Firebase Auth account
+        ↓
+Existing Identity / Membership
+        ↓
+Canonical Context Adapter
+        ↓
+New Experience Plane
+```
+
+Không được xóa hàng loạt, đổi UID hoặc yêu cầu recreate account chỉ vì thay Application Shell.
+
+Nếu schema legacy cần nâng cấp, phải dùng **compatibility adapter / migration**, không ép người dùng đăng ký lại.
+
+## 4. Core Architecture
 
 ```text
 CORE
@@ -44,7 +83,7 @@ CONTROL PLANE
 └── Admin Control
 ```
 
-## 3. Core Checkpoints
+## 5. Core Checkpoints
 
 - Shared Application Shell + runtime bootstrap.
 - Canonical access/capability/scope vocabulary.
@@ -57,7 +96,7 @@ CONTROL PLANE
 - Identity scope hardening: `d0e5e3041e4089304351565424caed63541a966f`.
 - Shared access facade: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 
-## 4. People Context
+## 6. People Context
 
 File: `03_APPLICATION/WEB/js/core/people-context.js`
 
@@ -65,7 +104,7 @@ Checkpoint: `750873e937a28a4e2d8b38e223bc4bbabbbe7f12`.
 
 Canonical read-model adapter for People/Members. It normalizes Identity + Membership into one person model containing identity, contact, title/position, organization, department, team, manager, roles, status and membership timestamps.
 
-## 5. Shared Access Context
+## 7. Shared Access Context
 
 File: `03_APPLICATION/WEB/js/core/access-context.js`
 
@@ -75,15 +114,15 @@ The Experience Plane has a shared read-only access facade for modules/UI. It exp
 
 The facade does not grant security authority. Firestore Rules/backend remain authoritative.
 
-## 6. Module Registry
+## 8. Module Registry
 
 Registry manages Dashboard, Work, Departments, Members, Projects, Attendance, Chat and Notifications. Each module declares `id`, `version`, `dependencies`, `capabilities`, `routes`, `navigation`, `events`. Missing/disabled dependencies are detected before module readiness.
 
-## 7. Control Plane
+## 9. Control Plane
 
 Admin adjusts runtime policy, module enable/disable, role capabilities and system configuration. Frontend consumes configuration; Admin does not edit frontend code to control business behavior.
 
-## 8. Work — FIRST BUSINESS MODULE
+## 10. Work — FIRST BUSINESS MODULE
 
 Existing functionality includes My Work, Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity, Mentions, Notifications foundation, Department/Team filtering, Member Work view and Admin Work management.
 
@@ -93,11 +132,11 @@ Existing functionality includes My Work, Tasks, Assignments, Deadlines, Progress
 
 Work security is **not COMPLETE** until verified with real Admin + Member Firebase accounts and current Firestore Rules.
 
-## 9. Communication / Notifications
+## 11. Communication / Notifications
 
 Foundation exists for Conversations, Messages, unread state, Notifications, Badge, mentions and `@tất cả thành viên`.
 
-## 10. Development Rules — LOCKED
+## 12. Development Rules — LOCKED
 
 1. One shared Experience Plane.
 2. CEO → Intern use the same business Application Shell.
@@ -111,10 +150,12 @@ Foundation exists for Conversations, Messages, unread state, Notifications, Badg
 10. Disabled or dependency-disabled modules must not run partially.
 11. Identity/Membership/Scope go through canonical contexts.
 12. Context/access facades are read-model layers, never security boundaries.
-13. Every major checkpoint is committed and recorded here.
-14. Do not mark a subsystem COMPLETE without real behavior verification.
+13. Existing Firebase members must remain compatible; no forced re-registration.
+14. Glassmorphism visual language is preserved while architecture is refactored.
+15. Every major checkpoint is committed and recorded here.
+16. Do not mark a subsystem COMPLETE without real behavior verification.
 
-## 11. Next Sequence
+## 13. Next Sequence
 
 ```text
 People Context
