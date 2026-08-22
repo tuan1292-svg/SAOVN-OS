@@ -35,27 +35,9 @@ Refactor Core/Access phải thay đổi **logic và data flow**, không phá hì
 
 ## 3. Legacy Members — LOCKED
 
-**Không bắt thành viên cũ đăng ký lại.**
-
-Firebase Auth hiện tại tiếp tục là Identity source cho tài khoản đã tồn tại. Login dùng `signInWithEmailAndPassword()` và không có flow tự đăng ký. Sau khi đăng nhập, hệ thống đọc `identities/{uid}` và membership hiện hữu để dựng runtime context.
+**Không bắt thành viên cũ đăng ký lại.** Firebase Auth hiện tại tiếp tục là Identity source cho tài khoản đã tồn tại. Login dùng `signInWithEmailAndPassword()` và không có flow tự đăng ký. Sau khi đăng nhập, hệ thống đọc `identities/{uid}` và membership hiện hữu để dựng runtime context.
 
 People/Members tiếp tục đọc dữ liệu Identity/Membership hiện hữu. Các refactor Core phải tương thích với UID, identity document và membership document hiện tại.
-
-Nguyên tắc migration:
-
-```text
-Existing Firebase Auth account
-        ↓
-Existing Identity / Membership
-        ↓
-Canonical Context Adapter
-        ↓
-New Experience Plane
-```
-
-Không được xóa hàng loạt, đổi UID hoặc yêu cầu recreate account chỉ vì thay Application Shell.
-
-Nếu schema legacy cần nâng cấp, phải dùng **compatibility adapter / migration**, không ép người dùng đăng ký lại.
 
 ## 4. Core Architecture
 
@@ -96,21 +78,20 @@ CONTROL PLANE
 - Identity scope hardening: `d0e5e3041e4089304351565424caed63541a966f`.
 - Shared access facade: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 - Shared shell preserves organizational title without making title a UI/security boundary: `b0cad379ae8f9b1b8a4c4316794f11392a1e64c6`.
-- Raw organizational roles are preserved alongside effective policy groups so CEO/Director/etc. do not become a second UI architecture: `986f4314768ed8cfd3c40be765b1308d07127065`.
+- Raw organizational roles are preserved alongside effective policy groups: `986f4314768ed8cfd3c40be765b1308d07127065`.
+- People context is now exposed through the shared authenticated runtime: `20ec9672d0925ff378f6b1e7ed5900470435ec33`.
 
 ## 6. People Context
 
 File: `03_APPLICATION/WEB/js/core/people-context.js`
 
-Checkpoint: `750873e937a28a4e2d8b38e223bc4bbabbbe7f12`.
-
 Canonical read-model adapter for People/Members. It normalizes Identity + Membership into one person model containing identity, contact, title/position, organization, department, team, manager, roles, status and membership timestamps.
+
+The authenticated runtime now exposes `person`, `position`, `title`, and raw organizational role IDs alongside the effective policy context. This lets shared UI render who the user is without branching the application by job title.
 
 ## 7. Shared Access Context
 
 File: `03_APPLICATION/WEB/js/core/access-context.js`
-
-Checkpoint: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 
 The Experience Plane has a shared read-only access facade for modules/UI. It exposes identity, membership, scope, resolved capabilities, `can()` and module readiness helpers. Business modules should consume the facade rather than implementing their own role/permission resolver.
 
@@ -162,9 +143,9 @@ Foundation exists for Conversations, Messages, unread state, Notifications, Badg
 ## 13. Next Sequence
 
 ```text
-People Context
+People Context ✓
   ↓
-People / Organization integration
+People / Organization integration  ← CURRENT
   ↓
 Communication integration
   ↓
