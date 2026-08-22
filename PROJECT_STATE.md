@@ -95,6 +95,8 @@ CONTROL PLANE
 - Runtime Organization integration: `d974098025895aa5f600dd6250961945bfde976e`.
 - Identity scope hardening: `d0e5e3041e4089304351565424caed63541a966f`.
 - Shared access facade: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
+- Shared shell preserves organizational title without making title a UI/security boundary: `b0cad379ae8f9b1b8a4c4316794f11392a1e64c6`.
+- Raw organizational roles are preserved alongside effective policy groups so CEO/Director/etc. do not become a second UI architecture: `986f4314768ed8cfd3c40be765b1308d07127065`.
 
 ## 6. People Context
 
@@ -142,18 +144,20 @@ Foundation exists for Conversations, Messages, unread state, Notifications, Badg
 2. CEO → Intern use the same business Application Shell.
 3. Admin is a separate Control Plane/back office.
 4. No separate Admin/Member business applications for normal business modules.
-5. Core owns access vocabulary; modules consume it.
-6. Frontend visibility is not security.
-7. Firestore Rules/backend enforce security.
-8. Admin changes policy/config; frontend reflects runtime state.
-9. Modules declare dependencies/contracts.
-10. Disabled or dependency-disabled modules must not run partially.
-11. Identity/Membership/Scope go through canonical contexts.
-12. Context/access facades are read-model layers, never security boundaries.
-13. Existing Firebase members must remain compatible; no forced re-registration.
-14. Glassmorphism visual language is preserved while architecture is refactored.
-15. Every major checkpoint is committed and recorded here.
-16. Do not mark a subsystem COMPLETE without real behavior verification.
+5. Organizational title/position is display context, not permission logic.
+6. Effective policy groups may map many positions to one capability policy without creating new UIs.
+7. Core owns access vocabulary; modules consume it.
+8. Frontend visibility is not security.
+9. Firestore Rules/backend enforce security.
+10. Admin changes policy/config; frontend reflects runtime state.
+11. Modules declare dependencies/contracts.
+12. Disabled or dependency-disabled modules must not run partially.
+13. Identity/Membership/Scope go through canonical contexts.
+14. Context/access facades are read-model layers, never security boundaries.
+15. Existing Firebase members must remain compatible; no forced re-registration.
+16. Glassmorphism visual language is preserved while architecture is refactored.
+17. Every major checkpoint is committed and recorded here.
+18. Do not mark a subsystem COMPLETE without real behavior verification.
 
 ## 13. Next Sequence
 
