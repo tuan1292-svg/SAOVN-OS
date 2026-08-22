@@ -5,6 +5,8 @@ const MEMBERSHIP_ID=uid=>`mem_${uid}_org_saovn_01`;
 const clean=v=>String(v??'').trim();
 const lower=v=>clean(v).toLowerCase();
 const roleList=data=>{const roles=data?.roles||{};return [...(Array.isArray(roles.system)?roles.system:[]),...(Array.isArray(roles.organization)?roles.organization:[]),...(Array.isArray(data?.role)?data.role:[data?.role].filter(Boolean))].map(v=>lower(v));};
+const MANAGEMENT_POSITIONS=new Set(['MANAGER','DEPARTMENT_HEAD','DIRECTOR','CEO','CFO','CTO','COO','CHRO','CMO','VICE_PRESIDENT','VP','EXECUTIVE','FOUNDER_CHAIRMAN_CEO']);
+const TEAM_LEAD_POSITIONS=new Set(['TEAM_LEAD','TEAM_LEADER']);
 
 export async function getWorkScope(){
  const user=auth.currentUser;
@@ -12,9 +14,10 @@ export async function getWorkScope(){
  let identity={},membership={};
  try{const s=await getDoc(doc(db,'identities',user.uid));if(s.exists())identity=s.data()||{};}catch(e){console.warn('Work identity read skipped:',e?.code||e)}
  try{const s=await getDoc(doc(db,'memberships',MEMBERSHIP_ID(user.uid)));if(s.exists())membership=s.data()||{};}catch(e){console.warn('Work membership read skipped:',e?.code||e)}
- const roles=roleList(membership),admin=roles.some(r=>r.includes('system_admin')||r==='admin'||r.includes('org_admin')||r.includes('organization_admin'));
- const manager=roles.some(r=>r==='manager'||r==='org_manager'||r.includes('manager'))||['MANAGER','DEPARTMENT_HEAD','DIRECTOR'].includes(clean(identity.position).toUpperCase());
- const teamLead=roles.some(r=>r==='team_lead'||r==='team_leader')||['TEAM_LEAD','TEAM_LEADER'].includes(clean(identity.position).toUpperCase());
+ const roles=roleList(membership),position=clean(identity.position||membership.position).toUpperCase();
+ const admin=roles.some(r=>r.includes('system_admin')||r==='admin'||r.includes('org_admin')||r.includes('organization_admin'));
+ const manager=roles.some(r=>r==='manager'||r==='org_manager'||r.includes('manager')||r==='director'||r==='executive'||r==='ceo'||r==='cfo'||r==='cto'||r==='coo'||r==='chro'||r==='cmo'||r==='vice_president'||r==='vp')||MANAGEMENT_POSITIONS.has(position);
+ const teamLead=roles.some(r=>r==='team_lead'||r==='team_leader')||TEAM_LEAD_POSITIONS.has(position);
  const departmentId=clean(membership.departmentId||identity.departmentId),department=clean(membership.department||identity.department),teamId=clean(membership.teamId||identity.teamId),team=clean(membership.team||identity.team),managerId=clean(membership.managerId||identity.managerId);
  if(admin)return{type:'ORGANIZATION',uid:user.uid,departmentId,department,teamId,team,managerId,label:'Toàn hệ thống'};
  if(manager&&departmentId)return{type:'DEPARTMENT',uid:user.uid,departmentId,department,teamId,team,managerId,label:`Phạm vi phòng · ${department||departmentId}`};
