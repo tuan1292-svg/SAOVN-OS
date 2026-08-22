@@ -80,7 +80,9 @@ CONTROL PLANE
 - Shared shell preserves organizational title without making title a UI/security boundary: `b0cad379ae8f9b1b8a4c4316794f11392a1e64c6`.
 - Raw organizational roles are preserved alongside effective policy groups: `986f4314768ed8cfd3c40be765b1308d07127065`.
 - People context exposed through authenticated runtime: `20ec9672d0925ff378f6b1e7ed5900470435ec33`.
-- People controls now gate create/update/role management by capabilities rather than hard-coded job titles: `da751fb7f3bfa54c06bca5c73efc199d06b61221`.
+- People controls gate create/update/role management by capabilities: `da751fb7f3bfa54c06bca5c73efc199d06b61221`.
+- Communication context introduced from existing Firebase Identity/Membership without creating or migrating users: `b65ee77a1efe7442b27b84461f35ee885e05e7af`.
+- Chat page now bootstraps the shared Communication Context before the legacy chat module: `5727014488803f5250e5218d4f82714d0fe1bb26`.
 
 ## 6. People Context
 
@@ -90,7 +92,7 @@ Canonical read-model adapter for People/Members. It normalizes Identity + Member
 
 The authenticated runtime exposes person, position, title and raw organizational role IDs alongside effective policy context. Shared UI can therefore render who the user is without branching the application by job title.
 
-The Members page access layer now uses `people.member.view`, `people.member.create`, `people.member.update` and `people.member.role.manage` capabilities to gate controls. This is UI gating only; Firestore Rules remain authoritative.
+The Members page access layer uses `people.member.view`, `people.member.create`, `people.member.update` and `people.member.role.manage` capabilities to gate controls. This is UI gating only; Firestore Rules remain authoritative.
 
 ## 7. Shared Access Context
 
@@ -122,6 +124,16 @@ Work security is **not COMPLETE** until verified with real Admin + Member Fireba
 
 Foundation exists for Conversations, Messages, unread state, Notifications, Badge, mentions and `@tất cả thành viên`.
 
+### Communication Context — CURRENT CHECKPOINT
+
+File: `03_APPLICATION/WEB/js/core/communication-context.js`
+
+The Communication layer now has a canonical read-only context for the authenticated user. It resolves the existing `identities/{uid}` document and, when available, the existing membership document. It exposes normalized `person` data including UID, display name, position, organization, department, team, membership ID and raw role IDs.
+
+This context **does not create users, does not migrate members, and does not grant permissions**. It is an adapter for existing data so Chat/Notifications can move onto the shared Core without forcing legacy members to register again.
+
+`chat.html` bootstraps this context before loading `chat.js`. The existing Chat UI and glassmorphism styling remain unchanged.
+
 ## 12. Development Rules — LOCKED
 
 1. One shared Experience Plane.
@@ -148,9 +160,9 @@ Foundation exists for Conversations, Messages, unread state, Notifications, Badg
 ```text
 People Context ✓
   ↓
-People / Organization integration  ← CURRENT
+People / Organization integration  ✓ foundation
   ↓
-Communication integration
+Communication integration  ← CURRENT
   ↓
 Work refactor onto canonical Scope + Capability
   ↓
