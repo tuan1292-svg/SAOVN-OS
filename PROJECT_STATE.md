@@ -54,6 +54,8 @@ CONTROL PLANE
 - Identity/Membership context: `e161594845ac024a5f05bc54416a9b26f2fc4f3a`.
 - Organization/Scope context: `c348d5d1b9c9aa1248dd622563f6f5e215b4de04`.
 - Runtime Organization integration: `d974098025895aa5f600dd6250961945bfde976e`.
+- Identity scope hardening: `d0e5e3041e4089304351565424caed63541a966f`.
+- Shared access facade: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 
 ## 4. People Context
 
@@ -63,15 +65,15 @@ Checkpoint: `750873e937a28a4e2d8b38e223bc4bbabbbe7f12`.
 
 Canonical read-model adapter for People/Members. It normalizes Identity + Membership into one person model containing identity, contact, title/position, organization, department, team, manager, roles, status and membership timestamps.
 
-## 5. Unified Experience Access Facade — NEW
+## 5. Shared Access Context
 
-File: `03_APPLICATION/WEB/js/core/experience-access.js`
+File: `03_APPLICATION/WEB/js/core/access-context.js`
 
-Checkpoint: `53785f6ba62b22c114399186908649f40bb5155c`.
+Checkpoint: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 
-The shared Experience Plane now has one read-only access facade for modules/UI. It exposes user, identity, membership, organization, scope, role, capabilities, `can()`, `moduleEnabled()`, `canLoadModule()` and module metadata.
+The Experience Plane has a shared read-only access facade for modules/UI. It exposes identity, membership, scope, resolved capabilities, `can()` and module readiness helpers. Business modules should consume the facade rather than implementing their own role/permission resolver.
 
-Business modules should consume this facade instead of creating separate role/permission resolution logic. The facade is not a security boundary; Firestore Rules/backend remain authoritative.
+The facade does not grant security authority. Firestore Rules/backend remain authoritative.
 
 ## 6. Module Registry
 
