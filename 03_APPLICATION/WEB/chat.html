@@ -42,6 +42,10 @@
         <div class="chat-modal-body"><input id="memberSearch" class="chat-search" placeholder="Tìm theo họ tên hoặc chức danh…"><div id="memberPicker" class="member-picker"><div class="chat-list-empty">Đang tải thành viên…</div></div></div>
     </section>
 </div>
+<script type="module">
+    import { bootstrapCommunicationContext } from './js/core/communication-context.js';
+    window.SAOVNCommunicationRuntime = await bootstrapCommunicationContext();
+</script>
 <script type="module" src="js/chat.js"></script>
 </body>
 </html>
