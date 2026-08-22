@@ -82,7 +82,9 @@ CONTROL PLANE
 - People context exposed through authenticated runtime: `20ec9672d0925ff378f6b1e7ed5900470435ec33`.
 - People controls gate create/update/role management by capabilities: `da751fb7f3bfa54c06bca5c73efc199d06b61221`.
 - Communication context introduced from existing Firebase Identity/Membership without creating or migrating users: `b65ee77a1efe7442b27b84461f35ee885e05e7af`.
-- Chat page now bootstraps the shared Communication Context before the legacy chat module: `5727014488803f5250e5218d4f82714d0fe1bb26`.
+- Chat page bootstraps the shared Communication Context before the legacy chat module: `5727014488803f5250e5218d4f82714d0fe1bb26`.
+- Work query was aligned to Firestore's assigned/owned/department/team predicates: `12c08099e34b47ed68d136da3230dc8d8efcc3b8`.
+- Work capability aliases were corrected so legacy `can('work','...')` calls resolve to canonical `work.task.*` capabilities: `0cedb3fd254ae70b088712b7a25d9c50d6eed19f`.
 
 ## 6. People Context
 
@@ -90,51 +92,37 @@ File: `03_APPLICATION/WEB/js/core/people-context.js`
 
 Canonical read-model adapter for People/Members. It normalizes Identity + Membership into one person model containing identity, contact, title/position, organization, department, team, manager, roles, status and membership timestamps.
 
-The authenticated runtime exposes person, position, title and raw organizational role IDs alongside effective policy context. Shared UI can therefore render who the user is without branching the application by job title.
-
-The Members page access layer uses `people.member.view`, `people.member.create`, `people.member.update` and `people.member.role.manage` capabilities to gate controls. This is UI gating only; Firestore Rules remain authoritative.
-
 ## 7. Shared Access Context
 
 File: `03_APPLICATION/WEB/js/core/access-context.js`
 
 The Experience Plane has a shared read-only access facade for modules/UI. It exposes identity, membership, scope, resolved capabilities, `can()` and module readiness helpers. Business modules should consume the facade rather than implementing their own role/permission resolver.
 
-The facade does not grant security authority. Firestore Rules/backend remain authoritative.
+## 8. Work — FIRST BUSINESS MODULE
 
-## 8. Module Registry
+Existing functionality includes Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity and Department/Team filtering.
 
-Registry manages Dashboard, Work, Departments, Members, Projects, Attendance, Chat and Notifications. Each module declares `id`, `version`, `dependencies`, `capabilities`, `routes`, `navigation`, `events`. Missing/disabled dependencies are detected before module readiness.
-
-## 9. Control Plane
-
-Admin adjusts runtime policy, module enable/disable, role capabilities and system configuration. Frontend consumes configuration; Admin does not edit frontend code to control business behavior.
-
-## 10. Work — FIRST BUSINESS MODULE
-
-Existing functionality includes My Work, Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity, Mentions, Notifications foundation, Department/Team filtering, Member Work view and Admin Work management.
-
-### Known issue — OPEN
+### Work security — OPEN
 
 `Member → assigned Work → Kanban status update` previously produced `FirebaseError: Missing or insufficient permissions`.
 
-Work security is **not COMPLETE** until verified with real Admin + Member Firebase accounts and current Firestore Rules.
+The current Rules explicitly permit reads for assigned, legacy-assigned, owned, managed and department/team-scoped tasks. The Work read layer now issues queries matching those predicates instead of relying on an unrestricted query for normal users.
 
-## 11. Communication / Notifications
+The current Work UI also uses the canonical `work.task.*` capability vocabulary. This fixes a mismatch where `can('work','view/create/edit/assign')` previously looked for non-canonical keys such as `work.view` and `work.assign`.
 
-Foundation exists for Conversations, Messages, unread state, Notifications, Badge, mentions and `@tất cả thành viên`.
+**Still OPEN:** actual Firebase verification with a real Member account, including task read, Kanban status update, checklist, comments and activity. Do not mark COMPLETE until tested against deployed Rules.
 
-### Communication Context — CURRENT CHECKPOINT
+## 9. Communication / Notifications
 
-File: `03_APPLICATION/WEB/js/core/communication-context.js`
+Foundation exists for Conversations, Messages, unread state, Notifications, Badge and mentions.
 
-The Communication layer now has a canonical read-only context for the authenticated user. It resolves the existing `identities/{uid}` document and, when available, the existing membership document. It exposes normalized `person` data including UID, display name, position, organization, department, team, membership ID and raw role IDs.
+Communication Context uses existing Firebase Identity/Membership and does not create users or force re-registration.
 
-This context **does not create users, does not migrate members, and does not grant permissions**. It is an adapter for existing data so Chat/Notifications can move onto the shared Core without forcing legacy members to register again.
+## 10. Control Plane
 
-`chat.html` bootstraps this context before loading `chat.js`. The existing Chat UI and glassmorphism styling remain unchanged.
+Admin adjusts runtime policy, module enable/disable, role capabilities and system configuration. Frontend consumes configuration; Admin does not edit frontend code to control business behavior.
 
-## 12. Development Rules — LOCKED
+## 11. Development Rules — LOCKED
 
 1. One shared Experience Plane.
 2. CEO → Intern use the same business Application Shell.
@@ -155,16 +143,18 @@ This context **does not create users, does not migrate members, and does not gra
 17. Every major checkpoint is committed and recorded here.
 18. Do not mark a subsystem COMPLETE without real behavior verification.
 
-## 13. Next Sequence
+## 12. Next Sequence
 
 ```text
 People Context ✓
   ↓
-People / Organization integration  ✓ foundation
+People / Organization integration ✓ foundation
   ↓
-Communication integration  ← CURRENT
+Communication integration ✓ foundation
   ↓
-Work refactor onto canonical Scope + Capability
+Work refactor onto canonical Scope + Capability ← CURRENT
+  ↓
+Checklist / Comments / Activity verification
   ↓
 Firestore Rules verification with real Admin + Member
   ↓
