@@ -79,7 +79,8 @@ CONTROL PLANE
 - Shared access facade: `17e7e32e181195b01c2e46c71c055bc2808655dd`.
 - Shared shell preserves organizational title without making title a UI/security boundary: `b0cad379ae8f9b1b8a4c4316794f11392a1e64c6`.
 - Raw organizational roles are preserved alongside effective policy groups: `986f4314768ed8cfd3c40be765b1308d07127065`.
-- People context is now exposed through the shared authenticated runtime: `20ec9672d0925ff378f6b1e7ed5900470435ec33`.
+- People context exposed through authenticated runtime: `20ec9672d0925ff378f6b1e7ed5900470435ec33`.
+- People controls now gate create/update/role management by capabilities rather than hard-coded job titles: `da751fb7f3bfa54c06bca5c73efc199d06b61221`.
 
 ## 6. People Context
 
@@ -87,7 +88,9 @@ File: `03_APPLICATION/WEB/js/core/people-context.js`
 
 Canonical read-model adapter for People/Members. It normalizes Identity + Membership into one person model containing identity, contact, title/position, organization, department, team, manager, roles, status and membership timestamps.
 
-The authenticated runtime now exposes `person`, `position`, `title`, and raw organizational role IDs alongside the effective policy context. This lets shared UI render who the user is without branching the application by job title.
+The authenticated runtime exposes person, position, title and raw organizational role IDs alongside effective policy context. Shared UI can therefore render who the user is without branching the application by job title.
+
+The Members page access layer now uses `people.member.view`, `people.member.create`, `people.member.update` and `people.member.role.manage` capabilities to gate controls. This is UI gating only; Firestore Rules remain authoritative.
 
 ## 7. Shared Access Context
 
