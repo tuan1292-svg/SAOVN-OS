@@ -85,6 +85,7 @@ CONTROL PLANE
 - Chat page bootstraps the shared Communication Context before the legacy chat module: `5727014488803f5250e5218d4f82714d0fe1bb26`.
 - Work query was aligned to Firestore's assigned/owned/department/team predicates: `12c08099e34b47ed68d136da3230dc8d8efcc3b8`.
 - Work capability aliases were corrected so legacy `can('work','...')` calls resolve to canonical `work.task.*` capabilities: `0cedb3fd254ae70b088712b7a25d9c50d6eed19f`.
+- Work child collaboration UI was restored as a real module for Checklist / Comments / Activity, using the existing `workTasks/{taskId}` child-resource Rules contract: `e90ed863f7ec88dab2d02a6b83cd585b99b9edf4`.
 
 ## 6. People Context
 
@@ -109,6 +110,8 @@ Existing functionality includes Tasks, Assignments, Deadlines, Progress, Kanban,
 The current Rules explicitly permit reads for assigned, legacy-assigned, owned, managed and department/team-scoped tasks. The Work read layer now issues queries matching those predicates instead of relying on an unrestricted query for normal users.
 
 The current Work UI also uses the canonical `work.task.*` capability vocabulary. This fixes a mismatch where `can('work','view/create/edit/assign')` previously looked for non-canonical keys such as `work.view` and `work.assign`.
+
+A shared Work collaboration panel now provides Checklist, Comments and Activity against the existing task child-resource paths. The module uses the authenticated Firebase UID and preserves the glassmorphism visual language. It is implemented in `03_APPLICATION/WEB/js/work-collaboration.js` and is loaded by `work.html`.
 
 **Still OPEN:** actual Firebase verification with a real Member account, including task read, Kanban status update, checklist, comments and activity. Do not mark COMPLETE until tested against deployed Rules.
 
@@ -154,7 +157,7 @@ Communication integration ✓ foundation
   ↓
 Work refactor onto canonical Scope + Capability ← CURRENT
   ↓
-Checklist / Comments / Activity verification
+Checklist / Comments / Activity implementation ✓ foundation
   ↓
 Firestore Rules verification with real Admin + Member
   ↓
