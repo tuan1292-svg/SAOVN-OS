@@ -16,9 +16,15 @@ function roleLabel(role) {
   return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý phạm vi', MEMBER: 'Thành viên' })[role] || 'Thành viên';
 }
 
+function applyCapabilityVisibility(state) {
+  const canManageSystem = state.role === 'ADMIN' || state.permissions.has('admin.system.manage');
+  document.querySelectorAll('[data-admin-only]').forEach(node => {
+    node.hidden = !canManageSystem;
+    node.setAttribute('aria-hidden', String(!canManageSystem));
+  });
+}
+
 function cleanLegacyExperienceNavigation(isAdmin) {
-  // The shared Experience Plane owns module navigation. Legacy "MODULES" blocks
-  // are removed so the same shell does not render duplicate/competing menus.
   document.querySelectorAll('.sidebar-section.module-section').forEach(section => section.remove());
 
   document.querySelectorAll('.sidebar-section').forEach(section => {
@@ -31,7 +37,6 @@ function cleanLegacyExperienceNavigation(isAdmin) {
     if (!isAdmin) return;
 
     const nav = section.querySelector('nav') || section;
-    // Replace legacy links with exactly one Control Plane entry.
     [...nav.querySelectorAll('a')].forEach(link => {
       if (!link.dataset.controlPlaneEntry) link.remove();
     });
@@ -53,6 +58,7 @@ function applyControlPlaneVisibility(state) {
     node.hidden = !isAdmin;
     node.setAttribute('aria-hidden', String(!isAdmin));
   });
+  applyCapabilityVisibility(state);
   cleanLegacyExperienceNavigation(isAdmin);
   document.documentElement.dataset.saovnControlPlane = isAdmin ? 'admin' : 'hidden';
 }
