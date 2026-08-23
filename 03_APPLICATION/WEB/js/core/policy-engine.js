@@ -3,10 +3,11 @@
  * UI uses this for rendering only; backend/data rules remain authoritative.
  */
 
-import { ACCESS_SCOPE } from './access-contract.js';
+import { ACCESS, ACCESS_LIST, ACCESS_SCOPE } from './access-contract.js';
 import { createOrganizationContext } from './organization-context.js';
 
 const EMPTY = Object.freeze({});
+const KNOWN_CAPABILITIES = new Set(ACCESS_LIST);
 
 export const SCOPE_ORDER = Object.freeze([...ACCESS_SCOPE]);
 
@@ -34,7 +35,16 @@ export function normalizePolicy(policy = {}) {
 }
 
 export function normalizeRoleId(roleId) {
-  return String(roleId || '').trim().toUpperCase();
+  return String(roleId || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+function normalizeCapability(capability) {
+  return String(capability || '').trim();
+}
+
+function addKnownCapability(result, capability) {
+  const normalized = normalizeCapability(capability);
+  if (KNOWN_CAPABILITIES.has(normalized)) result.add(normalized);
 }
 
 export function resolveCapabilities({ membership = {}, policy = {} } = {}) {
@@ -44,17 +54,26 @@ export function resolveCapabilities({ membership = {}, policy = {} } = {}) {
     : (membership.role ? [membership.role] : []);
   const roleIds = [...new Set(rawRoleIds.map(normalizeRoleId).filter(Boolean))];
 
-  const result = new Set(Array.isArray(membership.capabilities) ? membership.capabilities : []);
+  const result = new Set();
 
+  // Explicit membership capabilities are accepted only when they belong to
+  // the canonical access contract. Unknown strings never become permissions.
+  for (const capability of membership.capabilities || []) addKnownCapability(result, capability);
+
+  // Roles grant capabilities; roles are authorization roles, not job titles.
   for (const roleId of roleIds) {
     const role = p.roles?.[roleId] || p.roles?.[String(roleId).toLowerCase()];
     if (!role) continue;
-    for (const capability of role.capabilities || []) result.add(capability);
+    for (const capability of role.capabilities || []) addKnownCapability(result, capability);
   }
 
+  // Runtime policy rules are the final layer. Explicit false always revokes
+  // a capability previously granted by membership or role.
   for (const [capability, rule] of Object.entries(p.capabilities || {})) {
-    if (rule === true) result.add(capability);
-    if (rule === false) result.delete(capability);
+    const normalized = normalizeCapability(capability);
+    if (!KNOWN_CAPABILITIES.has(normalized)) continue;
+    if (rule === true) result.add(normalized);
+    if (rule === false) result.delete(normalized);
   }
 
   return result;
@@ -72,7 +91,8 @@ export function moduleEnabled(policy, moduleId, membership = {}) {
   if (module?.enabled === false) return false;
   if (module?.roles?.length) {
     const roles = (membership.roleIds || (membership.role ? [membership.role] : [])).map(normalizeRoleId);
-    if (!roles.some(role => module.roles.map(normalizeRoleId).includes(role))) return false;
+    const allowedRoles = module.roles.map(normalizeRoleId);
+    if (!roles.some(role => allowedRoles.includes(role))) return false;
   }
   return true;
 }
@@ -90,6 +110,7 @@ export function buildRuntimeContext({ user = null, membership = {}, policy = {} 
     policy: normalizedPolicy,
     scope,
     capabilities,
+    access: ACCESS,
     can: capability => can(capabilities, capability),
     moduleEnabled: moduleId => moduleEnabled(normalizedPolicy, moduleId, membership)
   });
