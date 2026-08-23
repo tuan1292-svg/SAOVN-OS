@@ -1,8 +1,4 @@
-/* SAOVN-OS Experience Plane — Shared Application Shell
- * One shell for every authenticated person. Organizational title is display
- * context only; capabilities/scope remain the authorization contract.
- */
-
+/* SAOVN-OS Experience Plane — Shared Application Shell */
 import { auth, db } from '../firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
@@ -26,6 +22,13 @@ function applyControlPlaneVisibility(state) {
     node.hidden = !isAdmin;
     node.setAttribute('aria-hidden', String(!isAdmin));
   });
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    const title = section.querySelector('.sidebar-title')?.textContent?.trim().toUpperCase() || '';
+    if (title.startsWith('QUẢN TRỊ')) {
+      section.hidden = !isAdmin;
+      section.setAttribute('aria-hidden', String(!isAdmin));
+    }
+  });
   document.documentElement.dataset.saovnControlPlane = isAdmin ? 'admin' : 'hidden';
 }
 
@@ -44,12 +47,7 @@ async function loadIdentity(uid, fallbackUser, membership = {}) {
     identityCache.set(cacheKey, identity);
     return identity;
   } catch (error) {
-    return {
-      name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên',
-      email: fallbackUser.email || '',
-      title: membership.title || membership.jobTitle || '',
-      avatarUrl: fallbackUser.photoURL || ''
-    };
+    return { name: fallbackUser.displayName || fallbackUser.email?.split('@')[0] || 'Thành viên', email: fallbackUser.email || '', title: membership.title || membership.jobTitle || '', avatarUrl: fallbackUser.photoURL || '' };
   }
 }
 
