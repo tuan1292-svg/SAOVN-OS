@@ -20,6 +20,15 @@ function roleLabel(role) {
   return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý phạm vi', MEMBER: 'Thành viên' })[role] || 'Thành viên';
 }
 
+function applyControlPlaneVisibility(state) {
+  const isAdmin = state.role === 'ADMIN' || state.permissions.has('admin.system.manage');
+  document.querySelectorAll('[data-control-plane]').forEach(node => {
+    node.hidden = !isAdmin;
+    node.setAttribute('aria-hidden', String(!isAdmin));
+  });
+  document.documentElement.dataset.saovnControlPlane = isAdmin ? 'admin' : 'hidden';
+}
+
 async function loadIdentity(uid, fallbackUser, membership = {}) {
   const cacheKey = `${uid}:${membership?.id || membership?.membershipId || ''}`;
   if (identityCache.has(cacheKey)) return identityCache.get(cacheKey);
@@ -87,6 +96,7 @@ async function start(user) {
   const state = await getPermissions();
   const identity = await loadIdentity(user.uid, user, state.context?.membership || {});
   applyIdentity(identity, state.role);
+  applyControlPlaneVisibility(state);
   installRouteGuard(state);
   window.dispatchEvent(new CustomEvent('saovn:shell-ready', { detail: { identity, state } }));
 }
