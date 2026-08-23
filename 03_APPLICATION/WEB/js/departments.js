@@ -1,7 +1,7 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 import { collection, addDoc, getDocs, doc, setDoc, serverTimestamp, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
-import { getPermissions, hasPermission } from './permissions.js';
+import { getPermissions, can } from './permissions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -9,8 +9,10 @@ let user=null,departments=[],members=[];
 
 function initials(name){return String(name||'S').split(/\s+/).filter(Boolean).slice(-2).map(x=>x[0]).join('').toUpperCase()}
 function setStatus(text,type=''){$('departmentStatus').textContent=text;$('departmentStatus').className=`form-status ${type}`.trim()}
-function canView(){return hasPermission('departments.view')}
-function canManage(){return hasPermission('departments.manage')}
+// Use the permission alias layer rather than asking hasPermission() for a
+// legacy capability name that is not stored in the runtime permission Set.
+function canView(){return can('departments','read')}
+function canManage(){return can('departments','manage')}
 
 onAuthStateChanged(auth,async u=>{
   if(!u){location.replace('index.html');return}
@@ -18,9 +20,10 @@ onAuthStateChanged(auth,async u=>{
   await getPermissions();
   if(!canView()){location.replace('dashboard.html');return}
 
-  $('userName').textContent=u.displayName||'Admin';
-  $('userAvatar').textContent=initials(u.displayName||'Admin');
-  $('userRole').textContent=canManage()?'Founder · Chairman · CEO':'Workspace member';
+  const displayName=u.displayName||'Thành viên';
+  if($('userName')) $('userName').textContent=displayName;
+  if($('userAvatar')) $('userAvatar').textContent=initials(displayName);
+  if($('userRole')) $('userRole').textContent=canManage()?'Founder · Chairman · CEO':'Workspace member';
 
   if(!canManage()){
     $('adminPageActions')?.remove();
@@ -32,39 +35,48 @@ onAuthStateChanged(auth,async u=>{
 });
 
 async function loadAll(){
-  $('syncState').innerHTML='<i></i> Đang đồng bộ...';
+  if($('syncState')) $('syncState').innerHTML='<i></i> Đang đồng bộ...';
   try{
-    const [departmentSnap,identitySnap]=await Promise.all([
-      getDocs(collection(db,'departments')),
-      getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')))
-    ]);
+    const departmentSnap=await getDocs(collection(db,'departments'));
     departments=departmentSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'vi'));
-    members=identitySnap.docs.map(d=>({id:d.id,...d.data()}));
+
+    // Directory visibility can legitimately differ from department visibility.
+    // If identities is denied, keep departments usable instead of making the
+    // whole page look broken; member counts simply fall back to zero.
+    try{
+      const identitySnap=await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
+      members=identitySnap.docs.map(d=>({id:d.id,...d.data()}));
+    }catch(error){
+      console.warn('Active identity directory unavailable:',error?.code||error);
+      members=[];
+    }
+
     render();
-    $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
+    if($('syncState')) $('syncState').innerHTML='<i></i> Firebase · Đã đồng bộ';
   }catch(error){
     console.error('Department load error:',error);
-    $('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';
+    if($('syncState')) $('syncState').innerHTML='<i style="background:#ff3b3b"></i> Firebase · Lỗi';
     setStatus(error?.code==='permission-denied'?'Firestore Rules chưa cho phép đọc departments.':'Không thể tải dữ liệu phòng ban.','error');
+    $('emptyState')?.removeAttribute('hidden');
   }
 }
 
 function render(){
-  const q=String($('searchInput').value||'').trim().toLowerCase();
-  const status=$('statusFilter').value;
+  const q=String($('searchInput')?.value||'').trim().toLowerCase();
+  const status=$('statusFilter')?.value||'ALL';
   const filtered=departments.filter(d=>
     (!q||`${d.name||''} ${d.code||''} ${d.description||''}`.toLowerCase().includes(q))&&
     (status==='ALL'||(status==='ACTIVE'?d.active!==false:d.active===false))
   );
 
-  $('departmentCount').textContent=departments.filter(d=>d.active!==false).length;
-  $('assignedMemberCount').textContent=members.filter(m=>m.departmentId||m.department).length;
-  $('unassignedMemberCount').textContent=members.filter(m=>!(m.departmentId||m.department)).length;
+  if($('departmentCount')) $('departmentCount').textContent=departments.filter(d=>d.active!==false).length;
+  if($('assignedMemberCount')) $('assignedMemberCount').textContent=members.filter(m=>m.departmentId||m.department).length;
+  if($('unassignedMemberCount')) $('unassignedMemberCount').textContent=members.filter(m=>!(m.departmentId||m.department)).length;
 
-  $('emptyState').hidden=filtered.length>0;
-  $('departmentGrid').innerHTML=filtered.map(card).join('');
-  $('departmentGrid').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
-  $('departmentGrid').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>location.href=`department-workspace.html?id=${encodeURIComponent(b.dataset.open)}`);
+  if($('emptyState')) $('emptyState').hidden=filtered.length>0;
+  if($('departmentGrid')) $('departmentGrid').innerHTML=filtered.map(card).join('');
+  $('departmentGrid')?.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
+  $('departmentGrid')?.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>location.href=`department-workspace.html?id=${encodeURIComponent(b.dataset.open)}`);
 }
 
 function headName(id){
@@ -135,9 +147,9 @@ if($('refreshBtn'))$('refreshBtn').onclick=loadAll;
 if($('dialogClose'))$('dialogClose').onclick=closeDialog;
 if($('dialogCancel'))$('dialogCancel').onclick=closeDialog;
 if($('departmentOverlay'))$('departmentOverlay').onclick=e=>{if(e.target.id==='departmentOverlay')closeDialog()};
-$('searchInput').oninput=render;
-$('statusFilter').onchange=render;
-$('logoutBtn').onclick=()=>signOut(auth);
+$('searchInput')?.addEventListener('input',render);
+$('statusFilter')?.addEventListener('change',render);
+$('logoutBtn')?.addEventListener('click',()=>signOut(auth));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDialog()});
 
 if($('departmentForm'))$('departmentForm').onsubmit=async e=>{
