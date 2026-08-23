@@ -16,31 +16,44 @@ function roleLabel(role) {
   return ({ ADMIN: 'Quản trị hệ thống', MANAGER: 'Quản lý phạm vi', MEMBER: 'Thành viên' })[role] || 'Thành viên';
 }
 
+function cleanLegacyExperienceNavigation(isAdmin) {
+  // The shared Experience Plane owns module navigation. Legacy "MODULES" blocks
+  // are removed so the same shell does not render duplicate/competing menus.
+  document.querySelectorAll('.sidebar-section.module-section').forEach(section => section.remove());
+
+  document.querySelectorAll('.sidebar-section').forEach(section => {
+    const title = section.querySelector('.sidebar-title')?.textContent?.trim().toUpperCase() || '';
+    if (!title.startsWith('QUẢN TRỊ') && !title.includes('ADMIN')) return;
+
+    section.hidden = !isAdmin;
+    section.setAttribute('aria-hidden', String(!isAdmin));
+
+    if (!isAdmin) return;
+
+    const nav = section.querySelector('nav') || section;
+    // Replace legacy links with exactly one Control Plane entry.
+    [...nav.querySelectorAll('a')].forEach(link => {
+      if (!link.dataset.controlPlaneEntry) link.remove();
+    });
+
+    if (!nav.querySelector('[data-control-plane-entry]')) {
+      const link = document.createElement('a');
+      link.href = 'admin-control.html';
+      link.className = 'navigation-item';
+      link.dataset.controlPlaneEntry = 'true';
+      link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
+      nav.appendChild(link);
+    }
+  });
+}
+
 function applyControlPlaneVisibility(state) {
   const isAdmin = state.role === 'ADMIN' || state.permissions.has('admin.system.manage');
   document.querySelectorAll('[data-control-plane]').forEach(node => {
     node.hidden = !isAdmin;
     node.setAttribute('aria-hidden', String(!isAdmin));
   });
-  document.querySelectorAll('.sidebar-section').forEach(section => {
-    const title = section.querySelector('.sidebar-title')?.textContent?.trim().toUpperCase() || '';
-    if (!title.startsWith('QUẢN TRỊ') && !title.includes('ADMIN')) return;
-    section.hidden = !isAdmin;
-    section.setAttribute('aria-hidden', String(!isAdmin));
-    if (isAdmin) {
-      const nav = section.querySelector('nav') || section;
-      const legacyLinks = [...nav.querySelectorAll('a')].filter(link => !link.dataset.controlPlaneEntry);
-      legacyLinks.forEach(link => link.remove());
-      if (!nav.querySelector('[data-control-plane-entry]')) {
-        const link = document.createElement('a');
-        link.href = 'admin-control.html';
-        link.className = 'navigation-item';
-        link.dataset.controlPlaneEntry = 'true';
-        link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
-        nav.appendChild(link);
-      }
-    }
-  });
+  cleanLegacyExperienceNavigation(isAdmin);
   document.documentElement.dataset.saovnControlPlane = isAdmin ? 'admin' : 'hidden';
 }
 
@@ -72,7 +85,7 @@ function applyIdentity(identity, role) {
   document.querySelectorAll('.user-avatar, .avatar').forEach(node => {
     if (identity.avatarUrl) {
       node.textContent = '';
-      node.style.backgroundImage = `url("${identity.avatarUrl.replaceAll('"', '')}")`;
+      node.style.backgroundImage = `url(\"${identity.avatarUrl.replaceAll('"', '')}\")`;
       node.style.backgroundSize = 'cover';
       node.style.backgroundPosition = 'center';
     } else node.textContent = identity.name.trim().charAt(0).toUpperCase() || 'S';
