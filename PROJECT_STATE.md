@@ -1,6 +1,6 @@
 # SAOVN-OS — PROJECT STATE
 
-> Chốt sổ kỹ thuật: 22/08/2026 — Experience Plane / Control Plane refactor checkpoint
+> Checkpoint: 23/08/2026 — Experience Plane consolidation / Vercel web-root fix
 
 ## 1. Product Direction — LOCKED
 
@@ -74,9 +74,15 @@ CONTROL PLANE
 
 The repository contains substantial Core/Access/Work foundation, but the deployed UI is **NOT yet a Release Candidate**. The current web application still contains legacy and newly refactored pieces together. Do not represent the current deployment as finished product.
 
-The immediate product task is now to consolidate the Experience Plane into one coherent glassmorphism application shell, then integrate the existing modules into that shell instead of continuing to patch isolated screens.
+The immediate product task is to consolidate the Experience Plane into one coherent glassmorphism application shell, then integrate the existing modules into that shell instead of continuing to patch isolated screens.
 
-## 7. Work — OPEN
+## 7. Vercel web-root
+
+A root-level `vercel.json` was added in commit `be225437a480e396a4a763398a4e1ca7f5d233e0` so the existing Vercel project can serve `03_APPLICATION/WEB/index.html` from `/` and route static application paths into `03_APPLICATION/WEB/`. This avoids requiring the repository root to contain a second copy of the application.
+
+This configuration must still be validated on the actual Vercel deployment before calling the public URL fixed.
+
+## 8. Work — OPEN
 
 Existing functionality/contracts cover Tasks, Assignments, Deadlines, Progress, Kanban, Comments, Checklist, Activity and Department/Team filtering, but real Firebase verification is still required.
 
@@ -92,15 +98,15 @@ Still OPEN:
 
 Do not mark Work COMPLETE until tested against deployed Rules with real accounts.
 
-## 8. Communication — FOUNDATION
+## 9. Communication — FOUNDATION
 
 Conversation/message/notification foundation exists and uses existing Identity/Membership. No forced re-registration.
 
-## 9. Control Plane — FOUNDATION
+## 10. Control Plane — FOUNDATION
 
 Admin is intended to control runtime policy, module enable/disable, capabilities and configuration from a separate backend/admin surface. Normal business users do not receive an Admin UI merely because of their organizational position.
 
-## 10. Next Build Sequence — LOCKED
+## 11. Next Build Sequence — LOCKED
 
 ```text
 CURRENT
@@ -118,31 +124,6 @@ CURRENT
 6. End-to-end regression
   ↓
 7. Deploy public Release Candidate
-  ↓
-8. User acceptance test
-  ↓
-9. Release
 ```
-
-## 11. Development Rules — LOCKED
-
-1. One shared Experience Plane.
-2. CEO → Intern use the same business Application Shell.
-3. Admin is a separate Control Plane/back office.
-4. Organizational title/position is display context, not permission logic.
-5. Effective policy groups may map many positions to one capability policy without creating new UIs.
-6. Core owns access vocabulary; modules consume it.
-7. Frontend visibility is not security.
-8. Firestore Rules/backend enforce security.
-9. Admin changes policy/config; frontend reflects runtime state.
-10. Existing Firebase members remain compatible; no forced re-registration.
-11. Glassmorphism visual language is preserved.
-12. Every major checkpoint is committed and recorded here.
-13. Do not mark a subsystem COMPLETE without real behavior verification.
-14. Do not call a deployment a Release Candidate merely because Vercel reports READY.
-
-## 12. Sleep Checkpoint
-
-The project is intentionally left **OPEN**, not falsely marked finished. The next session should start by consolidating the visible product shell and cleaning the current UI before adding more architecture.
 
 # END OF PROJECT STATE
