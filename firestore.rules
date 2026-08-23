@@ -11,9 +11,10 @@ service cloud.firestore {
     function hasSystemRole(r) { return isMember() && membership().roles != null && membership().roles.system != null && r in membership().roles.system; }
     function isSystemAdmin() { return hasSystemRole("system_admin") || hasSystemRole("admin") || hasSystemRole("ADMIN") || hasSystemRole("SYSTEM_ADMIN"); }
     function isAdmin() { return isSystemAdmin() || hasOrgRole("org_admin") || hasOrgRole("organization_admin") || hasOrgRole("admin") || hasOrgRole("ADMIN") || hasOrgRole("ORG_ADMIN") || hasOrgRole("ORGANIZATION_ADMIN"); }
-    // Position is not a UI role. These organizational positions only contribute
-    // management scope to backend policy when the membership stores them directly.
-    function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager") || hasOrgRole("MANAGER") || hasOrgRole("ORG_MANAGER") || hasOrgRole("director") || hasOrgRole("DIRECTOR") || hasOrgRole("executive") || hasOrgRole("EXECUTIVE") || hasOrgRole("ceo") || hasOrgRole("CEO") || hasOrgRole("cfo") || hasOrgRole("CFO") || hasOrgRole("cto") || hasOrgRole("CTO") || hasOrgRole("coo") || hasOrgRole("COO") || hasOrgRole("chro") || hasOrgRole("CHRO") || hasOrgRole("cmo") || hasOrgRole("CMO") || hasOrgRole("vice_president") || hasOrgRole("VICE_PRESIDENT") || hasOrgRole("vp") || hasOrgRole("VP"); }
+
+    // Authorization roles are explicit. Job titles (CEO/CFO/CTO/director/etc.)
+    // are descriptive data and NEVER grant backend management rights by themselves.
+    function isManager() { return hasOrgRole("manager") || hasOrgRole("org_manager") || hasOrgRole("MANAGER") || hasOrgRole("ORG_MANAGER") || hasSystemRole("manager") || hasSystemRole("MANAGER"); }
     function isTeamLead() { return hasOrgRole("team_lead") || hasOrgRole("team_leader") || hasOrgRole("TEAM_LEAD") || hasOrgRole("TEAM_LEADER"); }
     function departmentId() { return isMember() ? membership().get("departmentId", "") : ""; }
     function departmentName() { return isMember() ? membership().get("department", "") : ""; }
@@ -55,14 +56,10 @@ service cloud.firestore {
       allow update: if isAdmin() || (signedIn() && resource.data.status == "PENDING" && request.resource.data.status == "ACCEPTED" && request.resource.data.acceptedBy == request.auth.uid && request.resource.data.email == request.auth.token.email);
       allow delete: if isAdmin();
     }
-
     match /departments/{departmentId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /roles/{roleId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
     match /system/{documentId} { allow read, create, update, delete: if isSystemAdmin(); }
-    match /systemConfig/{configId} {
-      allow read: if isMember();
-      allow create, update, delete: if isAdmin();
-    }
+    match /systemConfig/{configId} { allow read: if isMember(); allow create, update, delete: if isAdmin(); }
 
     match /attendanceSessions/{sessionId} {
       allow read: if isMember() && (resource.data.userId == request.auth.uid || isAdmin());
