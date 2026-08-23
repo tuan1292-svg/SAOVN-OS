@@ -7,7 +7,6 @@ let notifications = [];
 let activeFilter = "all";
 let currentUid = "";
 let stopNotifications = null;
-let autoMarkedThisVisit = false;
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
@@ -19,15 +18,9 @@ onAuthStateChanged(auth, async (user) => {
         [$("#userIdentity"), $("#topbarIdentity")].forEach(el => { if (el) el.textContent = name; });
         const ref = collection(db, "notifications", user.uid, "items");
         stopNotifications?.();
-        stopNotifications = onSnapshot(query(ref, orderBy("createdAt", "desc"), limit(100)), async snap => {
+        stopNotifications = onSnapshot(query(ref, orderBy("createdAt", "desc"), limit(100)), snap => {
             notifications = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             render();
-            // Opening the notification center counts the currently displayed notifications as seen.
-            // Do this once per page visit; realtime snapshots then update the header badge immediately.
-            if (!autoMarkedThisVisit) {
-                autoMarkedThisVisit = true;
-                await markAllRead(false);
-            }
         }, error => {
             console.error("Lỗi realtime notifications:", error);
             const status = $("#notificationStatus");
@@ -61,7 +54,7 @@ function notificationCard(n) {
     const icon = type.includes("CHAT") ? "▢" : type.includes("WORK") ? "▤" : type.includes("MENTION") ? "@" : "♧";
     const date = formatDate(n.createdAt);
     const target = n.targetUrl || n.url || "";
-    return `<article class="notification-item ${unread ? "unread" : ""} ${target ? "clickable" : ""}" ${target ? `data-target="${escapeAttr(target)}"` : ""} data-read="${escapeAttr(n.id)}"><div class="notification-icon">${icon}</div><div class="notification-copy"><strong>${title}</strong><p>${body}</p><time>${date}</time></div><div class="notification-actions">${unread ? `<button type="button" data-read="${escapeAttr(n.id)}">Đã đọc</button>` : `<span></span>`}</div></article>`;
+    return `<article class="notification-item ${unread ? "unread" : ""} ${target ? "clickable" : ""}" ${target ? `data-target="${target}"` : ""} data-read="${escapeAttr(n.id)}"><div class="notification-icon">${icon}</div><div class="notification-copy"><strong>${title}</strong><p>${body}</p><time>${date}</time></div><div class="notification-actions">${unread ? `<button type="button" data-read="${escapeAttr(n.id)}">Đã đọc</button>` : `<span></span>`}</div></article>`;
 }
 
 async function markRead(id) {
@@ -70,17 +63,14 @@ async function markRead(id) {
     catch (error) { console.error("Lỗi đánh dấu notification:", error); }
 }
 
-async function markAllRead(quiet = false) {
+async function markAllRead() {
     const unread = notifications.filter(n => n.read !== true);
     if (!currentUid || !unread.length) return;
     try {
         const batch = writeBatch(db);
         unread.forEach(n => batch.update(doc(db, "notifications", currentUid, "items", n.id), { read: true, readAt: new Date().toISOString() }));
         await batch.commit();
-    } catch (error) {
-        autoMarkedThisVisit = false;
-        if (!quiet) console.error("Lỗi đánh dấu tất cả:", error);
-    }
+    } catch (error) { console.error("Lỗi đánh dấu tất cả:", error); }
 }
 
 async function openTarget(target, id) {
@@ -91,7 +81,7 @@ async function openTarget(target, id) {
     window.location.href = safe;
 }
 
-$("#markAllRead")?.addEventListener("click", () => markAllRead(false));
+$("#markAllRead")?.addEventListener("click", markAllRead);
 document.querySelectorAll(".filter-tab").forEach(button => button.addEventListener("click", () => { activeFilter = button.dataset.filter; document.querySelectorAll(".filter-tab").forEach(b => b.classList.toggle("active", b === button)); render(); }));
 $("#logoutButton")?.addEventListener("click", () => signOut(auth));
 function renderEmpty(title, detail) { const list = $("#notificationList"); if (list) list.innerHTML = `<div class="notification-empty"><strong>${escapeHTML(title)}</strong><span>${escapeHTML(detail)}</span></div>`; }
