@@ -24,9 +24,21 @@ function applyControlPlaneVisibility(state) {
   });
   document.querySelectorAll('.sidebar-section').forEach(section => {
     const title = section.querySelector('.sidebar-title')?.textContent?.trim().toUpperCase() || '';
-    if (title.startsWith('QUẢN TRỊ')) {
-      section.hidden = !isAdmin;
-      section.setAttribute('aria-hidden', String(!isAdmin));
+    if (!title.startsWith('QUẢN TRỊ') && !title.includes('ADMIN')) return;
+    section.hidden = !isAdmin;
+    section.setAttribute('aria-hidden', String(!isAdmin));
+    if (isAdmin) {
+      const nav = section.querySelector('nav') || section;
+      const legacyLinks = [...nav.querySelectorAll('a')].filter(link => !link.dataset.controlPlaneEntry);
+      legacyLinks.forEach(link => link.remove());
+      if (!nav.querySelector('[data-control-plane-entry]')) {
+        const link = document.createElement('a');
+        link.href = 'admin-control.html';
+        link.className = 'navigation-item';
+        link.dataset.controlPlaneEntry = 'true';
+        link.innerHTML = '<span class="nav-icon">⚙</span><span>Control Plane</span>';
+        nav.appendChild(link);
+      }
     }
   });
   document.documentElement.dataset.saovnControlPlane = isAdmin ? 'admin' : 'hidden';
