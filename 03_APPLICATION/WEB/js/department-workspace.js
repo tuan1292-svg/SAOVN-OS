@@ -118,3 +118,117 @@ function renderDepartment() {
   $('memberCount').textContent = members.length;
   $('memberSummary').textContent = `${members.length} người`;
 }
+
+function getTeamEntries() {
+  const groups = new Map();
+  members.forEach(member => {
+    const team = String(member.team || '').trim() || 'Chưa phân nhóm';
+    if (!groups.has(team)) groups.set(team, []);
+    groups.get(team).push(member);
+  });
+  return [...groups.entries()].sort((a,b) => a[0] === 'Chưa phân nhóm' ? 1 : b[0] === 'Chưa phân nhóm' ? -1 : a[0].localeCompare(b[0], 'vi'));
+}
+
+function renderTeamFilter() {
+  const select = $('teamTaskFilter');
+  if (!select) return;
+  const current = select.value || 'ALL';
+  const teams = getTeamEntries().map(([name]) => name).filter(name => name !== 'Chưa phân nhóm');
+  select.innerHTML = '<option value="ALL">Tất cả Team</option>' + teams.map(team => `<option value="${esc(team)}">${esc(team)}</option>`).join('');
+  select.value = teams.includes(current) ? current : 'ALL';
+}
+
+function renderTeams() {
+  const entries = getTeamEntries();
+  $('teamSummary').textContent = `${entries.length} nhóm`;
+  if (!entries.length) { $('teamList').innerHTML = '<div class="empty-workspace"><strong>Chưa có nhóm</strong>Thành viên sẽ được tổ chức thành Team khi cơ cấu nhóm được thiết lập.</div>'; return; }
+  $('teamList').innerHTML = entries.map(([team, people]) => {
+    const leader = people.find(member => ['TEAM_LEAD','TEAM_LEADER'].includes(positionCode(member.position)));
+    return `<article class="team-card"><div class="team-card-head"><div><span class="team-label">${team === 'Chưa phân nhóm' ? 'Chưa phân nhóm' : 'TEAM'}</span><h3>${esc(team)}</h3>${leader ? `<div class="team-lead"><span>TRƯỞNG NHÓM</span><strong>${esc(leader.fullName || leader.displayName || leader.name || '')}</strong></div>` : ''}</div><strong>${people.length}</strong></div><div class="team-members">${people.map(member => { const name = member.fullName || member.displayName || member.name || 'Thành viên'; return `<span class="${leader?.id === member.id ? 'is-leader' : ''}"><i>${esc(initials(name))}</i><b>${esc(name)}</b><small>${esc(position(member.position))}</small></span>`; }).join('')}</div></article>`;
+  }).join('');
+}
+
+function taskBelongsToDepartment(task) {
+  if (!task || !department) return false;
+  if (String(task.departmentId || '').trim()) return String(task.departmentId).trim() === String(department.id);
+  if (task.department && sameText(task.department, department.name)) return true;
+  const ids = Array.isArray(task.assigneeIds) ? task.assigneeIds : [];
+  if (ids.some(id => members.some(member => member.id === id))) return true;
+  const assignees = Array.isArray(task.assignees) ? task.assignees : [];
+  return assignees.some(a => String(a?.departmentId || '').trim() === String(department.id) || sameText(a?.department, department.name));
+}
+
+async function loadTasks() {
+  tasks = [];
+  if (!canOpenDepartment()) { renderTasks(); return; }
+  const map = new Map();
+  const add = snap => snap?.docs?.forEach(d => map.set(d.id, { id:d.id, ...d.data() }));
+  const uid = orgScope.uid;
+  const isAdmin = orgScope.role === 'ADMIN';
+  const isDepartmentManager = orgScope.scope === 'DEPARTMENT';
+  const isTeamManager = orgScope.scope === 'TEAM';
+  const isManager = orgScope.role === 'MANAGER';
+  try {
+    if (isAdmin || isDepartmentManager) {
+      add(await getDocs(query(collection(db, 'workTasks'), where('departmentId', '==', department.id))));
+    } else if (isTeamManager) {
+      if (orgScope.teamId) add(await getDocs(query(collection(db, 'workTasks'), where('teamId', '==', orgScope.teamId))));
+      else if (orgScope.team) add(await getDocs(query(collection(db, 'workTasks'), where('team', '==', orgScope.team))));
+    } else {
+      const queries = [
+        () => getDocs(query(collection(db, 'workTasks'), where('assigneeIds', 'array-contains', uid))),
+        () => getDocs(query(collection(db, 'workTasks'), where('assigneeId', '==', uid))),
+        () => getDocs(query(collection(db, 'workTasks'), where('createdBy', '==', uid)))
+      ];
+      for (const makeQuery of queries) {
+        try { add(await makeQuery()); } catch (error) { console.warn('Department member task query skipped:', error?.code || error); }
+      }
+    }
+    tasks = [...map.values()].filter(task => {
+      if (!taskBelongsToDepartment(task)) return false;
+      if (isAdmin || isDepartmentManager) return true;
+      if (isTeamManager) return (orgScope.teamId && task.teamId === orgScope.teamId) || (orgScope.team && !orgScope.teamId && sameText(task.team, orgScope.team));
+      return isManager || (Array.isArray(task.assigneeIds) && task.assigneeIds.includes(uid)) || task.assigneeId === uid || task.createdBy === uid;
+    });
+    tasks.sort((a,b) => {
+      const av = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const bv = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return bv - av;
+    });
+    renderTasks();
+  } catch (error) {
+    console.warn('Department task query failed:', error);
+    tasks = [];
+    renderTasks(true);
+  }
+}
+
+function renderTasks(queryFailed = false) {
+  const filter = $('teamTaskFilter')?.value || 'ALL';
+  const filtered = filter === 'ALL' ? tasks : tasks.filter(task => {
+    const ids = Array.isArray(task.assigneeIds) ? task.assigneeIds : [];
+    return members.some(member => ids.includes(member.id) && String(member.team || '').trim() === filter);
+  });
+  const done = filtered.filter(task => task.status === 'DONE').length;
+  $('taskCount').textContent = filter === 'ALL' ? tasks.length : filtered.length;
+  $('activeTaskCount').textContent = filtered.length - done;
+  $('doneTaskCount').textContent = done;
+  if (queryFailed) { $('taskList').innerHTML = '<div class="empty-workspace"><strong>Chưa tải được công việc</strong>Không thể truy vấn Work theo quyền dữ liệu hiện tại.</div>'; return; }
+  if (!filtered.length) { $('taskList').innerHTML = `<div class="empty-workspace"><strong>${filter === 'ALL' ? 'Chưa có công việc' : 'Team này chưa có công việc'}</strong>${filter === 'ALL' ? 'Các công việc thuộc phòng này sẽ xuất hiện tại đây.' : 'Chọn Team khác hoặc quay lại Tất cả Team.'}</div>`; return; }
+  $('taskList').innerHTML = filtered.slice(0,12).map(taskCard).join('');
+}
+
+function taskCard(task) {
+  const done = task.status === 'DONE';
+  const ids = Array.isArray(task.assigneeIds) ? task.assigneeIds : [];
+  const names = members.filter(member => ids.includes(member.id)).map(member => member.fullName || member.displayName || member.name).filter(Boolean);
+  return `<a class="task-item" href="work.html"><div class="task-top"><strong>${esc(task.title || 'Không tên')}</strong><span class="task-status ${done ? 'done' : ''}">${esc(statusLabel[task.status] || 'Todo')}</span></div><p class="task-description">${esc(task.description || 'Chưa có mô tả')}</p><div class="task-meta"><span>${esc(names.join(', ') || 'Chưa xác định')}</span>${task.dueDate ? `<span>Deadline ${esc(task.dueDate)}</span>` : ''}</div></a>`;
+}
+
+function showError(message) {
+  $('departmentName').textContent = 'Không thể mở phòng làm việc';
+  $('departmentDescription').textContent = message;
+  $('memberList').innerHTML = `<div class="empty-workspace"><strong>Không thể tải dữ liệu</strong>${esc(message)}</div>`;
+  $('teamList').innerHTML = '';
+  $('taskList').innerHTML = '';
+}
