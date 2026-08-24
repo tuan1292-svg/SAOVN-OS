@@ -6,11 +6,16 @@ const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const status = { BACKLOG:'Backlog', TODO:'Todo', IN_PROGRESS:'Đang thực hiện', REVIEW:'Review', DONE:'Hoàn thành' };
 let unsubscribeTasks = null;
+let cachedTasks = [];
+let cachedPeople = new Map();
+let activeDepartmentId = '';
+let activeDepartmentName = '';
 
 onAuthStateChanged(auth, async user => {
   if (!user) return;
   try {
     await waitForDepartment();
+    bindTeamFilter();
     await startRealtimeDepartmentTasks();
   } catch (error) {
     console.warn('Department task realtime sync skipped:', error?.code || error);
@@ -24,15 +29,22 @@ async function waitForDepartment() {
   }
 }
 
+function bindTeamFilter() {
+  const filter = $('teamTaskFilter');
+  if (!filter || filter.dataset.taskScopeBound === '1') return;
+  filter.dataset.taskScopeBound = '1';
+  filter.addEventListener('change', () => render(cachedTasks));
+}
+
 async function startRealtimeDepartmentTasks() {
-  const departmentId = new URLSearchParams(location.search).get('id');
-  const departmentName = ($('departmentName')?.textContent || '').trim();
-  if (!departmentId || !departmentName || departmentName === 'Phòng làm việc') return;
-  const people = await loadPeople();
+  activeDepartmentId = String(new URLSearchParams(location.search).get('id') || '').trim();
+  activeDepartmentName = ($('departmentName')?.textContent || '').trim();
+  if (!activeDepartmentId || !activeDepartmentName || activeDepartmentName === 'Phòng làm việc') return;
+  cachedPeople = await loadPeople();
   if (unsubscribeTasks) unsubscribeTasks();
   unsubscribeTasks = onSnapshot(collection(db, 'workTasks'), snapshot => {
-    const tasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(task => belongsToDepartment(task, departmentId, departmentName, people));
-    render(tasks);
+    cachedTasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(task => belongsToDepartment(task, activeDepartmentId, activeDepartmentName, cachedPeople));
+    render(cachedTasks);
   }, error => {
     console.warn('Department work realtime error:', error?.code || error);
     renderError(error);
@@ -99,19 +111,25 @@ function render(tasks) {
   const list = $('taskList');
   if (!list) return;
   const filter = $('teamTaskFilter')?.value || 'ALL';
-  const filtered = filter === 'ALL' ? tasks : tasks.filter(t => {
-    const assignees = Array.isArray(t.assignees) ? t.assignees : [];
-    return assignees.some(a => String(a?.team || a?.teamName || '').trim() === filter || String(a?.teamId || '').trim() === filter);
-  });
+  const filtered = filter === 'ALL' ? tasks : tasks.filter(t => taskBelongsToTeam(t, filter));
   const done = filtered.filter(t => t.status === 'DONE').length;
   if ($('taskCount')) $('taskCount').textContent = String(filtered.length);
   if ($('activeTaskCount')) $('activeTaskCount').textContent = String(filtered.length - done);
   if ($('doneTaskCount')) $('doneTaskCount').textContent = String(done);
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty-workspace"><strong>Chưa có công việc của phòng</strong>Công việc mới sẽ xuất hiện tự động khi thuộc phòng này hoặc được giao cho thành viên của phòng.</div>`;
+    list.innerHTML = `<div class="empty-workspace"><strong>${filter === 'ALL' ? 'Chưa có công việc của phòng' : 'Team này chưa có công việc'}</strong>Công việc mới sẽ xuất hiện tự động khi thuộc phòng này hoặc được giao cho thành viên của phòng.</div>`;
     return;
   }
   list.innerHTML = filtered.sort((a,b) => time(b) - time(a)).slice(0, 12).map(taskCard).join('');
+}
+
+function taskBelongsToTeam(task, filter) {
+  const wanted = String(filter || '').trim();
+  if (!wanted || wanted === 'ALL') return true;
+  if (String(task.teamId || '').trim() === wanted || String(task.team || '').trim() === wanted || String(task.teamName || '').trim() === wanted) return true;
+  const assignees = Array.isArray(task.assignees) ? task.assignees : [];
+  if (assignees.some(a => String(a?.teamId || '').trim() === wanted || String(a?.team || '').trim() === wanted || String(a?.teamName || '').trim() === wanted)) return true;
+  return false;
 }
 
 function renderError(error) {
