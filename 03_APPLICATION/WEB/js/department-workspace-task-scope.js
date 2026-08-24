@@ -51,6 +51,13 @@ async function startRealtimeDepartmentTasks() {
   });
 }
 
+function normalizeIdentityId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('mem_')) return raw.slice(4).split('_org_')[0];
+  return raw;
+}
+
 async function loadPeople() {
   const people = new Map();
   try {
@@ -63,7 +70,7 @@ async function loadPeople() {
     const membershipSnap = await getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE')));
     membershipSnap.docs.forEach(d => {
       const x = d.data() || {};
-      const uid = String(x.userId || x.uid || d.id || '').trim();
+      const uid = normalizeIdentityId(x.identityId || x.userId || x.uid || d.id);
       if (!uid) return;
       const current = people.get(uid) || { id: uid };
       people.set(uid, {
@@ -82,7 +89,7 @@ async function loadPeople() {
 
 function addPerson(map, id, data) {
   const x = data || {};
-  const uid = String(id || x.uid || x.userId || '').trim();
+  const uid = normalizeIdentityId(id || x.identityId || x.uid || x.userId);
   if (!uid) return;
   map.set(uid, { id: uid, departmentId: String(x.departmentId || '').trim(), department: String(x.department || '').trim().toLowerCase(), teamId: String(x.teamId || '').trim(), team: String(x.team || '').trim() });
 }
@@ -102,7 +109,7 @@ function belongsToDepartment(task, departmentId, departmentName, people) {
   if (task.createdBy) ids.push(task.createdBy);
   if (task.createdByUid) ids.push(task.createdByUid);
   return ids.some(uid => {
-    const p = people.get(String(uid));
+    const p = people.get(normalizeIdentityId(uid));
     return p && (p.departmentId === id || p.department === name);
   });
 }
