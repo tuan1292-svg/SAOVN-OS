@@ -17,8 +17,6 @@ onAuthStateChanged(auth, async user => {
   if (!user) { location.replace('index.html'); return; }
   try {
     await getPermissions();
-    // Use the canonical permission alias. The old departments.view key is not
-    // a capability in the policy and incorrectly redirected valid users.
     if (!can('departments', 'read')) { location.replace('dashboard.html'); return; }
     const identitySnap = await getDoc(doc(db, 'identities', user.uid));
     const identity = identitySnap.exists() ? identitySnap.data() : {};
@@ -55,6 +53,55 @@ function setSyncError() {
   if (el) el.innerHTML = '<i style="background:#ff3b3b"></i> Firebase · Lỗi';
 }
 
+async function loadDepartmentDirectory(privileged) {
+  const identityMap = new Map();
+  const addIdentity = snap => {
+    if (!snap) return;
+    if (Array.isArray(snap.docs)) snap.docs.forEach(d => identityMap.set(d.id, { id:d.id, ...d.data() }));
+    else if (snap.exists?.()) identityMap.set(snap.id, { id:snap.id, ...snap.data() });
+  };
+
+  if (privileged) {
+    try {
+      addIdentity(await getDocs(query(collection(db, 'identities'), where('status', '==', 'ACTIVE'))));
+    } catch (error) {
+      console.warn('Department identity directory query denied; falling back to memberships.', error?.code || error);
+    }
+  } else {
+    try { addIdentity(await getDoc(doc(db, 'identities', orgScope.uid))); } catch (error) { console.warn('Own identity query failed:', error?.code || error); }
+  }
+
+  // Memberships are the authoritative bridge for existing members. This fallback
+  // keeps old accounts visible even when the broad identities query is denied.
+  try {
+    const membershipSnap = await getDocs(query(collection(db, 'memberships'), where('status', '==', 'ACTIVE')));
+    for (const membershipDoc of membershipSnap.docs) {
+      const membership = membershipDoc.data() || {};
+      const memberUid = membership.identityId || membership.userId || membership.uid || membershipDoc.id.match(/^mem_(.+)_org_/)?.[1];
+      if (!memberUid) continue;
+      const membershipDepartmentId = membership.departmentId || membership.deptId || '';
+      const membershipDepartment = membership.department || membership.departmentName || '';
+      if (membershipDepartmentId && String(membershipDepartmentId) !== String(department.id)) continue;
+      if (!membershipDepartmentId && membershipDepartment && !sameText(membershipDepartment, department.name)) continue;
+      if (identityMap.has(memberUid)) {
+        const existing = identityMap.get(memberUid);
+        identityMap.set(memberUid, { ...existing, membership });
+        continue;
+      }
+      try {
+        const identitySnap = await getDoc(doc(db, 'identities', memberUid));
+        if (identitySnap.exists()) identityMap.set(memberUid, { id:memberUid, ...identitySnap.data(), membership });
+      } catch (error) {
+        console.warn('Could not hydrate membership identity:', memberUid, error?.code || error);
+      }
+    }
+  } catch (error) {
+    console.warn('Membership directory fallback unavailable:', error?.code || error);
+  }
+
+  return [...identityMap.values()];
+}
+
 async function loadWorkspace() {
   const id = new URLSearchParams(location.search).get('id');
   if (!id) { location.replace('departments.html'); return; }
@@ -63,21 +110,20 @@ async function loadWorkspace() {
     if (!departmentSnap.exists()) { showError('Không tìm thấy phòng ban.'); return; }
     department = { id:departmentSnap.id, ...departmentSnap.data() };
     const privileged = orgScope.role === 'ADMIN' || orgScope.scope === 'DEPARTMENT' || orgScope.scope === 'TEAM' || orgScope.role === 'MANAGER';
-    let identityDocs = [];
-    if (privileged) {
-      try {
-        const snap = await getDocs(query(collection(db, 'identities'), where('status', '==', 'ACTIVE')));
-        identityDocs = snap.docs;
-      } catch (error) {
-        console.warn('Department directory query denied; using own identity.', error);
-        const own = await getDoc(doc(db, 'identities', orgScope.uid));
-        if (own.exists()) identityDocs = [own];
-      }
-    } else {
-      const own = await getDoc(doc(db, 'identities', orgScope.uid));
-      if (own.exists()) identityDocs = [own];
-    }
-    members = identityDocs.map(d => ({ id:d.id, ...d.data() })).filter(member => member.status === 'ACTIVE' && identityBelongsToDepartment(member)).sort((a,b) => String(a.fullName || a.displayName || a.name || '').localeCompare(String(b.fullName || b.displayName || b.name || ''), 'vi'));
+    const directoryDocs = await loadDepartmentDirectory(privileged);
+    members = directoryDocs
+      .map(member => {
+        const membership = member.membership || {};
+        return {
+          ...member,
+          departmentId: member.departmentId || membership.departmentId || membership.deptId,
+          department: member.department || membership.department || membership.departmentName,
+          teamId: member.teamId || membership.teamId,
+          team: member.team || membership.team
+        };
+      })
+      .filter(member => member.status === 'ACTIVE' && identityBelongsToDepartment(member))
+      .sort((a,b) => String(a.fullName || a.displayName || a.name || '').localeCompare(String(b.fullName || b.displayName || b.name || ''), 'vi'));
     renderDepartment();
     await loadTasks();
     renderTeamFilter();
