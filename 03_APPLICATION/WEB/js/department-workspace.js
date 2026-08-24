@@ -91,8 +91,10 @@ async function loadDepartmentDirectory(privileged) {
       try {
         const identitySnap = await getDoc(doc(db, 'identities', memberUid));
         if (identitySnap.exists()) identityMap.set(memberUid, { id:memberUid, ...identitySnap.data(), membership });
+        else identityMap.set(memberUid, { id:memberUid, status:'ACTIVE', membership });
       } catch (error) {
         console.warn('Could not hydrate membership identity:', memberUid, error?.code || error);
+        identityMap.set(memberUid, { id:memberUid, status:'ACTIVE', membership });
       }
     }
   } catch (error) {
@@ -116,10 +118,12 @@ async function loadWorkspace() {
         const membership = member.membership || {};
         return {
           ...member,
+          status: member.status || membership.status || 'ACTIVE',
           departmentId: member.departmentId || membership.departmentId || membership.deptId,
           department: member.department || membership.department || membership.departmentName,
           teamId: member.teamId || membership.teamId,
-          team: member.team || membership.team
+          team: member.team || membership.team,
+          position: member.position || membership.position || membership.role || 'Thành viên'
         };
       })
       .filter(member => member.status === 'ACTIVE' && identityBelongsToDepartment(member))
@@ -147,9 +151,11 @@ function identityBelongsToDepartment(identity) {
 function canOpenDepartment() {
   if (!orgScope || !department) return false;
   if (orgScope.role === 'ADMIN') return true;
+  if (orgScope.departmentId && String(orgScope.departmentId) === String(department.id)) return true;
   if (orgScope.departmentId && String(orgScope.departmentId) !== String(department.id)) return false;
   if (orgScope.scope === 'DEPARTMENT' || orgScope.scope === 'TEAM' || orgScope.role === 'MANAGER') return true;
-  return identityBelongsToDepartment(orgScope.identity);
+  if (identityBelongsToDepartment(orgScope.identity)) return true;
+  return members.some(member => String(member.id) === String(orgScope.uid) && identityBelongsToDepartment(member));
 }
 
 function renderDepartment() {
