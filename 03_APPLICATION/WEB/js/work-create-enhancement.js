@@ -1,4 +1,5 @@
 import { getWorkScope } from './work-scope.js';
+import './work-assignee-polish.js';
 
 (() => {
   const $ = id => document.getElementById(id);
