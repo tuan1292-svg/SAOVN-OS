@@ -1,3 +1,6 @@
+import { collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { db } from './firebase-config.js';
+
 (() => {
   const byId = id => document.getElementById(id);
   const picker = byId('taskAssigneePicker');
@@ -6,10 +9,10 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .assignee-option-card{position:relative!important;min-height:52px!important;padding:9px 10px!important;border-radius:11px!important;box-sizing:border-box!important}
-    .assignee-option-card .assignee-option-copy{display:flex;flex-direction:column;min-width:0}
+    .assignee-option-card{position:relative!important;min-height:58px!important;padding:9px 10px!important;border-radius:11px!important;box-sizing:border-box}
+    .assignee-option-card .assignee-option-copy{display:flex;flex-direction:column;min-width:0;flex:1}
     .assignee-option-card .assignee-option-meta{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis}
-    .assignee-option-card.is-selected{box-shadow:inset 0 0 0 1px rgba(37,135,255,.12),0 4px 14px rgba(0,0,0,.08)}
+    .assignee-option-card.is-selected{background:rgba(37,135,255,.075);box-shadow:inset 0 0 0 1px rgba(37,135,255,.18),0 4px 14px rgba(0,0,0,.08)}
     .assignee-option-card:has(input:focus-visible){outline:2px solid rgba(37,135,255,.42);outline-offset:1px}
     .assignee-option-card .assignee-option-check{position:relative;z-index:2;flex:0 0 auto}
     .assignee-scope-filters{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:7px 0 2px}
@@ -17,112 +20,121 @@
     .assignee-scope-filters select:focus{border-color:rgba(37,135,255,.45);color:#d7e7fb}
     .assignee-filter-note{margin:4px 0 6px;color:#66778f;font-size:7px}
     .assignee-option-filtered{display:none!important}
+    .assignee-option-avatar{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,rgba(37,135,255,.3),rgba(114,82,255,.24));color:#d9e9ff;font-size:9px;font-weight:700}
     @media(max-width:520px){.assignee-scope-filters{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
 
-  const initials = text => String(text || '?').trim().split(/\s+/).slice(-2).map(x => x[0]).join('').toUpperCase() || '?';
-  const clean = value => String(value || '').replace(/\s+/g,' ').trim();
+  const clean = value => String(value ?? '').replace(/\s+/g,' ').trim();
+  const lower = value => clean(value).toLowerCase();
+  const initials = text => clean(text).split(/\s+/).slice(-2).map(x => x[0]).join('').toUpperCase() || '?';
+  let directory = new Map();
+  let hydrating = false;
 
-  function enhance() {
+  async function loadDirectoryMeta(){
+    if(hydrating || directory.size) return;
+    hydrating = true;
+    try{
+      const identitySnap = await getDocs(query(collection(db,'identities'),where('status','==','ACTIVE')));
+      let membershipSnap = null;
+      try{ membershipSnap = await getDocs(query(collection(db,'memberships'),where('status','==','ACTIVE'))); }catch(e){ console.warn('Assignee metadata: memberships unavailable',e); }
+      const memberships = new Map();
+      membershipSnap?.forEach(s => {
+        const d=s.data();
+        const uid=d.identityId||d.userId||d.uid||s.id.match(/^mem_(.+)_org_/)?.[1];
+        if(uid) memberships.set(uid,d);
+      });
+      identitySnap.forEach(s => {
+        const x=s.data(), m=memberships.get(s.id)||{};
+        directory.set(s.id,{
+          id:s.id,
+          name:x.fullName||x.displayName||x.name||x.email||s.id,
+          departmentId:m.departmentId||x.departmentId||'',
+          department:m.department||x.department||'',
+          teamId:m.teamId||x.teamId||'',
+          team:m.team||x.team||''
+        });
+      });
+    }catch(e){ console.warn('Assignee metadata load skipped',e); }
+    finally{ hydrating=false; enhance(); }
+  }
+
+  function enhance(){
     options.querySelectorAll('input[type="checkbox"]').forEach(input => {
-      const row = input.closest('label,[role="option"],.assignee-option-card') || input.parentElement;
-      if (!row) return;
-
-      const strong = row.querySelector('strong,.assignee-option-name');
-      const small = row.querySelector('small,.assignee-option-meta');
-      const name = clean(input.dataset.name || strong?.textContent || '');
-      const meta = clean(input.dataset.team || input.dataset.department || small?.textContent || '');
-      if (name) input.dataset.name = name;
-      if (meta) {
-        input.dataset.assigneeMeta = meta;
-        input.dataset.team = input.dataset.team || meta;
-        input.dataset.department = input.dataset.department || meta;
+      const row=input.closest('label,[role="option"],.assignee-option-card')||input.parentElement;
+      if(!row)return;
+      const member=directory.get(input.value);
+      const strong=row.querySelector('strong,.assignee-option-name');
+      const small=row.querySelector('small,.assignee-option-meta');
+      const name=clean(member?.name||input.dataset.name||strong?.textContent||input.value);
+      if(name)input.dataset.name=name;
+      if(member){
+        input.dataset.departmentId=member.departmentId||'';
+        input.dataset.teamId=member.teamId||'';
+        input.dataset.departmentName=member.department||'';
+        input.dataset.teamName=member.team||'';
+        input.dataset.assigneeMeta=[member.department,member.team].filter(Boolean).join(' · ');
       }
-
+      const meta=clean(input.dataset.assigneeMeta||small?.textContent||'Thành viên trong phạm vi được cấp quyền');
       row.classList.add('assignee-option-card');
-      if (strong && !strong.classList.contains('assignee-option-name')) strong.classList.add('assignee-option-name');
-      if (small && !small.classList.contains('assignee-option-meta')) small.classList.add('assignee-option-meta');
-      let avatar = row.querySelector('.assignee-option-avatar');
-      if (!avatar) {
-        avatar = document.createElement('span');
-        avatar.className = 'assignee-option-avatar';
-        avatar.textContent = initials(name || 'Thành viên');
-        row.insertBefore(avatar, row.querySelector('.assignee-option-copy') || input.nextSibling);
-      } else if (name) avatar.textContent = initials(name);
-
-      const sync = () => row.classList.toggle('is-selected', input.checked);
-      sync();
-      if (!input.dataset.assigneeSyncBound) {
-        input.dataset.assigneeSyncBound = '1';
-        input.addEventListener('change', sync);
+      if(strong)strong.classList.add('assignee-option-name');
+      if(small){small.classList.add('assignee-option-meta');small.textContent=meta;}
+      let avatar=row.querySelector('.assignee-option-avatar');
+      if(!avatar){avatar=document.createElement('span');avatar.className='assignee-option-avatar';row.insertBefore(avatar,row.querySelector('.assignee-option-copy')||input.nextSibling);}
+      avatar.textContent=initials(name);
+      row.classList.toggle('is-selected',input.checked);
+      if(!input.dataset.assigneeSyncBound){
+        input.dataset.assigneeSyncBound='1';
+        input.addEventListener('change',()=>{row.classList.toggle('is-selected',input.checked);});
       }
     });
     ensureFilters();
     applyFilters();
   }
 
-  function optionMeta(input) {
-    const row = input.closest('label,[role="option"],.assignee-option-card') || input.parentElement;
-    return clean(input.dataset.assigneeMeta || row?.querySelector('.assignee-option-meta')?.textContent || '');
-  }
-
-  function valuesFor(kind) {
-    const values = new Set();
-    options.querySelectorAll('input[type="checkbox"]').forEach(input => {
-      const meta = optionMeta(input);
-      const parts = meta.split('·').map(clean).filter(Boolean);
-      if (kind === 'department' && parts.length >= 2) values.add(parts[parts.length - 2]);
-      if (kind === 'team' && parts.length >= 3) values.add(parts[parts.length - 1]);
+  function members(){return [...options.querySelectorAll('input[type="checkbox"]')];}
+  function values(kind){
+    const set=new Map();
+    members().forEach(input=>{
+      const m=directory.get(input.value);
+      const id=kind==='department'?input.dataset.departmentId:input.dataset.teamId;
+      const name=kind==='department'?input.dataset.departmentName:input.dataset.teamName;
+      if(id||name)set.set(id||lower(name),name||id);
     });
-    return [...values].filter(Boolean).sort((a,b)=>a.localeCompare(b,'vi'));
+    return [...set.values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,'vi'));
   }
 
-  function ensureFilters() {
-    let box = byId('assigneeScopeFilters');
-    if (!box) {
-      const head = picker.querySelector('.assignee-menu-head');
-      if (!head) return;
-      box = document.createElement('div');
-      box.id = 'assigneeScopeFilters';
-      box.className = 'assignee-scope-filters';
-      box.innerHTML = '<select id="assigneeDepartmentFilter" aria-label="Lọc theo phòng ban"><option value="ALL">Tất cả phòng ban</option></select><select id="assigneeTeamFilter" aria-label="Lọc theo Team"><option value="ALL">Tất cả Team</option></select>';
-      const note = document.createElement('div');
-      note.id = 'assigneeFilterNote';
-      note.className = 'assignee-filter-note';
-      note.textContent = 'Bộ lọc chỉ thu hẹp danh sách hiển thị, không bỏ người đã chọn.';
-      head.append(box, note);
-      box.querySelectorAll('select').forEach(select => select.addEventListener('change', applyFilters));
+  function ensureFilters(){
+    let box=byId('assigneeScopeFilters');
+    if(!box){
+      const head=picker.querySelector('.assignee-menu-head');
+      if(!head)return;
+      box=document.createElement('div');box.id='assigneeScopeFilters';box.className='assignee-scope-filters';
+      box.innerHTML='<select id="assigneeDepartmentFilter" aria-label="Lọc theo phòng ban"><option value="ALL">Tất cả phòng ban</option></select><select id="assigneeTeamFilter" aria-label="Lọc theo Team"><option value="ALL">Tất cả Team</option></select>';
+      const note=document.createElement('div');note.id='assigneeFilterNote';note.className='assignee-filter-note';note.textContent='Bộ lọc chỉ thu hẹp danh sách hiển thị, không bỏ người đã chọn.';
+      head.append(box,note);
+      byId('assigneeDepartmentFilter').addEventListener('change',()=>{fillTeam();applyFilters();});
+      byId('assigneeTeamFilter').addEventListener('change',applyFilters);
     }
-    const department = byId('assigneeDepartmentFilter');
-    const team = byId('assigneeTeamFilter');
-    if (department) fillSelect(department, valuesFor('department'));
-    if (team) fillSelect(team, valuesFor('team'));
+    fillDepartment();fillTeam();
   }
 
-  function fillSelect(select, values) {
-    const current = select.value || 'ALL';
-    select.replaceChildren(new Option(select.id.includes('Department') ? 'Tất cả phòng ban' : 'Tất cả Team','ALL'));
-    values.forEach(value => select.appendChild(new Option(value,value)));
-    select.value = values.includes(current) ? current : 'ALL';
-  }
+  function fillDepartment(){const select=byId('assigneeDepartmentFilter');if(!select)return;const current=select.value||'ALL';const vals=values('department');select.replaceChildren(new Option('Tất cả phòng ban','ALL'));vals.forEach(v=>select.appendChild(new Option(v,v)));select.value=vals.includes(current)?current:'ALL';}
+  function fillTeam(){const select=byId('assigneeTeamFilter');if(!select)return;const dep=byId('assigneeDepartmentFilter')?.value||'ALL';const set=new Map();members().forEach(input=>{const d=input.dataset.departmentName||'';const tid=input.dataset.teamId||'';const tn=input.dataset.teamName||'';if((dep==='ALL'||d===dep)&&(tid||tn))set.set(tid||lower(tn),tn||tid);});const current=select.value||'ALL';select.replaceChildren(new Option('Tất cả Team','ALL'));[...set.values()].sort((a,b)=>a.localeCompare(b,'vi')).forEach(v=>select.appendChild(new Option(v,v)));select.value=[...set.values()].includes(current)?current:'ALL';}
 
-  function applyFilters() {
-    const department = byId('assigneeDepartmentFilter')?.value || 'ALL';
-    const team = byId('assigneeTeamFilter')?.value || 'ALL';
-    options.querySelectorAll('input[type="checkbox"]').forEach(input => {
-      const row = input.closest('label,[role="option"],.assignee-option-card') || input.parentElement;
-      const meta = optionMeta(input);
-      const parts = meta.split('·').map(clean).filter(Boolean);
-      const dep = parts.length >= 2 ? parts[parts.length - 2] : '';
-      const tm = parts.length >= 3 ? parts[parts.length - 1] : '';
-      const matchDepartment = department === 'ALL' || dep === department;
-      const matchTeam = team === 'ALL' || tm === team;
-      row?.classList.toggle('assignee-option-filtered', !(matchDepartment && matchTeam));
+  function applyFilters(){
+    const dep=byId('assigneeDepartmentFilter')?.value||'ALL';
+    const team=byId('assigneeTeamFilter')?.value||'ALL';
+    members().forEach(input=>{
+      const row=input.closest('label,[role="option"],.assignee-option-card')||input.parentElement;
+      const d=input.dataset.departmentName||'';
+      const t=input.dataset.teamName||'';
+      row?.classList.toggle('assignee-option-filtered',!(dep==='ALL'||d===dep) || !(team==='ALL'||t===team));
     });
   }
 
-  const observer = new MutationObserver(enhance);
-  observer.observe(options, {childList:true, subtree:true});
+  const observer=new MutationObserver(()=>{enhance();loadDirectoryMeta();});
+  observer.observe(options,{childList:true,subtree:true});
   enhance();
+  loadDirectoryMeta();
 })();
