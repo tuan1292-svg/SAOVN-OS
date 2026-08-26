@@ -5,6 +5,7 @@ import { collection, getDocs, onSnapshot, query, where } from 'https://www.gstat
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const status = { BACKLOG:'Backlog', TODO:'Todo', IN_PROGRESS:'Đang thực hiện', REVIEW:'Review', DONE:'Hoàn thành' };
+const priority = { LOW:'Thấp', MEDIUM:'Trung bình', HIGH:'Cao', URGENT:'Khẩn cấp' };
 let unsubscribeTasks = null;
 let cachedTasks = [];
 let cachedPeople = new Map();
@@ -118,7 +119,7 @@ function render(tasks) {
   if ($('activeTaskCount')) $('activeTaskCount').textContent = String(filtered.length - done);
   if ($('doneTaskCount')) $('doneTaskCount').textContent = String(done);
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty-workspace"><strong>${filter === 'ALL' ? 'Chưa có công việc của phòng' : 'Team này chưa có công việc'}</strong>Công việc mới sẽ xuất hiện tự động khi thuộc phòng này hoặc được giao cho thành viên của phòng.</div>`;
+    list.innerHTML = `<div class="empty-workspace"><strong>${filter === 'ALL' ? 'Chưa có công việc của phòng' : 'Team này chưa có công việc'}</strong><span>Công việc mới sẽ xuất hiện tự động khi thuộc phòng này hoặc được giao cho thành viên của phòng.</span></div>`;
     return;
   }
   list.innerHTML = filtered.sort((a,b) => time(b) - time(a)).slice(0, 12).map(taskCard).join('');
@@ -140,16 +141,28 @@ function taskBelongsToTeam(task, filter) {
 function renderError(error) {
   const list = $('taskList');
   if (!list) return;
-  list.innerHTML = `<div class="empty-workspace"><strong>Không thể đồng bộ công việc</strong>${esc(error?.code || 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.')}</div>`;
+  list.innerHTML = `<div class="empty-workspace"><strong>Không thể đồng bộ công việc</strong><span>${esc(error?.code || 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.')}</span></div>`;
 }
 
 function time(t) {
   return t.updatedAt?.toMillis?.() || t.createdAt?.toMillis?.() || new Date(t.updatedAt || t.createdAt || 0).getTime() || 0;
 }
 
+function formatPeople(t) {
+  const names = Array.isArray(t.assignees) ? t.assignees.map(a => a?.name || a?.displayName).filter(Boolean) : [];
+  if (names.length <= 2) return names.join(', ') || 'Chưa xác định';
+  return `${names.slice(0,2).join(', ')} +${names.length - 2}`;
+}
+
+function isOverdue(t) {
+  if (!t.dueDate || t.status === 'DONE') return false;
+  const d = new Date(`${t.dueDate}T23:59:59`);
+  return Number.isFinite(d.getTime()) && d.getTime() < Date.now();
+}
+
 function taskCard(t) {
-  const ids = Array.isArray(t.assigneeIds) ? t.assigneeIds : [];
-  const names = Array.isArray(t.assignees) ? t.assignees.map(a => a?.name || a?.displayName).filter(Boolean) : ids;
   const done = t.status === 'DONE';
-  return `<a class="task-item" href="work.html"><div class="task-top"><strong>${esc(t.title || 'Không tên')}</strong><span class="task-status ${done ? 'done' : ''}">${esc(status[t.status] || 'Todo')}</span></div><p class="task-description">${esc(t.description || 'Chưa có mô tả')}</p><div class="task-meta"><span>${esc(names.join(', ') || 'Chưa xác định')}</span>${t.dueDate ? `<span>Deadline ${esc(t.dueDate)}</span>` : ''}</div></a>`;
+  const overdue = isOverdue(t);
+  const taskUrl = `work.html?task=${encodeURIComponent(t.id)}`;
+  return `<a class="task-item${overdue ? ' overdue' : ''}" href="${taskUrl}" data-detail="${esc(t.id)}"><div class="task-top"><strong>${esc(t.title || 'Không tên')}</strong><div class="task-badges"><span class="task-priority priority-${esc(String(t.priority || 'MEDIUM').toLowerCase())}">${esc(priority[t.priority] || 'Trung bình')}</span><span class="task-status ${done ? 'done' : ''}">${esc(status[t.status] || 'Todo')}</span></div></div><p class="task-description">${esc(t.description || 'Chưa có mô tả')}</p><div class="task-meta"><span>👤 ${esc(formatPeople(t))}</span>${t.teamName || t.team ? `<span>Team: ${esc(t.teamName || t.team)}</span>` : ''}${t.dueDate ? `<span class="${overdue ? 'deadline-overdue' : ''}">${overdue ? '⚠ Trễ hạn' : 'Deadline'} ${esc(t.dueDate)}</span>` : ''}</div></a>`;
 }
