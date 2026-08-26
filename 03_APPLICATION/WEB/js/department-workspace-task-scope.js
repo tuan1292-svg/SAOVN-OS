@@ -73,13 +73,7 @@ async function loadPeople() {
       const uid = normalizeIdentityId(x.identityId || x.userId || x.uid || d.id);
       if (!uid) return;
       const current = people.get(uid) || { id: uid };
-      people.set(uid, {
-        ...current,
-        departmentId: current.departmentId || String(x.departmentId || '').trim(),
-        department: current.department || String(x.department || '').trim().toLowerCase(),
-        teamId: current.teamId || String(x.teamId || '').trim(),
-        team: current.team || String(x.team || '').trim()
-      });
+      people.set(uid, { ...current, departmentId: current.departmentId || String(x.departmentId || '').trim(), department: current.department || String(x.department || '').trim().toLowerCase(), teamId: current.teamId || String(x.teamId || '').trim(), team: current.team || String(x.team || '').trim() });
     });
   } catch (error) {
     console.warn('Department memberships unavailable:', error?.code || error);
@@ -133,10 +127,14 @@ function render(tasks) {
 function taskBelongsToTeam(task, filter) {
   const wanted = String(filter || '').trim();
   if (!wanted || wanted === 'ALL') return true;
+  if (Array.isArray(task.teamIds) && task.teamIds.map(String).includes(wanted)) return true;
   if (String(task.teamId || '').trim() === wanted || String(task.team || '').trim() === wanted || String(task.teamName || '').trim() === wanted) return true;
   const assignees = Array.isArray(task.assignees) ? task.assignees : [];
-  if (assignees.some(a => String(a?.teamId || '').trim() === wanted || String(a?.team || '').trim() === wanted || String(a?.teamName || '').trim() === wanted)) return true;
-  return false;
+  if (assignees.some(a => (Array.isArray(a?.teamIds) && a.teamIds.map(String).includes(wanted)) || String(a?.teamId || '').trim() === wanted || String(a?.team || '').trim() === wanted || String(a?.teamName || '').trim() === wanted)) return true;
+  const ids = [];
+  if (Array.isArray(task.assigneeIds)) ids.push(...task.assigneeIds);
+  if (task.assigneeId) ids.push(task.assigneeId);
+  return ids.some(uid => cachedPeople.get(normalizeIdentityId(uid))?.teamId === wanted || cachedPeople.get(normalizeIdentityId(uid))?.team === wanted);
 }
 
 function renderError(error) {
