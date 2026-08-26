@@ -40,18 +40,29 @@ export function taskInScope(task, scope) {
   const embedded = Array.isArray(task?.assignees) ? task.assignees.map(a => clean(a?.id || a?.uid || a?.userId)).filter(Boolean) : [];
   if (uid && (uid === createdBy || assignedIds.includes(uid) || embedded.includes(uid) || legacyAssignee === uid)) return true;
 
+  const assignees = Array.isArray(task?.assignees) ? task.assignees : [];
   const taskDepartmentIds = new Set([
     ...asIds(task?.departmentId),
     ...asIds(task?.departmentIds),
     ...asIds(task?.department),
-    ...(Array.isArray(task?.departments) ? task.departments.flatMap(d => asIds(d?.id || d?.departmentId || d?.name || d)) : [])
+    ...(Array.isArray(task?.departments) ? task.departments.flatMap(d => asIds(d?.id || d?.departmentId || d?.name || d)) : []),
+    ...assignees.flatMap(a => asIds(a?.departmentId || a?.departmentIds))
   ].map(lower));
   const taskDepartmentNames = new Set([
     clean(task?.department),
-    ...(Array.isArray(task?.departments) ? task.departments.map(d => clean(d?.name || d?.department || d)).filter(Boolean) : [])
+    ...(Array.isArray(task?.departments) ? task.departments.map(d => clean(d?.name || d?.department || d)).filter(Boolean) : []),
+    ...assignees.flatMap(a => [clean(a?.department), clean(a?.departmentName)]).filter(Boolean)
   ].map(lower));
-  const taskTeamIds = new Set([...asIds(task?.teamId), ...asIds(task?.teamIds), ...asIds(task?.team)].map(lower));
-  const taskTeamNames = new Set([clean(task?.team), clean(task?.teamName)].filter(Boolean).map(lower));
+  const taskTeamIds = new Set([
+    ...asIds(task?.teamId),
+    ...asIds(task?.teamIds),
+    ...asIds(task?.team),
+    ...assignees.flatMap(a => asIds(a?.teamId || a?.teamIds))
+  ].map(lower));
+  const taskTeamNames = new Set([
+    clean(task?.team), clean(task?.teamName),
+    ...assignees.flatMap(a => [clean(a?.team), clean(a?.teamName)]).filter(Boolean)
+  ].filter(Boolean).map(lower));
 
   if (scope.type.startsWith('DEPARTMENT')) {
     const departmentId = lower(scope.departmentId), department = lower(scope.department);
